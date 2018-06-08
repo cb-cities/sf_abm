@@ -5,15 +5,17 @@ import igraph
 import numpy as np
 import scipy.sparse
 import scipy.stats 
-#from multiprocessing import Pool 
+from multiprocessing import Pool 
 from itertools import repeat 
-import time
+import time 
+import os
 
 def chunks(vcount, n):
     for i in range(0, vcount, n+1):
-        yield range(i, min(vcount, i+n+1))
+        yield range(i, min(vcount,i+n+1))
 
 def map_edge_pop(vL, g, OD, graphID_dict):
+    print('process ID is ', os.getpid())
     results = []
     for origin in vL:
         ### Origin's ID on graph
@@ -40,12 +42,12 @@ def map_edge_pop(vL, g, OD, graphID_dict):
 
 def edge_tot_pop(L):
     edge_volume = {}
-    #for sublist in L:
-    for p in L:
-        try:
-            edge_volume[p[0]] += p[1]
-        except KeyError:
-            edge_volume[p[0]] = p[1]
+    for sublist in L:
+        for p in sublist:
+            try:
+                edge_volume[p[0]] += p[1]
+            except KeyError:
+                edge_volume[p[0]] = p[1]
     print('edges to be updated', len(edge_volume))
     return edge_volume
 
@@ -81,21 +83,20 @@ def one_step(g, day, hour):
 
     ### Partition the nodes into 4 chuncks
     vcount = 400 #OD_matrix.shape[0]
-    # process_count = 1
-    # partitioned_v = list(chunks(vcount, int(vcount/process_count)))
-    # print('vertices partition finished')
+    process_count = 4
+    partitioned_v = list(chunks(vcount, int(vcount/process_count)))
+    print('vertices partition finished')
 
     ### Build a pool
-    # pool = Pool(processes=process_count)
-    # print('pool initialized')
+    pool = Pool(processes=process_count)
+    print('pool initialized')
 
     ### Generate (edge, population) tuple
-    #edge_pop_tuples = pool.starmap(map_edge_pop, zip(partitioned_v, repeat(g), repeat(OD_matrix), repeat(OD_graphID_dict)))
-    edge_pop_tuples = map_edge_pop(range(vcount), g, OD_matrix, OD_graphID_dict)
+    edge_pop_tuples = pool.starmap(map_edge_pop, zip(partitioned_v, repeat(g), repeat(OD_matrix), repeat(OD_graphID_dict)))
 
     ### Close the pool
-    # pool.close()
-    # pool.join()
+    pool.close()
+    pool.join()
 
     ### Collapse into edge total population dictionary
     edge_volume = edge_tot_pop(edge_pop_tuples)
@@ -122,8 +123,6 @@ def main():
 
 
 if __name__ == '__main__':
-    t0 = time.time()
     main()
-    t1 = time.time()
-    print('total run time is {} seconds'.format(t0-t1))
+
 
