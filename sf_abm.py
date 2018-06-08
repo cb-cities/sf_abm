@@ -7,10 +7,11 @@ import scipy.sparse
 import scipy.stats 
 from multiprocessing import Pool 
 from itertools import repeat 
+import time
 
 def chunks(vcount, n):
-    for i in range(0, vcount, n):
-        yield range(i, i+n)
+    for i in range(0, vcount, n+1):
+        yield range(i, min(vcount, i+n+1))
 
 def map_edge_pop(vL, g, OD, graphID_dict):
     results = []
@@ -76,13 +77,15 @@ def one_step(g, day, hour):
     OD_graphID_dict = {int(key): g_vs_node_osmid_dict[value] for key, value in OD_nodesID_dict.items()}
     print('finish converting OD matrix id to graph id')
 
-    ### Partition the nodes into 4 chuncks
-    vcount = 200 #OD_matrix.shape[0]
-    partitioned_v = list(chunks(vcount, int(vcount/4)))
+    ### Partition the nodes into chuncks
+    partition_no = 4
+    vcount = 10000 #OD_matrix.shape[0]
+    print('vcount', vcount)
+    partitioned_v = list(chunks(vcount, int(vcount/partition_no)))
     print('vertices partition finished')
 
     ### Build a pool
-    pool = Pool(processes=4)
+    pool = Pool(processes=partition_no)
     print('pool initialized')
 
     ### Generate (edge, population) tuple
@@ -114,6 +117,8 @@ def main():
 
 
 if __name__ == '__main__':
+    t0 = time.time()
     main()
-
+    t1 = time.time()
+    print('total run time is {} seconds'.format(t0-t1))
 
