@@ -49,7 +49,7 @@ def edge_tot_pop(L):
             edge_volume[p[0]] += p[1]
         except KeyError:
             edge_volume[p[0]] = p[1]
-    logger.debug('edges to be updated {}'.format(len(edge_volume)))
+    logger.debug('numbers of edges to be updated {}'.format(len(edge_volume)))
     return edge_volume
 
 def random_OD(g):
