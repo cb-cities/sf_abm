@@ -26,6 +26,7 @@ def map_edge_pop(vL, g, OD, graphID_dict):
         destination_graphID_list = [graphID_dict[d] for d in destination_list]
         ### Population traversing the OD
         population_list = OD.data[origin]
+        print(population_list)
         if len(destination_list) > 0:
             path_collection = g.get_shortest_paths(
                 #origin, destination_list, 
@@ -68,6 +69,9 @@ def one_step(g, day, hour):
     #OD_matrix = random_OD(g)
     OD_matrix = scipy.sparse.load_npz('TNC/OD_matrices/DY{}_HR{}_OD.npz'.format(day, hour))
     logger.debug('finish reading sparse OD matrix, shape is {}'.format(OD_matrix.shape))
+    print(max(OD_matrix.data), min(OD_matrix.data))
+    print(len(OD_matrix.data), len([i for i in OD_matrix.data if i>0]))
+    sys.exit(0)
     OD_matrix = OD_matrix.tolil()
     logger.info('finish converting the matrix to lil')
     ### Load the dictionary used to find the osm_node_id from matrix row/col id

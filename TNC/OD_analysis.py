@@ -100,17 +100,23 @@ def TAZ_nodes_OD(day, hour):
     OD_size = len(node_list)
     OD_density = 10*10e-6
     OD_matrix = scipy.sparse.random(OD_size, OD_size, density=OD_density, format='csr')
+    print(len(OD_matrix.data), len([i for i in OD_matrix.data if i>0]))
     # print('Agent counts', len(OD_matrix.data), max(OD_matrix.data), min(OD_matrix.data))
     ### Add a small diagonal elements to avoid division-by-zero errors
     OD_matrix += scipy.sparse.diags(
         [0.001*np.ones(OD_size-1), 0.001*np.ones(OD_size-1)],
         [1,-1])
+    print(len(OD_matrix.data), len([i for i in OD_matrix.data if i>0]))
+    #sys.exit(0)
     # print('Agent counts', len(OD_matrix.data), max(OD_matrix.data), min(OD_matrix.data))
     errors_list = []
     for i in range(20):
         OD_matrix, errors = OD_iterations(OD_matrix, target_O, target_D)
         errors_list.append(errors)
         #print('errors at iteration {}: {}'.format(i, errors))
+    print(OD_matrix.shape, len(OD_matrix.data), len([i for i in OD_matrix.data if i>0]))
+    OD_matrix.eliminate_zeros()
+    print(OD_matrix.shape, len(OD_matrix.data), len([i for i in OD_matrix.data if i>0]))
 
     ### Save hourly sparse OD matrix
     scipy.sparse.save_npz('OD_matrices/DY{}_HR{}_OD.npz'.format(day, hour), OD_matrix)
@@ -127,6 +133,6 @@ def TAZ_nodes_OD(day, hour):
 if __name__ == '__main__':
     #TAZ_nodes()
     for day_of_week in [1,6]: ### Two typical days, 1 for Monday (weekday) and 6 for Sdunday (weekend)
-        for hour in range(4,27): ### 24 hour-slices per day
+        for hour in [3]:#range(4,27): ### 24 hour-slices per day
             ### Monday is 0 -- Sunday is 6. Hour is from 3am-26am(2am next day)
             TAZ_nodes_OD(day_of_week, hour)
