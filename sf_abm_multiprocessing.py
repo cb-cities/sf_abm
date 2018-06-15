@@ -10,13 +10,17 @@ from itertools import repeat
 import time 
 import os
 import logging
+import datetime
+import copy
 
 def chunks(vcount, n):
     for i in range(0, vcount, n+1):
         yield range(i, min(vcount,i+n+1))
 
 def map_edge_pop(vL, g, OD, graphID_dict):
-    logger.info('process ID is {}'.format(os.getpid()))
+    #logger.info('process ID is {}'.format(os.getpid()))
+    #logger = logging.getLogger('main.one_step.map_edge_pop')
+    t0_process = time.time()
     results = []
     destination_counts = 0
     for origin in vL:
@@ -43,9 +47,15 @@ def map_edge_pop(vL, g, OD, graphID_dict):
                 results += path_result
         #print('length of results', len(results))
         #print('destination_counts', destination_counts)
+    t1_process = time.time()
+    t0_process_f = datetime.datetime.fromtimestamp(int(t0_process)).strftime('%Y-%m-%d %H:%M:%S')
+    t1_process_f = datetime.datetime.fromtimestamp(int(t1_process)).strftime('%Y-%m-%d %H:%M:%S')
+    #logger.info('process ID is {}, has {} OD pairs, starts at {}, ends at {}, takes {} seconds, id of graph object is {}, id of vL object is {}.'.format(os.getpid(), destination_counts, t0_process_f, t1_process_f, t1_process-t0_process, id(g), id(vL)))
     return results, destination_counts
 
 def edge_tot_pop(L):
+    #logger = logging.getLogger('main.one_step.edge_tot_pop')
+    t0 = time.time()
     edge_volume = {}
     for sublist in L:
         for p in sublist:
@@ -53,7 +63,8 @@ def edge_tot_pop(L):
                 edge_volume[p[0]] += p[1]
             except KeyError:
                 edge_volume[p[0]] = p[1]
-    logger.debug('numbers of edges to be updated {}'.format(len(edge_volume)))
+    t1 = time.time()
+    #logger.debug('numbers of edges to be updated {}, it took {} seconds'.format(len(edge_volume), t1-t0))
     return edge_volume
 
 def random_OD(g):
@@ -67,7 +78,8 @@ def random_OD(g):
 
 def one_step(g, day, hour):
     ### One time step of ABM simulation
-
+    
+    logger = logging.getLogger('main.one_step')
     ### Read/Generate OD matrix for this time step
     #OD_matrix = random_OD(g)
     OD_matrix = scipy.sparse.load_npz('TNC/OD_matrices/DY{}_HR{}_OD.npz'.format(day, hour))
@@ -85,18 +97,22 @@ def one_step(g, day, hour):
     logger.info('finish converting OD matrix id to graph id')
 
     ### Partition the nodes into 4 chuncks
-    vcount = 4 #OD_matrix.shape[0]
+    vcount = 1000 #OD_matrix.shape[0]
     logger.debug('number of origins {}'.format(vcount))
     process_count = 4
-    partitioned_v = list(chunks(vcount, int(vcount/process_count)))
-    logger.info('vertices partition finished')
+    logger.debug('numbers of cores is {}'.format(process_count))
+    #partitioned_v = list(chunks(vcount, int(vcount/process_count)))
+    #logger.info('vertices partition finished')
 
     ### Build a pool
     pool = Pool(processes=process_count)
     logger.info('pool initialized')
 
     ### Generate (edge, population) tuple
-    res = pool.starmap(map_edge_pop, zip(partitioned_v, repeat(g), repeat(OD_matrix), repeat(OD_graphID_dict)))
+    #res = pool.starmap(map_edge_pop, zip(partitioned_v, repeat(g), repeat(OD_matrix), repeat(OD_graphID_dict)))
+    res = pool.starmap(map_edge_pop, zip(
+        [range(i, min(vcount, i+int(vcount/process_count)+1)) for i in range(0, vcount, int(vcount/process_count)+1)],
+        [g for i in range(0,process_count)], [OD_matrix for i in range(0,process_count)], [OD_graphID_dict for i in range(0, process_count)]))
     edge_pop_tuples, destination_counts = zip(*res)
     ### Close the pool
     pool.close()
@@ -111,6 +127,12 @@ def one_step(g, day, hour):
 
 
 def main():
+    logging.basicConfig(filename='sf_abm_multiprocess_0614_pm.log', level=logging.DEBUG)
+    logger = logging.getLogger('main')
+    logger.debug('')
+    logger.debug('Current time {}'.format(time.strftime('%Y-%m-%d %H:%M')))
+    t_start = time.time()
+
     ### Read initial graph
     g = igraph.load('data_repo/Imputed_data_False9_0509.graphmlz')
     logger.debug('graph summary {}'.format(g.summary()))
@@ -125,15 +147,9 @@ def main():
     edge_weights = np.array(g.es['weights'])
     edge_weights[list(edge_volume.keys())] = np.array(list(edge_volume.values()))
     g.es['weights'] = edge_weights.tolist()
-
-
-if __name__ == '__main__':
-    logging.basicConfig(filename='sf_abm_multiprocess.log', level=logging.DEBUG)
-    logger = logging.getLogger(__name__)
-    logger.debug('Current time {}'.format(time.strftime('%Y-%m-%d %H:%M')))
-    t_start = time.time()
-    main()
     t_end = time.time()
     logger.debug('total run time is {} seconds'.format(t_end-t_start))
 
+if __name__ == '__main__':
+    main()
 
