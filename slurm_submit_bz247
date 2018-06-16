@@ -19,7 +19,7 @@
 #! The skylake/skylake-himem nodes have 32 CPUs (cores) each.
 #SBATCH --ntasks=1
 #! Bingyu added this part for python multiprocessing
-#SBATCH --cpus-per-task=1
+#! SBATCH --cpus-per-task=1
 #! How much wallclock time will be required?
 #SBATCH --time=02:30:00
 #! What types of email messages do you wish to receive?

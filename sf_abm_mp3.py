@@ -15,7 +15,7 @@ import copy
 
 def map_edge_pop(pid):
     #logger.info('process ID is {}'.format(os.getpid()))
-    print('process ID is {}, pid is {}'.format(os.getpid(), pid))
+    #print('process ID is {}, pid is {}'.format(os.getpid(), pid))
     #logger = logging.getLogger('main.one_step.map_edge_pop')
     #t0_process = time.time()
     
@@ -44,9 +44,9 @@ def map_edge_pop(pid):
     #logger.info('finish converting OD matrix id to graph id')
     
     vcount = 8000
-    process_count = 4
+    process_count = 2000
     vL = range(pid*(0+int(vcount/process_count)), min(vcount, (pid+1)*(0+int(vcount/process_count))))
-    print('process ID is {}, vL is {}'.format(os.getpid(), vL))
+    #print('process ID is {}, vL is {}'.format(os.getpid(), vL))
     
     results = []
     destination_counts = 0
@@ -120,7 +120,7 @@ def one_step(day, hour):
     ### Partition the nodes into 4 chuncks
     #vcount = 1000 #OD_matrix.shape[0]
     #logger.debug('number of origins {}'.format(vcount))
-    process_count = 4
+    process_count = 1
     #logger.debug('numbers of cores is {}'.format(process_count))
     #partitioned_v = list(chunks(vcount, int(vcount/process_count)))
     #logger.info('vertices partition finished')
@@ -134,14 +134,14 @@ def one_step(day, hour):
     #res = pool.starmap(map_edge_pop, zip(
     #    [range(i, min(vcount, i+int(vcount/process_count)+1)) for i in range(0, vcount, int(vcount/process_count)+1)],
     #    [g for i in range(0,process_count)], [OD_matrix for i in range(0,process_count)], [OD_graphID_dict for i in range(0, process_count)]))
-    res = pool.imap_unordered(map_edge_pop, range(4))
+    res = pool.imap_unordered(map_edge_pop, range(2000))
     #edge_pop_tuples, destination_counts = zip(*res)
     #destination_counts = zip(*res)
     ### Close the pool
     pool.close()
     pool.join()
     print('pool joined')
-    print(res)
+    print([i for i in res])
 
     ### Collapse into edge total population dictionary
     #edge_volume = edge_tot_pop(edge_pop_tuples)
