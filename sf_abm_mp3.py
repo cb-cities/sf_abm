@@ -43,8 +43,13 @@ def map_edge_pop(pid):
     #graphID_dict = {int(key): g_vs_node_osmid_dict[value] for key, value in OD_nodesID_dict.items()}
     #logger.info('finish converting OD matrix id to graph id')
     
+<<<<<<< HEAD
     vcount = 8000
     process_count = 2000
+=======
+    vcount = 1000
+    process_count = 500
+>>>>>>> ec8ea29e1fba97e26ea2cfbf537d9861011acd59
     vL = range(pid*(0+int(vcount/process_count)), min(vcount, (pid+1)*(0+int(vcount/process_count))))
     #print('process ID is {}, vL is {}'.format(os.getpid(), vL))
     
@@ -134,14 +139,25 @@ def one_step(day, hour):
     #res = pool.starmap(map_edge_pop, zip(
     #    [range(i, min(vcount, i+int(vcount/process_count)+1)) for i in range(0, vcount, int(vcount/process_count)+1)],
     #    [g for i in range(0,process_count)], [OD_matrix for i in range(0,process_count)], [OD_graphID_dict for i in range(0, process_count)]))
+<<<<<<< HEAD
     res = pool.imap_unordered(map_edge_pop, range(2000))
+=======
+    res = pool.imap_unordered(map_edge_pop, range(500))
+    #res = map_edge_pop(0)
+>>>>>>> ec8ea29e1fba97e26ea2cfbf537d9861011acd59
     #edge_pop_tuples, destination_counts = zip(*res)
     #destination_counts = zip(*res)
     ### Close the pool
     pool.close()
     pool.join()
+<<<<<<< HEAD
     print('pool joined')
     print([i for i in res])
+=======
+    #print('pool joined')
+    print([i for i in res])
+    #print(res)
+>>>>>>> ec8ea29e1fba97e26ea2cfbf537d9861011acd59
 
     ### Collapse into edge total population dictionary
     #edge_volume = edge_tot_pop(edge_pop_tuples)
@@ -156,7 +172,7 @@ def main():
     #logger = logging.getLogger('main')
     #logger.debug('')
     #logger.debug('Current time {}'.format(time.strftime('%Y-%m-%d %H:%M')))
-    #t_start = time.time()
+    t_start = time.time()
 
     ### Read initial graph
     global g
@@ -174,7 +190,8 @@ def main():
     #edge_weights = np.array(g.es['weights'])
     #edge_weights[list(edge_volume.keys())] = np.array(list(edge_volume.values()))
     #g.es['weights'] = edge_weights.tolist()
-    #t_end = time.time()
+    t_end = time.time()
+    print(t_end-t_start)
     #logger.debug('total run time is {} seconds'.format(t_end-t_start))
 
 if __name__ == '__main__':
