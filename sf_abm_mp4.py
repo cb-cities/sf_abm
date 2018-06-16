@@ -31,7 +31,7 @@ def map_edge_pop(origin):
     population_list = OD.data[origin]
     if len(destination_list) > 0:
         with warnings.catch_warnings():
-            warnings.filterwarnings('ignore', RuntimeWarning, message="Couldn't reach some vertices at structural_properties"):    
+            warnings.filterwarnings('ignore', message="Couldn't reach some vertices at structural_properties") 
             path_collection = g.get_shortest_paths(
                 #origin, destination_list, 
                 origin_graphID, destination_graphID_list,
@@ -79,7 +79,7 @@ def one_step(day, hour):
     #logger.info('finish converting OD matrix id to graph id')
 
     ### Partition the nodes into 4 chuncks
-    process_count = 1
+    process_count = 4
     #logger.debug('numbers of cores is {}'.format(process_count))
     #partitioned_v = list(chunks(vcount, int(vcount/process_count)))
     #logger.info('vertices partition finished')
