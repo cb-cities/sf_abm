@@ -12,6 +12,7 @@ import os
 import logging
 import datetime
 import copy
+import warnings
 
 def map_edge_pop(origin):
 
@@ -29,10 +30,12 @@ def map_edge_pop(origin):
     ### Population traversing the OD
     population_list = OD.data[origin]
     if len(destination_list) > 0:
-        path_collection = g.get_shortest_paths(
-            #origin, destination_list, 
-            origin_graphID, destination_graphID_list,
-            weights='weights', output='epath')
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', RuntimeWarning, message="Couldn't reach some vertices at structural_properties"):    
+            path_collection = g.get_shortest_paths(
+                #origin, destination_list, 
+                origin_graphID, destination_graphID_list,
+                weights='weights', output='epath')
         for di in range(len(path_collection)):
             path_result = [(edge, population_list[di]) for edge in path_collection[di]]
             results = path_result
