@@ -20,30 +20,30 @@ def map_edge_pop(pid):
     #t0_process = time.time()
     
     ### Read initial graph
-    g = igraph.load('data_repo/Imputed_data_False9_0509.graphmlz')
+    #g = igraph.load('data_repo/Imputed_data_False9_0509.graphmlz')
     #logger.debug('graph summary {}'.format(g.summary()))
-    g.es['weights'] = g.es['sec_length']
+    #g.es['weights'] = g.es['sec_length']
     #logger.info('graph weights attribute created')
     
     day=1
     hour=3
     ### Read/Generate OD matrix for this time step
     #OD_matrix = random_OD(g)
-    OD = scipy.sparse.load_npz('TNC/OD_matrices/DY{}_HR{}_OD.npz'.format(day, hour))
+    #OD = scipy.sparse.load_npz('TNC/OD_matrices/DY{}_HR{}_OD.npz'.format(day, hour))
     #logger.debug('finish reading sparse OD matrix, shape is {}'.format(OD_matrix.shape))
-    OD = OD.tolil()
+    #OD = OD.tolil()
     #logger.info('finish converting the matrix to lil')
     ### Load the dictionary used to find the osm_node_id from matrix row/col id
-    OD_nodesID_dict = json.load(open('TNC/OD_matrices/DY{}_HR{}_node_dict.json'.format(day, hour)))
+    #OD_nodesID_dict = json.load(open('TNC/OD_matrices/DY{}_HR{}_node_dict.json'.format(day, hour)))
     #logger.info('finish loading nodesID_dict')
-    g_vs_node_osmid = g.vs['node_osmid']
+    #g_vs_node_osmid = g.vs['node_osmid']
     #logger.info('finish g_vs_node_osmid')
-    g_vs_node_osmid_dict = {g_vs_node_osmid[i]: i for i in range(g.vcount())}
+    #g_vs_node_osmid_dict = {g_vs_node_osmid[i]: i for i in range(g.vcount())}
     #logger.info('finish g_vs_node_osmid_dict')
-    graphID_dict = {int(key): g_vs_node_osmid_dict[value] for key, value in OD_nodesID_dict.items()}
+    #graphID_dict = {int(key): g_vs_node_osmid_dict[value] for key, value in OD_nodesID_dict.items()}
     #logger.info('finish converting OD matrix id to graph id')
     
-    vcount = 1000
+    vcount = 8000
     process_count = 4
     vL = range(pid*(0+int(vcount/process_count)), min(vcount, (pid+1)*(0+int(vcount/process_count))))
     print('process ID is {}, vL is {}'.format(os.getpid(), vL))
@@ -100,19 +100,21 @@ def one_step(day, hour):
     
     #logger = logging.getLogger('main.one_step')
     ### Read/Generate OD matrix for this time step
-    #OD_matrix = random_OD(g)
-    #OD_matrix = scipy.sparse.load_npz('TNC/OD_matrices/DY{}_HR{}_OD.npz'.format(day, hour))
+    global OD
+    OD = scipy.sparse.load_npz('TNC/OD_matrices/DY{}_HR{}_OD.npz'.format(day, hour))
     #logger.debug('finish reading sparse OD matrix, shape is {}'.format(OD_matrix.shape))
-    #OD_matrix = OD_matrix.tolil()
+    OD = OD.tolil()
     #logger.info('finish converting the matrix to lil')
     ### Load the dictionary used to find the osm_node_id from matrix row/col id
-    #OD_nodesID_dict = json.load(open('TNC/OD_matrices/DY{}_HR{}_node_dict.json'.format(day, hour)))
+    global OD_nodesID_dict
+    OD_nodesID_dict = json.load(open('TNC/OD_matrices/DY{}_HR{}_node_dict.json'.format(day, hour)))
     #logger.info('finish loading nodesID_dict')
-    #g_vs_node_osmid = g.vs['node_osmid']
+    g_vs_node_osmid = g.vs['node_osmid']
     #logger.info('finish g_vs_node_osmid')
-    #g_vs_node_osmid_dict = {g_vs_node_osmid[i]: i for i in range(g.vcount())}
+    g_vs_node_osmid_dict = {g_vs_node_osmid[i]: i for i in range(g.vcount())}
     #logger.info('finish g_vs_node_osmid_dict')
-    #OD_graphID_dict = {int(key): g_vs_node_osmid_dict[value] for key, value in OD_nodesID_dict.items()}
+    global graphID_dict
+    graphID_dict = {int(key): g_vs_node_osmid_dict[value] for key, value in OD_nodesID_dict.items()}
     #logger.info('finish converting OD matrix id to graph id')
 
     ### Partition the nodes into 4 chuncks
@@ -157,9 +159,10 @@ def main():
     #t_start = time.time()
 
     ### Read initial graph
-    #g = igraph.load('data_repo/Imputed_data_False9_0509.graphmlz')
+    global g
+    g = igraph.load('data_repo/Imputed_data_False9_0509.graphmlz')
     #logger.debug('graph summary {}'.format(g.summary()))
-    #g.es['weights'] = g.es['sec_length']
+    g.es['weights'] = g.es['sec_length']
     #logger.info('graph weights attribute created')
 
     #t0 = time.time()
