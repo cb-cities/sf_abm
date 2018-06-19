@@ -79,7 +79,8 @@ def one_step(day, hour):
     #logger.info('finish converting OD matrix id to graph id')
 
     ### Partition the nodes into 4 chuncks
-    process_count = 32
+    process_count = 4
+    print('process_count', process_count)
     #logger.debug('numbers of cores is {}'.format(process_count))
     #partitioned_v = list(chunks(vcount, int(vcount/process_count)))
     #logger.info('vertices partition finished')
@@ -89,7 +90,7 @@ def one_step(day, hour):
     #logger.info('pool initialized')
 
     ### Generate (edge, population) tuple
-    res = pool.imap_unordered(map_edge_pop, range(8000))
+    res = pool.imap_unordered(map_edge_pop, range(20000))
     #edge_pop_tuples, destination_counts = zip(*res)
     #destination_counts = zip(*res)
     ### Close the pool

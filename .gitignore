@@ -1,3 +1,4 @@
+**/*_profile_*.txt
 **/*.DS_Store
 **/*machine.file*
 **/*slurm-*.out
