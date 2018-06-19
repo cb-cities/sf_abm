@@ -86,7 +86,7 @@ def one_step(day, hour):
     logger.debug('finish converting OD matrix id to graph id')
 
     ### Define processes
-    process_count = 4
+    process_count = 32
     logger.debug('number of process is {}'.format(process_count))
 
     ### Build a pool
@@ -94,7 +94,7 @@ def one_step(day, hour):
     logger.debug('pool initialized')
 
     ### Find shortest pathes
-    unique_origin = 20000
+    unique_origin = 50000
     res = pool.imap_unordered(map_edge_pop, range(unique_origin))
     logger.debug('number of OD rows (unique origins) is {}'.format(unique_origin))
     #edge_pop_tuples, destination_counts = zip(*res)
@@ -114,7 +114,7 @@ def one_step(day, hour):
 
 
 def main():
-    logging.basicConfig(filename='sf_abm_mp.log', level=logging.INFO)
+    logging.basicConfig(filename='sf_abm_mp.log', level=logging.DEBUG)
     logger = logging.getLogger('main')
 
     t_start = time.time()
