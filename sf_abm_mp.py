@@ -62,7 +62,7 @@ def one_step(day, hour):
     ### Read/Generate OD matrix for this time step
     global OD
     OD = scipy.sparse.load_npz('TNC/OD_matrices/DY{}_HR{}_OD.npz'.format(day, hour)) ### An hourly OD matrix for SF based Uber/Lyft origins and destinations
-    logger.debug('finish reading sparse OD matrix, shape is {}'.format(OD_matrix.shape))
+    logger.debug('finish reading sparse OD matrix, shape is {}'.format(OD.shape))
     OD = OD.tolil()
     logger.debug('finish converting the matrix to lil')
 
