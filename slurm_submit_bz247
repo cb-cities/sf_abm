@@ -12,7 +12,7 @@
 #! Name of the job:
 #SBATCH -J bz247_project
 #! Which project should be charged:
-#SBATCH -A SOGA-SL3-CPU
+#SBATCH -A SOGA-SL2-CPU
 #! How many whole nodes should be allocated?
 #SBATCH --nodes=1
 #SBATCH --exclusive
