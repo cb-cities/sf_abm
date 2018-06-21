@@ -98,7 +98,7 @@ def one_step(day, hour):
     logger.debug('pool initialized')
 
     ### Find shortest pathes
-    unique_origin = 32
+    unique_origin = 320
     res = pool.imap_unordered(map_edge_pop, range(unique_origin))
     logger.debug('number of OD rows (unique origins) is {}'.format(unique_origin))
     #edge_pop_tuples, destination_counts = zip(*res)
@@ -107,7 +107,9 @@ def one_step(day, hour):
     ### Close the pool
     pool.close()
     pool.join()
-    logger.debug('number of destinations is {}'.format(sum([i for i in res])))
+    total_destination_count = sum([i for i in res])
+    print(total_destination_count)
+    logger.debug('number of destinations is {}'.format(total_destination_count))
 
     ### Collapse into edge total population dictionary
     #edge_volume = edge_tot_pop(edge_pop_tuples)
@@ -118,7 +120,7 @@ def one_step(day, hour):
 
 
 def main():
-    logging.basicConfig(filename='sf_abm_mp_sssp.log', level=logging.DEBUG)
+    logging.basicConfig(filename='sf_abm_mp_sssp.log', level=logging.WARNING)
     logger = logging.getLogger('main')
 
     t_start = time.time()
@@ -139,6 +141,7 @@ def main():
     #edge_weights[list(edge_volume.keys())] = np.array(list(edge_volume.values()))
     #g.es['weights'] = edge_weights.tolist()
     t_end = time.time()
+    print(t_end-t_start)
     logger.info('total run time is {} seconds'.format(t_end-t_start))
 
 if __name__ == '__main__':
