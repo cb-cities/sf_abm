@@ -39,7 +39,7 @@ def one_step(day, hour):
     logger = logging.getLogger('main.one_step')
 
     ### Define processes
-    process_count = 4
+    process_count = 32
     logger.debug('number of process is {}'.format(process_count))
 
     ### Build a pool
@@ -47,7 +47,7 @@ def one_step(day, hour):
     logger.debug('pool initialized')
 
     ### Find shortest pathes
-    unique_origin = 8
+    unique_origin = 83000
     res = pool.imap_unordered(map_edge_pop, range(unique_origin))
     logger.debug('number of OD rows (unique origins) is {}'.format(unique_origin))
     #edge_pop_tuples, destination_counts = zip(*res)
