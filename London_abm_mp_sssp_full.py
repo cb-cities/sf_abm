@@ -24,7 +24,7 @@ def map_edge_pop(origin):
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', message="Couldn't reach some vertices at structural_properties") 
             #path_collection = g.get_shortest_paths(origin_graphID, destination_graphID_list, weights='weights', output='epath')
-            path_collection = g.get_shortest_paths(origin, weights='weights', output='epath')
+            path_collection = g.get_shortest_paths(origin, weights='weight', output='epath')
             path_counts = len(path_collection)
         #for di in range(len(path_collection)):
             #path_result = [(edge, population_list[di]) for edge in path_collection[di]]
@@ -33,13 +33,13 @@ def map_edge_pop(origin):
     #return destination_counts
     return path_counts
 
-def one_step(day, hour):
+def one_step():
     ### One time step of ABM simulation
     
     logger = logging.getLogger('main.one_step')
 
     ### Define processes
-    process_count = 4
+    process_count = 25
     logger.debug('number of process is {}'.format(process_count))
 
     ### Build a pool
@@ -47,7 +47,7 @@ def one_step(day, hour):
     logger.debug('pool initialized')
 
     ### Find shortest pathes
-    unique_origin = 8
+    unique_origin = 320
     res = pool.imap_unordered(map_edge_pop, range(unique_origin))
     logger.debug('number of OD rows (unique origins) is {}'.format(unique_origin))
     #edge_pop_tuples, destination_counts = zip(*res)
@@ -69,20 +69,20 @@ def one_step(day, hour):
 
 
 def main():
-    logging.basicConfig(filename='sf_abm_mp_sssp.log', level=logging.WARNING)
+    logging.basicConfig(filename='London_abm_mp_sssp.log', level=logging.DEBUG)
     logger = logging.getLogger('main')
 
     t_start = time.time()
 
     ### Read initial graph
     global g
-    g = igraph.load('data_repo/Imputed_data_False9_0509.graphmlz') ### This file contains the weekday 9am link level travel time for SF, imputed data collected from a month worth of Google Directions API
+    g = igraph.load('data_repo/London_Directed/London_0621.graphmlz') ### This file contains the weekday 9am link level travel time for SF, imputed data collected from a month worth of Google Directions API
     logger.debug('graph summary {}'.format(g.summary()))
-    g.es['weights'] = g.es['sec_length']
+    g.es['weight'] = g.es['length']
     logger.debug('graph weights attribute created')
 
     t0 = time.time()
-    one_step(1,3)
+    one_step()
     t1 = time.time()
     logger.debug('running time for one time step is {}'.format(t1-t0))
     ### Update graph
@@ -95,6 +95,5 @@ def main():
 
 
 if __name__ == '__main__':
-    graph_process()
-    #main()
+    main()
 
