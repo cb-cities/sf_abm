@@ -56,5 +56,6 @@ def main():
     
 
 if __name__ == '__main__':
-    main()
+    graph_process()
+    #main()
 

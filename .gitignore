@@ -1,3 +1,4 @@
+**/*.tsv
 figures/*
 **/*.json.gz
 **/*_profile_*.txt
