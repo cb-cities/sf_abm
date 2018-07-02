@@ -39,7 +39,7 @@ def one_step():
     logger = logging.getLogger('main.one_step')
 
     ### Define processes
-    process_count = 25
+    process_count = 20
     logger.debug('number of process is {}'.format(process_count))
 
     ### Build a pool
@@ -69,7 +69,7 @@ def one_step():
 
 
 def main():
-    logging.basicConfig(filename='London_abm_mp_sssp.log', level=logging.DEBUG)
+    logging.basicConfig(filename='London_abm_mp_sssp.log', level=logging.WARNING)
     logger = logging.getLogger('main')
 
     t_start = time.time()
