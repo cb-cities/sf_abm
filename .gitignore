@@ -1,3 +1,4 @@
+**/*.osm
 **/*.tsv
 data_repo/London_Directed/London_0621.graphmlz
 figures/*

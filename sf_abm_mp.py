@@ -16,32 +16,27 @@ import warnings
 
 def map_edge_pop(origin):
     ### Find shortest path for each unique origin --> multiple destinations
-
-    day=1
-    hour=3
     
     ### Origin's ID on graph
     origin_graphID = graphID_dict[origin]
     ### Destination list's IDs on graph
     destination_list = OD.rows[origin]
-    destination_counts = len(destination_list)
     destination_graphID_list = [graphID_dict[d] for d in destination_list]
 
     ### Population traversing the OD
     population_list = OD.data[origin]
+    results = []
     if len(destination_list) > 0:
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', message="Couldn't reach some vertices at structural_properties") 
-            path_collection = g.get_shortest_paths(origin_graphID, destination_graphID_list, weights='weights', output='epath')
+            path_collection = g.get_shortest_paths(origin_graphID, destination_graphID_list, weights='weight', output='epath')
         for di in range(len(path_collection)):
             path_result = [(edge, population_list[di]) for edge in path_collection[di]]
-            results = path_result
-    #return results, destination_counts
-    return destination_counts
+            results += path_result
+    return results, len(destination_list)
 
-def edge_tot_pop(L):
-    ### NOT IN USE CURRENTLY
-    #logger = logging.getLogger('main.one_step.edge_tot_pop')
+def edge_tot_pop(L, day, hour):
+    logger = logging.getLogger('main.one_step.edge_tot_pop')
     t0 = time.time()
     edge_volume = {}
     for sublist in L:
@@ -51,7 +46,7 @@ def edge_tot_pop(L):
             except KeyError:
                 edge_volume[p[0]] = p[1]
     t1 = time.time()
-    #logger.debug('numbers of edges to be updated {}, it took {} seconds'.format(len(edge_volume), t1-t0))
+    logger.info('DY{}_HR{}: # edges to be updated {}, taking {} seconds'.format(day, hour, len(edge_volume), t1-t0))
     return edge_volume
 
 def one_step(day, hour):
@@ -86,7 +81,7 @@ def one_step(day, hour):
     logger.debug('finish converting OD matrix id to graph id')
 
     ### Define processes
-    process_count = 32
+    process_count = 4
     logger.debug('number of process is {}'.format(process_count))
 
     ### Build a pool
@@ -94,48 +89,60 @@ def one_step(day, hour):
     logger.debug('pool initialized')
 
     ### Find shortest pathes
-    unique_origin = 50000
-    res = pool.imap_unordered(map_edge_pop, range(unique_origin))
-    logger.debug('number of OD rows (unique origins) is {}'.format(unique_origin))
-    #edge_pop_tuples, destination_counts = zip(*res)
-    #destination_counts = zip(*res)
+    non_empty_origin = [r for r in range(len(OD.rows)) if len(OD.rows[r])>0]
+    unique_origin = 5
+    res = pool.imap_unordered(map_edge_pop, non_empty_origin[0:unique_origin])
+    logger.info('DY{}_HR{}: # OD rows (unique origins) {}'.format(day, hour, unique_origin))
 
     ### Close the pool
     pool.close()
     pool.join()
-    logger.debug('number of OD pairs is {}'.format(sum([i for i in res])))
 
     ### Collapse into edge total population dictionary
-    #edge_volume = edge_tot_pop(edge_pop_tuples)
-    #logger.debug('number of destinations {}'.format(sum(destination_counts)))
+    edge_pop_tuples, destination_counts = zip(*res)
+    logger.info('DY{}_HR{}: # destinations {}'.format(day, hour, sum(destination_counts)))
+    edge_volume = edge_tot_pop(edge_pop_tuples, day, hour)
     #print(list(edge_volume.items())[0])
 
-    #return edge_volume
-
+    return edge_volume
 
 def main():
-    logging.basicConfig(filename='sf_abm_mp.log', level=logging.DEBUG)
+    logging.basicConfig(filename='sf_abm_mp.log', level=logging.INFO)
     logger = logging.getLogger('main')
 
     t_start = time.time()
 
     ### Read initial graph
     global g
-    g = igraph.load('data_repo/Imputed_data_False9_0509.graphmlz') ### This file contains the weekday 9am link level travel time for SF, imputed data collected from a month worth of Google Directions API
-    logger.debug('graph summary {}'.format(g.summary()))
-    g.es['weights'] = g.es['sec_length']
-    logger.debug('graph weights attribute created')
+    g = igraph.Graph.Read_GraphMLz('data_repo/SF.graphmlz')
+    logger.info('{} \n\n'.format(datetime.datetime.now()))
+    logger.info('graph summary {}'.format(g.summary()))
+    g.es['fft'] = np.array(g.es['sec_length'], dtype=np.float)/np.array(g.es['speed_limit'], dtype=np.float)*2.23694
+    logger.info('max/min FFT: {}/{}'.format(max(g.es['fft']), min(g.es['fft'])))
 
-    t0 = time.time()
-    one_step(1,3)
-    t1 = time.time()
-    logger.debug('running time for one time step is {}'.format(t1-t0))
-    ### Update graph
-    #edge_weights = np.array(g.es['weights'])
-    #edge_weights[list(edge_volume.keys())] = np.array(list(edge_volume.values()))
-    #g.es['weights'] = edge_weights.tolist()
+    g.es['weight'] = np.array(g.es['fft'], dtype=np.float)*1.2 ### According to (Colak, 2015), for SF, even vol=0, t=1.2*fft, maybe traffic light?
+
+    for day in [1]:
+        for hour in range(3, 27):
+
+            logger.info('*************** DY{} HR{} ***************'.format(day, hour))
+
+            t0 = time.time()
+            edge_volume = one_step(day, hour)
+            t1 = time.time()
+            logger.info('DY{}_HR{}: running time {}'.format(day, hour, t1-t0))
+
+            ### Update graph
+            volume_array = np.zeros(g.ecount())
+            volume_array[list(edge_volume.keys())] = np.array(list(edge_volume.values()))*400 ### 400 is the factor to scale Uber/Lyft trip # to total car trip # in SF.
+            logger.info('DY{}_HR{}: max link volume {}'.format(day, hour, max(volume_array)))
+            fft_array = np.array(g.es['fft'], dtype=np.float)
+            capacity_array = np.array(g.es['capacity'], dtype=np.float)
+            g.es['t_new'] = fft_array*(1.2+0.78*(volume_array/capacity_array)**4) ### BPR and (colak, 2015)
+            g.es['weight'] = g.es['t_new']
+
     t_end = time.time()
-    logger.info('total run time is {} seconds'.format(t_end-t_start))
+    logger.info('total run time is {} seconds \n\n\n\n\n'.format(t_end-t_start))
 
 if __name__ == '__main__':
     main()

@@ -1,4 +1,5 @@
 import pandas as pd 
+import geopandas as gpd 
 import json 
 import sys 
 import matplotlib.path as mpltPath
@@ -132,7 +133,7 @@ def TAZ_nodes_OD(day, hour):
 
 if __name__ == '__main__':
     #TAZ_nodes()
-    for day_of_week in [1,6]: ### Two typical days, 1 for Monday (weekday) and 6 for Sdunday (weekend)
-        for hour in [3]:#range(4,27): ### 24 hour-slices per day
+    for day_of_week in [1,6]: ### Two typical days, 1 for Tuesday (weekday) and 6 for Sunday (weekend)
+        for hour in range(3,27):#[3]: ### 24 hour-slices per day
             ### Monday is 0 -- Sunday is 6. Hour is from 3am-26am(2am next day)
             TAZ_nodes_OD(day_of_week, hour)
