@@ -47,6 +47,10 @@ def edge_tot_pop(L, day, hour):
                 edge_volume[p[0]] = p[1]
     t1 = time.time()
     logger.info('DY{}_HR{}: # edges to be updated {}, taking {} seconds'.format(day, hour, len(edge_volume), t1-t0))
+    
+    # with open('edge_volume_2.json', 'w') as outfile:
+    #     json.dump(edge_volume, outfile, indent=2)
+
     return edge_volume
 
 def one_step(day, hour):
@@ -56,7 +60,7 @@ def one_step(day, hour):
 
     ### Read/Generate OD matrix for this time step
     global OD
-    OD = scipy.sparse.load_npz('TNC/OD_matrices/DY{}_HR{}_OD.npz'.format(day, hour)) ### An hourly OD matrix for SF based Uber/Lyft origins and destinations
+    OD = scipy.sparse.load_npz('../TNC/OD_matrices/DY{}_HR{}_OD.npz'.format(day, hour)) ### An hourly OD matrix for SF based Uber/Lyft origins and destinations
     logger.debug('finish reading sparse OD matrix, shape is {}'.format(OD.shape))
     OD = OD.tolil()
     logger.debug('finish converting the matrix to lil')
@@ -64,7 +68,7 @@ def one_step(day, hour):
     ### The following three steps needs to be re-written
     ### The idea is to query the OD based on the OD matrix row/col numbers, then find the corresponding igraph vertice IDs for shortest path computing
     ### Load the dictionary {OD_matrix_row/col_number: node_osmid}, as each row/col in OD matrix represent a node in the graph, and has a unique OSM node ID
-    OD_nodesID_dict = json.load(open('TNC/OD_matrices/DY{}_HR{}_node_dict.json'.format(day, hour)))
+    OD_nodesID_dict = json.load(open('../TNC/OD_matrices/DY{}_HR{}_node_dict.json'.format(day, hour)))
     logger.debug('finish loading nodesID_dict')
 
     ### Create dictionary: {node_osmid: node_igraph_id}
@@ -90,7 +94,7 @@ def one_step(day, hour):
 
     ### Find shortest pathes
     non_empty_origin = [r for r in range(len(OD.rows)) if len(OD.rows[r])>0]
-    unique_origin = 5
+    unique_origin = 50
     res = pool.imap_unordered(map_edge_pop, non_empty_origin[0:unique_origin])
     logger.info('DY{}_HR{}: # OD rows (unique origins) {}'.format(day, hour, unique_origin))
 
@@ -114,7 +118,7 @@ def main():
 
     ### Read initial graph
     global g
-    g = igraph.Graph.Read_GraphMLz('data_repo/SF.graphmlz')
+    g = igraph.Graph.Read_GraphMLz('../data_repo/SF.graphmlz')
     logger.info('{} \n\n'.format(datetime.datetime.now()))
     logger.info('graph summary {}'.format(g.summary()))
     g.es['fft'] = np.array(g.es['sec_length'], dtype=np.float)/np.array(g.es['speed_limit'], dtype=np.float)*2.23694
@@ -123,7 +127,7 @@ def main():
     g.es['weight'] = np.array(g.es['fft'], dtype=np.float)*1.2 ### According to (Colak, 2015), for SF, even vol=0, t=1.2*fft, maybe traffic light?
 
     for day in [1]:
-        for hour in range(3, 27):
+        for hour in range(3, 4):
 
             logger.info('*************** DY{} HR{} ***************'.format(day, hour))
 
