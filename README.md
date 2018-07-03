@@ -4,10 +4,10 @@ Shortest path searching for large numbers of Origin-Destination (OD) pairs using
 
 ### Running
 `sbatch slurm_submit_bz247` through sbatch or `python3 sf_abm_mp.py` on interactive use.  
-Specifically, the slurm script executes `run.sh`, which executes `sf_abm_profile.py`. The latter uses `cProfile` to profile the `main()` function of the multiprocessing version of the shortest path finding code, `sf_abm_mp.py`.
+Specifically, the slurm script executes `run.sh`, which executes `sf_abm_mp_profile.py`. The latter uses `cProfile` to profile the `main()` function of the multiprocessing version of the shortest path finding code, `sf_abm_mp.py`.
 
 ### Settings for multiprocessing
-1. In the main python script, `sf_abm_mp.py`, change `process_count` to the desired number of processes, usually equal to the number of cpus/cores on the machine. For example, set this variable to 32 on the Cambridge HPC Skylake.
+1. In the main python script, `sf_abm_mp.py`, change `process_count` to the desired number of processes, usually equal to the number of cpus/cores on the machine. For example, set this variable to 32 on the Cambridge HPC Skylake. Note, for larger networks such as London, set the `process_count` to a lower number, e.g., 20, as there maybe memory issues.
 2. In the submission script, `slurm_submit_bz247`, set `--ntasks=1` and `--exclusive`, change `--cpus-per-tast` and `OMP_NUM_THREADS` to the same as `process_count`, e.g., 32.
 
 ### Settings for numbers of origins
