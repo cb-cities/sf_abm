@@ -85,7 +85,7 @@ def one_step(day, hour):
     logger.debug('finish converting OD matrix id to graph id')
 
     ### Define processes
-    process_count = 4
+    process_count = 32
     logger.debug('number of process is {}'.format(process_count))
 
     ### Build a pool
@@ -94,7 +94,7 @@ def one_step(day, hour):
 
     ### Find shortest pathes
     non_empty_origin = [r for r in range(len(OD.rows)) if len(OD.rows[r])>0]
-    unique_origin = 50
+    unique_origin = 50897
     res = pool.imap_unordered(map_edge_pop, non_empty_origin[0:unique_origin])
     logger.info('DY{}_HR{}: # OD rows (unique origins) {}'.format(day, hour, unique_origin))
 
