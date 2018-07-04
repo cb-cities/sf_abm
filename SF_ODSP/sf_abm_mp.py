@@ -13,6 +13,7 @@ import logging
 import datetime
 import copy
 import warnings
+import boto3
 
 def map_edge_pop(origin):
     ### Find shortest path for each unique origin --> multiple destinations
@@ -61,7 +62,7 @@ def one_step(day, hour):
     ### Read/Generate OD matrix for this time step
     absolute_path = os.path.dirname(os.path.abspath(__file__))
     global OD
-    OD = scipy.sparse.load_npz(absolute_path+'../TNC/OD_matrices/DY{}_HR{}_OD.npz'.format(day, hour)) ### An hourly OD matrix for SF based Uber/Lyft origins and destinations
+    OD = scipy.sparse.load_npz(absolute_path+'/../TNC/OD_matrices/DY{}_HR{}_OD.npz'.format(day, hour)) ### An hourly OD matrix for SF based Uber/Lyft origins and destinations
     logger.debug('finish reading sparse OD matrix, shape is {}'.format(OD.shape))
     OD = OD.tolil()
     logger.debug('finish converting the matrix to lil')
@@ -69,7 +70,7 @@ def one_step(day, hour):
     ### The following three steps needs to be re-written
     ### The idea is to query the OD based on the OD matrix row/col numbers, then find the corresponding igraph vertice IDs for shortest path computing
     ### Load the dictionary {OD_matrix_row/col_number: node_osmid}, as each row/col in OD matrix represent a node in the graph, and has a unique OSM node ID
-    OD_nodesID_dict = json.load(open(absolute_path+'../TNC/OD_matrices/DY{}_HR{}_node_dict.json'.format(day, hour)))
+    OD_nodesID_dict = json.load(open(absolute_path+'/../TNC/OD_matrices/DY{}_HR{}_node_dict.json'.format(day, hour)))
     logger.debug('finish loading nodesID_dict')
 
     ### Create dictionary: {node_osmid: node_igraph_id}
@@ -111,6 +112,38 @@ def one_step(day, hour):
 
     return edge_volume
 
+### Put geojson object to S3, which will be accessed by DeckGL
+def geojson2s3(geojson_dict, out_bucket, out_key):
+    s3client = boto3.client('s3')
+    s3client.put_object(
+        Body=json.dumps(geojson_dict, indent=2), 
+        Bucket=out_bucket, 
+        Key=out_key, 
+        #ContentType='application/json',
+        ACL='private')#'public-read'
+
+def write_geojson(g, day, hour):
+    feature_list = []
+
+    for edge in g.es:
+        feature = {'type': 'Feature', 
+            'geometry': {'type': 'LineString', 
+                'coordinates': [[
+                    g.vs[edge.source]['n_x'], g.vs[edge.source]['n_y']],[
+                    g.vs[edge.target]['n_x'], g.vs[edge.target]['n_y']]]}, 
+            'properties': {'link_id': edge['edge_osmid'], 
+                'query_weekend': day, 'query_hour': hour, 
+                'sec_speed': edge['sec_length']/edge['t_new'], 
+                'sec_volume': edge['volume']}}
+        feature_list.append(feature)
+    
+    feature_geojson = {'type': 'FeatureCollection', 'features': feature_list}
+
+    S3_BUCKET = 'sf-abm'
+    S3_FOLDER = 'test/'
+    KEY = S3_FOLDER+'DY{}_HR{}.json'.format(day, hour)
+    geojson2s3(feature_geojson, S3_BUCKET, KEY)
+
 def main():
     absolute_path = os.path.dirname(os.path.abspath(__file__))
     logging.basicConfig(filename=absolute_path+'sf_abm_mp.log', level=logging.INFO)
@@ -120,7 +153,7 @@ def main():
 
     ### Read initial graph
     global g
-    g = igraph.Graph.Read_GraphMLz(absolute_path+'../data_repo/SF.graphmlz')
+    g = igraph.Graph.Read_GraphMLz(absolute_path+'/../data_repo/SF.graphmlz')
     logger.info('{} \n\n'.format(datetime.datetime.now()))
     logger.info('graph summary {}'.format(g.summary()))
     g.es['fft'] = np.array(g.es['sec_length'], dtype=np.float)/np.array(g.es['speed_limit'], dtype=np.float)*2.23694
@@ -129,7 +162,7 @@ def main():
     g.es['weight'] = np.array(g.es['fft'], dtype=np.float)*1.2 ### According to (Colak, 2015), for SF, even vol=0, t=1.2*fft, maybe traffic light?
 
     for day in [1]:
-        for hour in range(3, 4):
+        for hour in range(17, 18):
 
             logger.info('*************** DY{} HR{} ***************'.format(day, hour))
 
@@ -141,11 +174,14 @@ def main():
             ### Update graph
             volume_array = np.zeros(g.ecount())
             volume_array[list(edge_volume.keys())] = np.array(list(edge_volume.values()))*400 ### 400 is the factor to scale Uber/Lyft trip # to total car trip # in SF.
+            g.es['volume'] = volume_array
             logger.info('DY{}_HR{}: max link volume {}'.format(day, hour, max(volume_array)))
             fft_array = np.array(g.es['fft'], dtype=np.float)
             capacity_array = np.array(g.es['capacity'], dtype=np.float)
             g.es['t_new'] = fft_array*(1.2+0.78*(volume_array/capacity_array)**4) ### BPR and (colak, 2015)
             g.es['weight'] = g.es['t_new']
+
+            write_geojson(g, day, hour)
 
     t_end = time.time()
     logger.info('total run time is {} seconds \n\n\n\n\n'.format(t_end-t_start))
