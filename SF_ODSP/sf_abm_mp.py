@@ -13,6 +13,7 @@ import logging
 import datetime
 import copy
 import warnings
+import boto3
 
 def map_edge_pop(origin):
     ### Find shortest path for each unique origin --> multiple destinations
@@ -111,6 +112,38 @@ def one_step(day, hour):
 
     return edge_volume
 
+### Put geojson object to S3, which will be accessed by DeckGL
+def geojson2s3(geojson_dict, out_bucket, out_key):
+    s3client = boto3.client('s3')
+    s3client.put_object(
+        Body=json.dumps(geojson_dict, indent=2), 
+        Bucket=out_bucket, 
+        Key=out_key, 
+        #ContentType='application/json',
+        ACL='private')#'public-read'
+
+def write_geojson(g, day, hour):
+    feature_list = []
+
+    for edge in g.es:
+        feature = {'type': 'Feature', 
+            'geometry': {'type': 'LineString', 
+                'coordinates': [[
+                    g.vs[edge.source]['n_x'], g.vs[edge.source]['n_y']],[
+                    g.vs[edge.target]['n_x'], g.vs[edge.target]['n_y']]]}, 
+            'properties': {'link_id': edge['edge_osmid'], 
+                'query_weekend': day, 'query_hour': hour, 
+                'sec_speed': edge['sec_length']/edge['t_new'], 
+                'sec_volume': edge['volume']}}
+        feature_list.append(feature)
+    
+    feature_geojson = {'type': 'FeatureCollection', 'features': feature_list}
+
+    S3_BUCKET = 'sf-abm'
+    S3_FOLDER = 'test/'
+    KEY = S3_FOLDER+'DY{}_HR{}.json'.format(day, hour)
+    geojson2s3(feature_geojson, S3_BUCKET, KEY)
+
 def main():
     absolute_path = os.path.dirname(os.path.abspath(__file__))
     logging.basicConfig(filename=absolute_path+'/sf_abm_mp.log', level=logging.INFO)
@@ -129,7 +162,7 @@ def main():
     g.es['weight'] = np.array(g.es['fft'], dtype=np.float)*1.2 ### According to (Colak, 2015), for SF, even vol=0, t=1.2*fft, maybe traffic light?
 
     for day in [1]:
-        for hour in range(3, 4):
+        for hour in range(17, 18):
 
             logger.info('*************** DY{} HR{} ***************'.format(day, hour))
 
@@ -141,11 +174,14 @@ def main():
             ### Update graph
             volume_array = np.zeros(g.ecount())
             volume_array[list(edge_volume.keys())] = np.array(list(edge_volume.values()))*400 ### 400 is the factor to scale Uber/Lyft trip # to total car trip # in SF.
+            g.es['volume'] = volume_array
             logger.info('DY{}_HR{}: max link volume {}'.format(day, hour, max(volume_array)))
             fft_array = np.array(g.es['fft'], dtype=np.float)
             capacity_array = np.array(g.es['capacity'], dtype=np.float)
             g.es['t_new'] = fft_array*(1.2+0.78*(volume_array/capacity_array)**4) ### BPR and (colak, 2015)
             g.es['weight'] = g.es['t_new']
+
+            write_geojson(g, day, hour)
 
     t_end = time.time()
     logger.info('total run time is {} seconds \n\n\n\n\n'.format(t_end-t_start))
