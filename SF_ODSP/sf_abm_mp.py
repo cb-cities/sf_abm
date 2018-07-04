@@ -61,7 +61,7 @@ def one_step(day, hour):
     ### Read/Generate OD matrix for this time step
     absolute_path = os.path.dirname(os.path.abspath(__file__))
     global OD
-    OD = scipy.sparse.load_npz(absolute_path+'../TNC/OD_matrices/DY{}_HR{}_OD.npz'.format(day, hour)) ### An hourly OD matrix for SF based Uber/Lyft origins and destinations
+    OD = scipy.sparse.load_npz(absolute_path+'/../TNC/OD_matrices/DY{}_HR{}_OD.npz'.format(day, hour)) ### An hourly OD matrix for SF based Uber/Lyft origins and destinations
     logger.debug('finish reading sparse OD matrix, shape is {}'.format(OD.shape))
     OD = OD.tolil()
     logger.debug('finish converting the matrix to lil')
@@ -69,7 +69,7 @@ def one_step(day, hour):
     ### The following three steps needs to be re-written
     ### The idea is to query the OD based on the OD matrix row/col numbers, then find the corresponding igraph vertice IDs for shortest path computing
     ### Load the dictionary {OD_matrix_row/col_number: node_osmid}, as each row/col in OD matrix represent a node in the graph, and has a unique OSM node ID
-    OD_nodesID_dict = json.load(open(absolute_path+'../TNC/OD_matrices/DY{}_HR{}_node_dict.json'.format(day, hour)))
+    OD_nodesID_dict = json.load(open(absolute_path+'/../TNC/OD_matrices/DY{}_HR{}_node_dict.json'.format(day, hour)))
     logger.debug('finish loading nodesID_dict')
 
     ### Create dictionary: {node_osmid: node_igraph_id}
@@ -113,14 +113,14 @@ def one_step(day, hour):
 
 def main():
     absolute_path = os.path.dirname(os.path.abspath(__file__))
-    logging.basicConfig(filename=absolute_path+'sf_abm_mp.log', level=logging.INFO)
+    logging.basicConfig(filename=absolute_path+'/sf_abm_mp.log', level=logging.INFO)
     logger = logging.getLogger('main')
 
     t_start = time.time()
 
     ### Read initial graph
     global g
-    g = igraph.Graph.Read_GraphMLz(absolute_path+'../data_repo/SF.graphmlz')
+    g = igraph.Graph.Read_GraphMLz(absolute_path+'/../data_repo/SF.graphmlz')
     logger.info('{} \n\n'.format(datetime.datetime.now()))
     logger.info('graph summary {}'.format(g.summary()))
     g.es['fft'] = np.array(g.es['sec_length'], dtype=np.float)/np.array(g.es['speed_limit'], dtype=np.float)*2.23694
