@@ -96,13 +96,17 @@ def one_step(day, hour):
 
     ### Find shortest pathes
     non_empty_origin = [r for r in range(len(OD.rows)) if len(OD.rows[r])>0]
-    unique_origin = 50897
-    res = pool.imap_unordered(map_edge_pop, non_empty_origin[0:unique_origin])
+    unique_origin = 20000
     logger.info('DY{}_HR{}: # OD rows (unique origins) {}'.format(day, hour, unique_origin))
+
+    t_odsp_0 = time.time()
+    res = pool.imap_unordered(map_edge_pop, non_empty_origin[0:unique_origin])
 
     ### Close the pool
     pool.close()
     pool.join()
+    t_odsp_1 = time.time()
+    logger.debug('shortest_path time is {}'.format(t_odsp_1 - t_odsp_0))
 
     ### Collapse into edge total population dictionary
     edge_pop_tuples, destination_counts = zip(*res)
@@ -140,13 +144,13 @@ def write_geojson(g, day, hour):
     feature_geojson = {'type': 'FeatureCollection', 'features': feature_list}
 
     S3_BUCKET = 'sf-abm'
-    S3_FOLDER = 'test/'
+    S3_FOLDER = 'test_0707/'
     KEY = S3_FOLDER+'DY{}_HR{}.json'.format(day, hour)
     geojson2s3(feature_geojson, S3_BUCKET, KEY)
 
 def main():
     absolute_path = os.path.dirname(os.path.abspath(__file__))
-    logging.basicConfig(filename=absolute_path+'/sf_abm_mp.log', level=logging.INFO)
+    logging.basicConfig(filename=absolute_path+'/sf_abm_mp.log', level=logging.DEBUG)
     logger = logging.getLogger('main')
 
     t_start = time.time()
@@ -162,7 +166,7 @@ def main():
     g.es['weight'] = np.array(g.es['fft'], dtype=np.float)*1.2 ### According to (Colak, 2015), for SF, even vol=0, t=1.2*fft, maybe traffic light?
 
     for day in [1]:
-        for hour in range(17, 18):
+        for hour in range(9, 10):
 
             logger.info('*************** DY{} HR{} ***************'.format(day, hour))
 
@@ -181,7 +185,7 @@ def main():
             g.es['t_new'] = fft_array*(1.2+0.78*(volume_array/capacity_array)**4) ### BPR and (colak, 2015)
             g.es['weight'] = g.es['t_new']
 
-            write_geojson(g, day, hour)
+            #write_geojson(g, day, hour)
 
     t_end = time.time()
     logger.info('total run time is {} seconds \n\n\n\n\n'.format(t_end-t_start))
