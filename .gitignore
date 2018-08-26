@@ -1,3 +1,7 @@
+data_repo/data/**
+TNC/taz_nodes.json
+TNC/tagged_alloneway_nodes.csv
+TNC/OD_csv/**
 **/*.osm
 **/*.tsv
 data_repo/London_Directed/London_0621.graphmlz
