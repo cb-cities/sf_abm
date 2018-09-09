@@ -79,6 +79,9 @@ def TAZ_nodes_OD(day, hour, count):
         print('errors at iteration {}: {}'.format(i, errors))
     print('sum of OD matrix elements', np.sum(OD_matrix), 'max', np.max(OD_matrix), 'min', np.min(OD_matrix), 'trace', np.trace(OD_matrix))
     ### As we are going to ignore inter-TAZ trips (assuming they are not by car), the trace of the OD matrix should not be too big compared to the total sum of the matrix elements
+    # print(target_O)
+    # np.savetxt('tmp2.txt', OD_matrix, fmt='%.1f', newline='\n')
+    # sys.exit(0)
 
     ################## TAZ-level OD pairs ###################
     ### OD_matrix element represent the probability (float). Need to sample pairs based on the probability
@@ -94,6 +97,7 @@ def TAZ_nodes_OD(day, hour, count):
     ################## Nodal-level OD pairs ###################
     ### Now sample the nodes for each TAZ level OD pair
     taz_nodes_dict = json.load(open('taz_nodes.json'))
+    node_osmid2graphid_dict = json.load(open('node_osmid2graphid.json'))
     nodal_OD = []
     for k, v in OD_counter.items():
         taz_O = k//len(target_O)+1 ### TAZ index starts from 1
@@ -109,13 +113,13 @@ def TAZ_nodes_OD(day, hour, count):
         nodal_OD_counter = Counter(nodal_OD_pairs)
 
         for nodal_k, nodal_v in nodal_OD_counter.items():
-            nodal_OD.append([nodal_k[0], nodal_k[1], nodal_v])
+            nodal_OD.append([node_osmid2graphid_dict[nodal_k[0]], node_osmid2graphid_dict[nodal_k[1]], nodal_v])
 
 
     nodal_OD_df = pd.DataFrame(nodal_OD, columns=['O', 'D', 'flow'])
     print(nodal_OD_df.head())
 
-    nodal_OD_df.to_csv('OD_csv/SF_DY{}_HR{}_OD_{}.csv'.format(day, hour, count))
+    nodal_OD_df.to_csv('OD_csv/SF_graph_DY{}_HR{}_OD_{}.csv'.format(day, hour, count))
 
 
 if __name__ == '__main__':
