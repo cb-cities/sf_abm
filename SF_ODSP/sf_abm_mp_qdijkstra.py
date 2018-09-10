@@ -3,25 +3,22 @@ import json
 import sys
 import igraph
 import numpy as np
-import scipy.sparse
-import scipy.stats 
 from multiprocessing import Pool 
-from itertools import repeat 
 import time 
 import os
 import logging
 import datetime
-import copy
 import warnings
-import boto3
 import pandas as pd 
-from ctypes import *
 
 sys.path.insert(0, '/Users/bz247')
 from sp import interface 
 
+absolute_path = os.path.dirname(os.path.abspath(__file__))
+
 def map_edge_pop(row):
-    ### Find shortest path for each unique origin --> multiple destinations
+    ### Find shortest path for each unique origin --> one destination
+    ### In the future change to multiple destinations
     
     origin_ID = int(OD['O'].iloc[row]) + 1 ### origin's ID on graph nodes
     destin_ID = int(OD['D'].iloc[row]) + 1 ### destination's ID on graph nodes
@@ -33,11 +30,11 @@ def map_edge_pop(row):
         return [], 0
     else:
         sp_route = sp.route(destin_ID)
+        ### how to do the in-place updating?
         # for edge in sp_route:
         #     graph_v1 = edge[0]-1
         #     graph_v2 = edge[1]-1
-        #     #results.append([g_igraph.get_eid(graph_v1, graph_v2), traffic_flow])
-        #     results.append([])
+        #     results.append([graph_v1, graph_v2, traffic_flow])
         return results, 1
 
 def edge_tot_pop(L, day, hour):
@@ -63,16 +60,11 @@ def one_step(day, hour):
     
     logger = logging.getLogger('main.one_step')
 
-    ### Read/Generate OD matrix for this time step
-    absolute_path = os.path.dirname(os.path.abspath(__file__))
+    ### Read the OD table of this time step
     global OD
     OD = pd.read_csv(absolute_path+'/../TNC/output/SF_graph_DY{}_HR{}_OD_50000.csv'.format(day, hour))
-    # OD = scipy.sparse.load_npz(absolute_path+'/../TNC/output/DY{}_HR{}_OD.npz'.format(day, hour)) ### An hourly OD matrix for SF based Uber/Lyft origins and destinations
-    # logger.debug('finish reading sparse OD matrix, shape is {}'.format(OD.shape))
-    # OD = OD.tolil()
-    # logger.debug('finish converting the matrix to lil')
 
-    ### Define processes
+    ### Number of processes
     process_count = 4
     logger.debug('number of process is {}'.format(process_count))
 
@@ -83,7 +75,6 @@ def one_step(day, hour):
     ### Find shortest pathes
     unique_origin = 2000
     logger.info('DY{}_HR{}: # OD rows (unique origins) {}'.format(day, hour, unique_origin))
-
     t_odsp_0 = time.time()
     res = pool.imap_unordered(map_edge_pop, range(unique_origin))
 
@@ -91,7 +82,7 @@ def one_step(day, hour):
     pool.close()
     pool.join()
     t_odsp_1 = time.time()
-    logger.debug('shortest_path time is {}'.format(t_odsp_1 - t_odsp_0))
+    logger.debug('shortest_path running time is {}'.format(t_odsp_1 - t_odsp_0))
 
     ### Collapse into edge total population dictionary
     edge_pop_tuples, destination_counts = zip(*res)
@@ -102,40 +93,7 @@ def one_step(day, hour):
     #return edge_volume
     return 0
 
-### Put geojson object to S3, which will be accessed by DeckGL
-def geojson2s3(geojson_dict, out_bucket, out_key):
-    s3client = boto3.client('s3')
-    s3client.put_object(
-        Body=json.dumps(geojson_dict, indent=2), 
-        Bucket=out_bucket, 
-        Key=out_key, 
-        #ContentType='application/json',
-        ACL='private')#'public-read'
-
-def write_geojson(g, day, hour):
-    feature_list = []
-
-    for edge in g.es:
-        feature = {'type': 'Feature', 
-            'geometry': {'type': 'LineString', 
-                'coordinates': [[
-                    g.vs[edge.source]['n_x'], g.vs[edge.source]['n_y']],[
-                    g.vs[edge.target]['n_x'], g.vs[edge.target]['n_y']]]}, 
-            'properties': {'link_id': edge['edge_osmid'], 
-                'query_weekend': day, 'query_hour': hour, 
-                'sec_speed': edge['sec_length']/edge['t_new'], 
-                'sec_volume': edge['volume']}}
-        feature_list.append(feature)
-    
-    feature_geojson = {'type': 'FeatureCollection', 'features': feature_list}
-
-    S3_BUCKET = 'sf-abm'
-    S3_FOLDER = 'test_0707/'
-    KEY = S3_FOLDER+'DY{}_HR{}.json'.format(day, hour)
-    geojson2s3(feature_geojson, S3_BUCKET, KEY)
-
 def main():
-    absolute_path = os.path.dirname(os.path.abspath(__file__))
     logging.basicConfig(filename=absolute_path+'/sf_abm_mp.log', level=logging.DEBUG)
     logger = logging.getLogger('main')
     logger.info('{} \n\n'.format(datetime.datetime.now()))
@@ -147,7 +105,6 @@ def main():
     #g_igraph = igraph.Graph.Read_Pickle(absolute_path+'/../data_repo/data/sf/network_graph.pkl')
 
     global g
-    g = interface.simplegraph()
     g = interface.readgraph(bytes(absolute_path+'/../data_repo/data/sf/network_sparse.mtx', encoding='utf-8'))
 
     for day in [1]:
