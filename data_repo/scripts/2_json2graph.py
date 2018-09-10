@@ -56,7 +56,12 @@ g = igraph.Graph.DictList(
     vertex_name_attr='node_osmid',
     edge_foreign_keys=('start_node','end_node'),
     directed=True)
-print(igraph.summary(g))
+print(g.summary())
+g.simplify(multiple=True, loops=True, 
+    combine_edges=dict(
+        edge_osmid="first", edge_index="first", start_node="first", end_node="first",
+        type="first", lane="sum", maxmph="mean", capacity="sum", sec_length="max"))
+print(g.summary())
 
 g.write_pickle(absolute_path+'/../data/{}/network_graph.pkl'.format(folder)) ### Save as pkl for preserving coordinate precision
 

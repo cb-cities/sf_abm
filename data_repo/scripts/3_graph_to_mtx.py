@@ -51,6 +51,6 @@ g_coo = sp.coo_matrix((wgh, (row, col)), shape=(g.vcount(), g.vcount()))
 print(g_coo.shape, len(g_coo.data))
 #g_csr = sp.csr_matrix(g_coo)
 #sp.save_npz('../data/network_sparse.npz', g_csr)
-sio.mmwrite(absolute_path+'/../data/{}/network_sparse.mtx'.format(folder), g_csr)
+sio.mmwrite(absolute_path+'/../data/{}/network_sparse.mtx'.format(folder), g_coo)
 # g_coo = sio.mmread(absolute_path+'/../data/{}/network_sparse.mtx'.format(folder))
 
