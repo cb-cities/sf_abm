@@ -8,8 +8,17 @@ import scipy.sparse
 from collections import Counter
 import random 
 import itertools 
+import os 
+
+absolute_path = os.path.dirname(os.path.abspath(__file__))
+
+################################################################
+### Estabilish relationship between OSM/graph nodes and TAZs ###
+################################################################
 
 def find_in_nodes(row, points, nodes_df):
+    ### return the indices of points in nodes_df that are contained in row['geometry']
+    ### this function is called by TAZ_nodes()
     if row['geometry'].type == 'MultiPolygon':
         return []
     else:
@@ -20,11 +29,11 @@ def find_in_nodes(row, points, nodes_df):
 def TAZ_nodes():
     ### Find corresponding nodes for each TAZ
     ### Input 1: TAZ polyline
-    taz_gdf = gpd.read_file('TAZ981/TAZ981.shp')
+    taz_gdf = gpd.read_file(absolute_path+'/TAZ981/TAZ981.shp')
     taz_gdf = taz_gdf.to_crs({'init': 'epsg:4326'})
 
     ### Input 2: OSM nodes coordinate
-    nodes_dict = json.load(open('tagged_alloneway_nodes.json'))
+    nodes_dict = json.load(open(absolute_path+'/../data_repo/data/sf/nodes.json'))
     nodes_df = pd.DataFrame.from_dict(nodes_dict, orient='index', columns=['lat', 'lon']).reset_index()
 
     points = nodes_df[['lon', 'lat']].values
@@ -32,10 +41,16 @@ def TAZ_nodes():
     taz_nodes_dict = {row['TAZ']:row['in_nodes'] for index, row in taz_gdf.iterrows()}
     
     ### [{'taz': 1, 'in_nodes': '[...]''}, ...]
-    with open('taz_nodes.json', 'w') as outfile:
+    with open(absolute_path+'/output/taz_nodes.json', 'w') as outfile:
         json.dump(taz_nodes_dict, outfile, indent=2)
 
+
+################################################################
+######### Sample nodes as OD based on TAZ-level results ########
+################################################################
+
 def OD_iterations(OD, target_O, target_D):
+    ### one iteration of finding matrix elements based on row sums and column sums
 
     #print(np.min(target_D), np.max(target_D))
     col_sum = OD.sum(axis=0)
@@ -57,14 +72,14 @@ def OD_iterations(OD, target_O, target_D):
 
 def TAZ_nodes_OD(day, hour, count):
 
-    ################## FILTERING ###################
-    ### Input 1: pickups and dropoffs by TAZ
+    ### 1. FILTERING
+    ### Input 1: pickups and dropoffs by TAZ from TNC study
     ### [{'taz':1, 'day':1, 'hour':10, 'pickups': 80, 'dropoffs': 100}, ...]
     ### Monday is 0 -- Sunday is 6. Hour is from 3am-26am(2am next day)
-    OD_df = pd.read_csv('taz_OD.csv')
+    OD_df = pd.read_csv(absolute_path+'/TNC_pickups_dropoffs.csv')
     hour_OD_df = OD_df[(OD_df['day_of_week']==day) & (OD_df['hour']==hour)]
 
-    ################## BALANCING ###################
+    ### 2. BALANCING
     ### Get row sums and column sums
     target_O = hour_OD_df.sort_values(by=['taz'])['pickups']
     target_D = hour_OD_df.sort_values(by=['taz'])['dropoffs']
@@ -78,12 +93,12 @@ def TAZ_nodes_OD(day, hour, count):
         errors_list.append(errors)
         print('errors at iteration {}: {}'.format(i, errors))
     print('sum of OD matrix elements', np.sum(OD_matrix), 'max', np.max(OD_matrix), 'min', np.min(OD_matrix), 'trace', np.trace(OD_matrix))
-    ### As we are going to ignore inter-TAZ trips (assuming they are not by car), the trace of the OD matrix should not be too big compared to the total sum of the matrix elements
+    ### As we are going to ignore inter-TAZ trips (assuming they are not by car, setting diagonal elements to zero), the trace of the OD matrix should not be too big compared to the total sum of the matrix elements
     # print(target_O)
     # np.savetxt('tmp2.txt', OD_matrix, fmt='%.1f', newline='\n')
     # sys.exit(0)
 
-    ################## TAZ-level OD pairs ###################
+    ### 3. TAZ-level OD pairs
     ### OD_matrix element represent the probability (float). Need to sample pairs based on the probability
     OD_keys = list(range(len(target_O)*len(target_D)))   ### O = value//len(target_O), D = value % len(target_O)
     np.fill_diagonal(OD_matrix, 0) ### Set inter-TAZ trip probability to 0
@@ -94,13 +109,13 @@ def TAZ_nodes_OD(day, hour, count):
     OD_list = np.random.choice(OD_keys, count, replace=True, p=OD_probs)
     OD_counter = Counter(OD_list) ### get dictionary of list item count
 
-    ################## Nodal-level OD pairs ###################
+    ### 4. Nodal-level OD pairs
     ### Now sample the nodes for each TAZ level OD pair
-    taz_nodes_dict = json.load(open('taz_nodes.json'))
-    node_osmid2graphid_dict = json.load(open('node_osmid2graphid.json'))
+    taz_nodes_dict = json.load(open(absolute_path+'/output/taz_nodes.json'))
+    node_osmid2graphid_dict = json.load(open(absolute_path+'/../data_repo/data/sf/node_osmid2graphid.json'))
     nodal_OD = []
     for k, v in OD_counter.items():
-        taz_O = k//len(target_O)+1 ### TAZ index starts from 1
+        taz_O = k//len(target_O)+1 ### TAZ index starts from 1; convert from matrix element index to matrix row and column
         taz_D = k%len(target_O)+1
         
         ### use the nodes from the next TAZ if there is no nodes in the current TAZ
@@ -119,14 +134,14 @@ def TAZ_nodes_OD(day, hour, count):
     nodal_OD_df = pd.DataFrame(nodal_OD, columns=['O', 'D', 'flow'])
     print(nodal_OD_df.head())
 
-    nodal_OD_df.to_csv('OD_csv/SF_graph_DY{}_HR{}_OD_{}.csv'.format(day, hour, count))
+    nodal_OD_df.to_csv(absolute_path+'/output/SF_graph_DY{}_HR{}_OD_{}.csv'.format(day, hour, count))
 
 
 if __name__ == '__main__':
-    #taz_nodes_df = TAZ_nodes()
+    taz_nodes_df = TAZ_nodes()
     #sys.exit(0)
 
     for day_of_week in [1]: ### Two typical days, 1 for Tuesday (weekday) and 6 for Sunday (weekend)
-        for hour in range(9,10):#[3]: ### 24 hour-slices per day
+        for hour in range(9,11):#[3]: ### 24 hour-slices per day
             ### Monday is 0 -- Sunday is 6. Hour is from 3am-26am(2am next day)
             TAZ_nodes_OD(day_of_week, hour, 50000)

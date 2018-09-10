@@ -1,4 +1,5 @@
-data_repo/London_Directed/**
+**/TNC/old/**.csv
+**/TNC/output/**.csv
 data_repo/data/**
 TNC/taz_nodes.json
 TNC/tagged_alloneway_nodes.csv
