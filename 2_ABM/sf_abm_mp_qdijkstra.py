@@ -73,7 +73,7 @@ def one_step(day, hour):
     logger.debug('pool initialized')
 
     ### Find shortest pathes
-    unique_origin = 2000
+    unique_origin = 200 # OD.shape[0]
     logger.info('DY{}_HR{}: # OD rows (unique origins) {}'.format(day, hour, unique_origin))
     t_odsp_0 = time.time()
     res = pool.imap_unordered(map_edge_pop, range(unique_origin))

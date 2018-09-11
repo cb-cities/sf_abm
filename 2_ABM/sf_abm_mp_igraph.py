@@ -68,10 +68,6 @@ def one_step(day, hour):
     absolute_path = os.path.dirname(os.path.abspath(__file__))
     global OD
     OD = pd.read_csv(absolute_path+'/../TNC/output/SF_graph_DY{}_HR{}_OD_50000.csv'.format(day, hour))
-    # OD = scipy.sparse.load_npz(absolute_path+'/../TNC/output/DY{}_HR{}_OD.npz'.format(day, hour)) ### An hourly OD matrix for SF based Uber/Lyft origins and destinations
-    # logger.debug('finish reading sparse OD matrix, shape is {}'.format(OD.shape))
-    # OD = OD.tolil()
-    # logger.debug('finish converting the matrix to lil')
 
     ### Define processes
     process_count = 4
@@ -82,7 +78,7 @@ def one_step(day, hour):
     logger.debug('pool initialized')
 
     ### Find shortest pathes
-    unique_origin = 2000
+    unique_origin = 200 # OD.shape[0]
     logger.info('DY{}_HR{}: # OD rows (unique origins) {}'.format(day, hour, unique_origin))
 
     t_odsp_0 = time.time()

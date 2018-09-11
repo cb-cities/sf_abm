@@ -138,7 +138,7 @@ def TAZ_nodes_OD(day, hour, count):
 
 
 if __name__ == '__main__':
-    taz_nodes_df = TAZ_nodes()
+    TAZ_nodes()
     #sys.exit(0)
 
     for day_of_week in [1]: ### Two typical days, 1 for Tuesday (weekday) and 6 for Sunday (weekend)
