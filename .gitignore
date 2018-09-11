@@ -7,9 +7,10 @@ figures/private/
 0_network/data/sf/*.pkl
 0_network/data/sf/*.mtx
 1_OD/old/
-1_OD/output/
+1_OD/output/*
 2_ABM/*.json
 2_ABM/*_profile.txt
+2_ABM/sf_abm.py
 London_SSSP/
 SF_SSSP/
 **/*.xml
