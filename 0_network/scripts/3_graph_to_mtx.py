@@ -12,7 +12,7 @@ folder = 'sf'
 
 sf_graph_file = absolute_path+'/../data/{}/network_graph.pkl'.format(folder)
 g = igraph.Graph.Read_Pickle(sf_graph_file)
-print(g.summary())
+print('Summary of the graph: \n', g.summary())
 
 # t0 = time.time()
 # path_collection = g.get_shortest_paths(1, weights='sec_length', output='epath')
