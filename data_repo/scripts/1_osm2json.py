@@ -159,7 +159,7 @@ def osm_to_json(output_geojson=False, folder = 'sf'):
         else:
             dupes.add(n)
     intersection_nodes = set(end_nodes_l).union(dupes)
-    print(len(all_nodes_l), len(set(end_nodes_l)), len(seen), len(dupes), len(intersection_nodes))
+    #print(len(all_nodes_l), len(set(end_nodes_l)), len(seen), len(dupes), len(intersection_nodes))
 
     ### Get drivable roads
     # In OSM, the following types of roads are one-way by default:
