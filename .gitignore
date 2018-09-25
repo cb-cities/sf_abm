@@ -11,6 +11,7 @@ figures/private/
 2_ABM/*.json
 2_ABM/*_profile.txt
 2_ABM/sf_abm.py
+2_ABM/output
 London_SSSP/
 SF_SSSP/
 **/*.xml

@@ -54,7 +54,8 @@ def edge_tot_pop(L, day, hour):
     t1 = time.time()
     logger.info('DY{}_HR{}: # edges to be updated {}, taking {} seconds'.format(day, hour, len(edge_volume), t1-t0))
     
-    # with open('edge_volume_2.json', 'w') as outfile:
+    # convert the p[0] to str, p[1] from numpy.64 to int and then output
+    # with open('edge_volume_igraph.json', 'w') as outfile:
     #     json.dump(edge_volume, outfile, indent=2)
 
     return edge_volume
@@ -67,7 +68,7 @@ def one_step(day, hour):
     ### Read/Generate OD matrix for this time step
     absolute_path = os.path.dirname(os.path.abspath(__file__))
     global OD
-    OD = pd.read_csv(absolute_path+'/../TNC/output/SF_graph_DY{}_HR{}_OD_50000.csv'.format(day, hour))
+    OD = pd.read_csv(absolute_path+'/../1_OD/output/DY{}/SF_OD_DY{}_HR{}.csv'.format(day, day, hour))
 
     ### Define processes
     process_count = 4
@@ -78,7 +79,7 @@ def one_step(day, hour):
     logger.debug('pool initialized')
 
     ### Find shortest pathes
-    unique_origin = 200 # OD.shape[0]
+    unique_origin = 5000 # OD.shape[0]
     logger.info('DY{}_HR{}: # OD rows (unique origins) {}'.format(day, hour, unique_origin))
 
     t_odsp_0 = time.time()
@@ -140,7 +141,7 @@ def main():
 
     ### Read initial graph
     global g
-    g = igraph.Graph.Read_Pickle(absolute_path+'/../data_repo/data/sf/network_graph.pkl')
+    g = igraph.Graph.Read_Pickle(absolute_path+'/../0_network/data/sf/network_graph.pkl')
     logger.info('graph summary {}'.format(g.summary()))
     g.es['fft'] = np.array(g.es['sec_length'], dtype=np.float)/np.array(g.es['maxmph'], dtype=np.float)*2.23694
     fft_array = np.array(g.es['fft'], dtype=np.float)
@@ -151,8 +152,8 @@ def main():
 
     g.es['weight'] = fft_array * 1.2 ### According to (Colak, 2015), for SF, even vol=0, t=1.2*fft, maybe traffic light? 1.2 is f_p - k_bay
 
-    for day in [1]:
-        for hour in range(9, 10):
+    for day in [4]:
+        for hour in range(3, 5):
 
             logger.info('*************** DY{} HR{} ***************'.format(day, hour))
 
@@ -162,12 +163,15 @@ def main():
             logger.info('DY{}_HR{}: running time {}'.format(day, hour, t1-t0))
 
             ### Update graph
+            t_update_0 = time.time()
             volume_array = np.zeros(g.ecount())
-            volume_array[list(edge_volume.keys())] = np.array(list(edge_volume.values()))*400 ### 400 is the factor to scale Uber/Lyft trip # to total car trip # in SF.
+            volume_array[list(edge_volume.keys())] = np.array(list(edge_volume.values()))*10 ### 400 is the factor to scale Uber/Lyft trip # to total car trip # in SF.
             g.es['volume'] = volume_array
             logger.info('DY{}_HR{}: max link volume {}'.format(day, hour, max(volume_array)))
             g.es['t_new'] = fft_array*(1.2+0.78*(volume_array/capacity_array)**4) ### BPR and (colak, 2015)
             g.es['weight'] = g.es['t_new']
+            t_update_1 = time.time()
+            logger.info('DY{}_HR{}: updating time {}'.format(day, hour, t_update_1-t_update_0))
 
             #write_geojson(g, day, hour)
 
