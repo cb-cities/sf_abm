@@ -71,7 +71,7 @@ node_osmid2graphid_dict = dict(zip(g.vs['node_osmid'], range(g.vcount())))
 with open(absolute_path+'/../data/{}/node_osmid2graphid.json'.format(folder), 'w') as outfile:
     json.dump(node_osmid2graphid_dict, outfile, indent=2)
 
-save_geojson = True
+save_geojson = False
 if save_geojson:
     nodes_feature_list = []
     for v in g.vs:

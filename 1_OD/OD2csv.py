@@ -150,6 +150,6 @@ if __name__ == '__main__':
     #sys.exit(0)
 
     for day_of_week in [4]: ### 4 for Friday
-        for hour in range(4,27): ### 24 hour-slices per day
+        for hour in range(3,27): ### 24 hour-slices per day
             ### Monday is 0 -- Sunday is 6. Hour is from 3am-26am(2am next day)
             TAZ_nodes_OD(day_of_week, hour)

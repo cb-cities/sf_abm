@@ -127,8 +127,10 @@ def create_way(w, intersection_nodes, oneway_str, reverse):
     # update speed limit when information is available
     ### "maxspeed": "35 mph;30 mph" --> use the first number in string
     ### all units in mph
-    if 'maxspeed' in w['tags'].keys(): w_speed_limit = int(re.search(r'\d+', w['tags']['maxspeed']).group())
-
+    try:
+        if 'maxspeed' in w['tags'].keys(): w_speed_limit = int(re.search(r'\d+', w['tags']['maxspeed']).group())
+    except AttributeError:
+        pass
     # add capacity
     ### Capacity formula from the supplement notes in Colak, Lima and Gonzalez (2016)
     if w_speed_limit < 40:
@@ -273,7 +275,7 @@ def osm_to_json(output_geojson=False, folder = 'sf'):
 
 
 if __name__ == '__main__':
-    osm_to_geojson(folder = 'sf')
-    osm_to_json(output_geojson=True, folder = 'sf')
+    #osm_to_geojson(folder = 'sf')
+    osm_to_json(output_geojson=False, folder = 'sf')
 
 

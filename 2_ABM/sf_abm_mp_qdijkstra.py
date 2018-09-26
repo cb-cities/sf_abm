@@ -12,17 +12,18 @@ import warnings
 import pandas as pd 
 from ctypes import *
 
-sys.path.insert(0, '/Users/bz247')
+absolute_path = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, absolute_path+'/../')
 from sp import interface 
 
-absolute_path = os.path.dirname(os.path.abspath(__file__))
+#absolute_path = os.path.dirname(os.path.abspath(__file__))
 
 def map_edge_flow(row):
     ### Find shortest path for each unique origin --> one destination
     ### In the future change to multiple destinations
     
-    origin_ID = int(OD['O'].iloc[row]) + 1 ### origin's ID to graph.mtx node ID
-    destin_ID = int(OD['D'].iloc[row]) + 1 ### destination's ID to graph.mtx node ID
+    origin_ID = int(OD['graph_O'].iloc[row]) + 1 ### origin's ID to graph.mtx node ID
+    destin_ID = int(OD['graph_D'].iloc[row]) + 1 ### destination's ID to graph.mtx node ID
     traffic_flow = int(OD['flow'].iloc[row]) ### number of travellers with this OD
 
     results = []
@@ -86,9 +87,13 @@ def one_step(day, hour):
     ### Read the OD table of this time step
     global OD
     OD = pd.read_csv(absolute_path+'/../1_OD/output/DY{}/SF_OD_DY{}_HR{}.csv'.format(day, day, hour))
+    node_osmid2graphid_dict = json.load(open(absolute_path+'/../0_network/data/sf/node_osmid2graphid.json'))
+    OD['graph_O'] = OD.apply(lambda row: node_osmid2graphid_dict[str(row['O'])], axis=1)
+    OD['graph_D'] = OD.apply(lambda row: node_osmid2graphid_dict[str(row['D'])], axis=1)
+    OD = OD[['graph_O', 'graph_D', 'flow']]
 
     ### Number of processes
-    process_count = 4
+    process_count = 1
     logger.debug('number of process is {}'.format(process_count))
 
     ### Build a pool
@@ -96,7 +101,7 @@ def one_step(day, hour):
     logger.debug('pool initialized')
 
     ### Find shortest pathes
-    unique_origin = 5000 # OD.shape[0]
+    unique_origin = 500 # OD.shape[0]
     logger.info('DY{}_HR{}: {} OD pairs (unique origins)'.format(day, hour, unique_origin))
     t_odsp_0 = time.time()
     res = pool.imap_unordered(map_edge_flow, range(unique_origin))
