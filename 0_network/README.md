@@ -74,4 +74,4 @@ With `nodes.json` and `ways.json`, we can create the graph object for agents to 
 2. Run [scripts/2_json2graph.py](scripts/2_json2graph.py), which will combine the `nodes.json` and `ways.json` into a pickeld python-igraph object `network_graph.pkl`.
   * The summary of the graph size, vertice and edge attributes will be printed on screen.
   * This script will also output `node_osmid2graphid.json`, which is useful in the later stage to map node ID to its ID on the graph.
-3. If you want to use the shortest path algorithm [sp](https://github.com/cb-cities/sp) that we developed (it is much faster!), then run [scripts/2_json2graph.py](scripts/2_json2graph.py) to convert `network_graph.pkl` to a sparse matrix `network_sparse.mtx`. This part is currently under development.
+3. If you want to use the shortest path algorithm [sp](https://github.com/cb-cities/sp) that we developed (it is much faster!), then run [scripts/3_graph_to_mtx.py](scripts/3_graph_to_mtx.py) to convert `network_graph.pkl` to a sparse matrix `network_sparse.mtx`. This part is currently under development.

@@ -7,6 +7,7 @@ figures/private/
 0_network/data/sf/*.geojson
 0_network/data/sf/*.pkl
 0_network/data/sf/*.mtx
+0_network/data/sf/*.csv
 1_OD/old/
 1_OD/output/*
 2_ABM/*.json
