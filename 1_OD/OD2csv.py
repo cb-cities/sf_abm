@@ -116,7 +116,7 @@ def TAZ_nodes_OD(day, hour, count=50000):
     ### 4. Nodal-level OD pairs
     ### Now sample the nodes for each TAZ level OD pair
     taz_nodes_dict = json.load(open(absolute_path+'/output/taz_nodes.json'))
-    node_osmid2graphid_dict = json.load(open(absolute_path+'/../0_network/data/sf/node_osmid2graphid.json'))
+    #node_osmid2graphid_dict = json.load(open(absolute_path+'/../0_network/data/sf/node_osmid2graphid.json'))
     nodal_OD = []
     for k, v in OD_counter.items():
         taz_O = k//len(target_O)+1 ### TAZ index starts from 1; convert from matrix element index to matrix row and column
@@ -136,8 +136,8 @@ def TAZ_nodes_OD(day, hour, count=50000):
         nodal_OD_counter = Counter(nodal_OD_pairs)
 
         for nodal_k, nodal_v in nodal_OD_counter.items():
-            nodal_OD.append([node_osmid2graphid_dict[nodal_k[0]], node_osmid2graphid_dict[nodal_k[1]], nodal_v])
-
+            #nodal_OD.append([node_osmid2graphid_dict[nodal_k[0]], node_osmid2graphid_dict[nodal_k[1]], nodal_v])
+            nodal_OD.append([nodal_k[0], nodal_k[1], nodal_v])
 
     nodal_OD_df = pd.DataFrame(nodal_OD, columns=['O', 'D', 'flow'])
     #print(nodal_OD_df.head())
@@ -150,6 +150,6 @@ if __name__ == '__main__':
     #sys.exit(0)
 
     for day_of_week in [4]: ### 4 for Friday
-        for hour in range(4,27): ### 24 hour-slices per day
+        for hour in range(3,4): ### 24 hour-slices per day
             ### Monday is 0 -- Sunday is 6. Hour is from 3am-26am(2am next day)
             TAZ_nodes_OD(day_of_week, hour)
