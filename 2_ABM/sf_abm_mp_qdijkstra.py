@@ -93,7 +93,7 @@ def one_step(day, hour):
     OD = OD[['graph_O', 'graph_D', 'flow']]
 
     ### Number of processes
-    process_count = 1
+    process_count = 32
     logger.debug('number of process is {}'.format(process_count))
 
     ### Build a pool
@@ -101,7 +101,7 @@ def one_step(day, hour):
     logger.debug('pool initialized')
 
     ### Find shortest pathes
-    unique_origin = 500 # OD.shape[0]
+    unique_origin = OD.shape[0]
     logger.info('DY{}_HR{}: {} OD pairs (unique origins)'.format(day, hour, unique_origin))
     t_odsp_0 = time.time()
     res = pool.imap_unordered(map_edge_flow, range(unique_origin))
@@ -134,7 +134,7 @@ def main():
     network_attr_df['fft'] = network_attr_df['sec_length']/network_attr_df['maxmph']*2.23694 ### mph to m/s
 
     for day in [4]:
-        for hour in range(3, 5):
+        for hour in range(3, 26):
 
             logger.info('*************** DY{} HR{} ***************'.format(day, hour))
 
@@ -146,9 +146,9 @@ def main():
             ### Update graph
             t_update_0 = time.time()
             ### if edge_volume is a pandas data frame
-            logger.info('DY{}_HR{}: max link volume {}'.format(day, hour, max(edge_volume['flow'])*10))
+            logger.info('DY{}_HR{}: max link volume {}'.format(day, hour, max(edge_volume['flow'])))
             edge_volume = pd.merge(edge_volume, network_attr_df, how='left', left_on=['start', 'end'], right_on=['start_mtx', 'end_mtx'])
-            edge_volume['t_new'] = edge_volume['fft']*(1.2+0.78*(edge_volume['flow']*10/edge_volume['capacity'])**4)
+            edge_volume['t_new'] = edge_volume['fft']*(1.2+0.78*(edge_volume['flow']/edge_volume['capacity'])**4)
             for index, row in edge_volume.iterrows():
                 g.update_edge(int(row['start_mtx']), int(row['end_mtx']), c_double(row['t_new']))
             ### if edge_volume is a python dictionary
@@ -157,7 +157,7 @@ def main():
             t_update_1 = time.time()
             logger.info('DY{}_HR{}: updating time {}'.format(day, hour, t_update_1-t_update_0))
 
-            #write_geojson(g, day, hour)
+            g.writegraph(bytes(absolute_path+'/output/network_result_DY{}_HR{}.mtx'.format(day, hour), encoding='utf-8'))
 
     t_end = time.time()
     logger.info('total run time is {} seconds \n\n\n\n\n'.format(t_end-t_start))
