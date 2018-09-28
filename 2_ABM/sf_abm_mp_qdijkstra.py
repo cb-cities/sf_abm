@@ -95,14 +95,24 @@ def update_graph(edge_volume, network_attr_df, day, hour, incre_id):
     t_update_0 = time.time()
 
     ### if edge_volume is a pandas data frame
-    edge_volume = pd.merge(edge_volume, network_attr_df, how='left', left_on=['start', 'end'], right_on=['start_mtx', 'end_mtx'])
-    edge_volume['t_new'] = edge_volume['fft']*(1.2+0.78*(edge_volume['flow']/edge_volume['capacity'])**4)
+    ### first update the cumulative flow in the current time step
+    network_attr_df = pd.merge(network_attr_df, edge_volume, how='left', left_on=['start_mtx', 'end_mtx'], right_on=['start', 'end'])
+    network_attr_df = network_attr_df.fillna(value={'flow': 0}) ### fill flow for unused edges as 0
+    network_attr_df['cum_flow'] += network_attr_df['flow'] ### update the cumulative flow
+    edge_update_df = network_attr_df.loc[network_attr_df['flow']>0].copy().reset_index() ### extract rows that are actually being used in the current increment
+    print(edge_update_df.shape)
+    print(edge_update_df.head())
+    edge_update_df['t_new'] = edge_update_df.apply(lambda row: row['fft']*(1.2+0.78*(row['cum_flow']/row['capacity'])**4) , axis=1)  ### get the travel time based on cumulative flow in the time step, the new time for the next iteration
+
     ### Update weights edge by edge
-    for index, row in edge_volume.iterrows():
+    for index, row in edge_update_df.iterrows():
         g.update_edge(int(row['start_mtx']), int(row['end_mtx']), c_double(row['t_new']))
 
     t_update_1 = time.time()
-    logger.info('DY{}_HR{} INC {}: max volume {}, max_delay {}, updating time {}'.format(day, hour, incre_id, max(edge_volume['flow']), max(edge_volume['t_new']/edge_volume['fft']), t_update_1-t_update_0))
+    logger.info('DY{}_HR{} INC {}: max volume {}, max_delay {}, updating time {}'.format(day, hour, incre_id, max(edge_update_df['flow']), max(edge_update_df['t_new']/edge_update_df['fft']), t_update_1-t_update_0))
+
+    network_attr_df = network_attr_df.drop(columns=['start', 'end', 'flow'])
+    return network_attr_df
 
 def read_OD(day, hour):
     ### Read the OD table of this time step
@@ -137,6 +147,7 @@ def main():
     ### Read in the edge attribute for volume delay calculation later
     network_attr_df = pd.read_csv(absolute_path+'/../0_network/data/sf/network_attributes.csv')
     network_attr_df['fft'] = network_attr_df['sec_length']/network_attr_df['maxmph']*2.23694 ### mph to m/s
+    network_attr_df = network_attr_df.drop(columns=['start', 'end'])
 
     ### Prepare to split the hourly OD into increments
     global OD_incre
@@ -153,6 +164,8 @@ def main():
             OD = read_OD(day, hour)
             OD_msk = np.random.choice(incre_id_list, size=OD.shape[0], p=incre_p_list)
 
+            network_attr_df['cum_flow'] = 0 ### Reset the hourly cumulative traffic flow to zero at the beginning of each time step. This cumulates during the incremental assignment.
+
             for incre_id in incre_id_list:
 
                 t_incre_0 = time.time()
@@ -161,7 +174,7 @@ def main():
                 ### Routing (map reduce)
                 edge_volume = map_reduce_edge_flow(day, hour, incre_id)
                 ### Updating
-                update_graph(edge_volume, network_attr_df, day, hour, incre_id)
+                network_attr_df = update_graph(edge_volume, network_attr_df, day, hour, incre_id)
                 t_incre_1 = time.time()
                 logger.info('DY{}_HR{} INCRE {}: {} sec, {} OD pairs \n'.format(day, hour, incre_id, t_incre_1-t_incre_0, OD_incre.shape[0]))
 
