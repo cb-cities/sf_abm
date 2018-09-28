@@ -102,7 +102,7 @@ def update_graph(edge_volume, network_attr_df, day, hour, incre_id):
         g.update_edge(int(row['start_mtx']), int(row['end_mtx']), c_double(row['t_new']))
 
     t_update_1 = time.time()
-    logger.info('DY{}_HR{} INC {}: max volume {}, updating time {}'.format(day, hour, incre_id, max(edge_volume['flow']), t_update_1-t_update_0))
+    logger.info('DY{}_HR{} INC {}: max volume {}, max_delay {}, updating time {}'.format(day, hour, incre_id, max(edge_volume['flow']), max(edge_volume['t_new']/edge_volume['fft']), t_update_1-t_update_0))
 
 def read_OD(day, hour):
     ### Read the OD table of this time step
