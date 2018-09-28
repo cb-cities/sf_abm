@@ -12,8 +12,8 @@ import warnings
 import pandas as pd 
 from ctypes import *
 
-#sys.path.insert(0, absolute_path+'/../')
-sys.path.insert(0, '/Users/bz247/')
+sys.path.insert(0, absolute_path+'/../')
+#sys.path.insert(0, '/Users/bz247/')
 from sp import interface 
 
 absolute_path = os.path.dirname(os.path.abspath(__file__))
@@ -65,7 +65,7 @@ def map_reduce_edge_flow(day, hour, incre_id):
     logger = logging.getLogger('map')
 
     ### Build a pool
-    process_count = 4
+    process_count = 32
     pool = Pool(processes=process_count)
 
     ### Find shortest pathes
