@@ -27,12 +27,13 @@ def map_edge_flow(row):
 
     results = []
     sp = g.dijkstra(origin_ID, destin_ID)
-    if sp.distance(destin_ID) > 10e7:
-        return [], 0
+    sp_dist = sp.distance(destin_ID)
+    if sp_dist > 10e7:
+        return [], 0, 0 ### empty path; not reach destination; travel time 0
     else:
         sp_route = sp.route(destin_ID)
         results = [(edge[0], edge[1], traffic_flow) for edge in sp_route]
-        return results, 1
+        return results, 1, sp_dist ### non-empty path; 1 reaches destination; travel time
 
 
 def reduce_edge_flow_pd(L, day, hour, incre_id):
@@ -78,14 +79,14 @@ def map_reduce_edge_flow(day, hour, incre_id):
     t_odsp_1 = time.time()
 
     ### Collapse into edge total population dictionary
-    edge_flow_tuples, destination_counts = zip(*res)
+    edge_flow_tuples, destination_counts, travel_time_list_incre = zip(*res)
 
     logger.info('DY{}_HR{} INC {}: {} O --> {} D found, dijkstra pool {} sec on {} processes'.format(day, hour, incre_id, unique_origin, sum(destination_counts), t_odsp_1 - t_odsp_0, process_count))
 
     #edge_volume = reduce_edge_flow(edge_flow_tuples, day, hour)
     edge_volume = reduce_edge_flow_pd(edge_flow_tuples, day, hour, incre_id)
 
-    return edge_volume
+    return edge_volume, travel_time_list_incre
 
 def update_graph(edge_volume, network_attr_df, day, hour, incre_id):
     ### Update graph
@@ -165,13 +166,16 @@ def main():
 
             network_attr_df['cum_flow'] = 0 ### Reset the hourly cumulative traffic flow to zero at the beginning of each time step. This cumulates during the incremental assignment.
 
+            travel_time_list = [] ### A list holding all the travel times
+
             for incre_id in incre_id_list:
 
                 t_incre_0 = time.time()
                 ### Split OD
                 OD_incre = OD[OD_msk == incre_id]
                 ### Routing (map reduce)
-                edge_volume = map_reduce_edge_flow(day, hour, incre_id)
+                edge_volume, travel_time_list_incre = map_reduce_edge_flow(day, hour, incre_id)
+                travel_time_list += travel_time_list_incre
                 ### Updating
                 network_attr_df = update_graph(edge_volume, network_attr_df, day, hour, incre_id)
                 t_incre_1 = time.time()
@@ -180,7 +184,11 @@ def main():
             t_hour_1 = time.time()
             logger.info('DY{}_HR{}: {} sec \n'.format(day, hour, t_hour_1-t_hour_0))
 
-            g.writegraph(bytes(absolute_path+'/output_incre/DY{}/network_result_DY{}_HR{}.mtx'.format(day, day, hour), encoding='utf-8'))
+            with open(absolute_path + '/output_time/travel_time_DY{}_HR{}.txt'.format(day, hour), 'w') as f:
+                for travel_time_item in travel_time_list:
+                    f.write("%s\n" % travel_time_item)
+
+            #g.writegraph(bytes(absolute_path+'/output_incre/network_result_DY{}_HR{}.mtx'.format(day, hour), encoding='utf-8'))
 
     t_main_1 = time.time()
     logger.info('total run time: {} sec \n\n\n\n\n'.format(t_main_1 - t_main_0))
