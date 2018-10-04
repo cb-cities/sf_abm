@@ -12,11 +12,10 @@ import warnings
 import pandas as pd 
 from ctypes import *
 
-#sys.path.insert(0, absolute_path+'/../')
-sys.path.insert(0, '/Users/bz247/')
-from sp import interface 
-
 absolute_path = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, absolute_path+'/../')
+#sys.path.insert(0, '/Users/bz247/')
+from sp import interface 
 
 def map_edge_flow(row):
     ### Find shortest path for each unique origin --> one destination
@@ -46,7 +45,7 @@ def reduce_edge_flow_pd(L, day, hour, incre_id):
     df_L = pd.DataFrame(flat_L, columns=['start', 'end', 'flow'])
     df_L_flow = df_L.groupby(['start', 'end']).sum().reset_index()
     t1 = time.time()
-    logger.info('DY{}_HR{} INC {}: reduce find {} edges, {} sec w/ pd.groupby'.format(day, hour, incre_id, df_L_flow.shape[0], t1-t0))
+    logger.debug('DY{}_HR{} INC {}: reduce find {} edges, {} sec w/ pd.groupby'.format(day, hour, incre_id, df_L_flow.shape[0], t1-t0))
 
     # print(df_L_flow.head())
     #        start    end  flow
@@ -66,11 +65,11 @@ def map_reduce_edge_flow(day, hour, incre_id):
     logger = logging.getLogger('map')
 
     ### Build a pool
-    process_count = 4
+    process_count = 32
     pool = Pool(processes=process_count)
 
     ### Find shortest pathes
-    unique_origin = 200#OD_incre.shape[0]
+    unique_origin = OD_incre.shape[0]
     t_odsp_0 = time.time()
     res = pool.imap_unordered(map_edge_flow, range(unique_origin))
 
@@ -129,13 +128,13 @@ def read_OD(day, hour):
     OD = OD.sample(frac=1).reset_index(drop=True) ### randomly shuffle rows
 
     t_OD_1 = time.time()
-    logger.info('DY{}_HR{}: {} sec to read {} OD pairs \n'.format(day, hour, t_OD_1-t_OD_0, OD.shape[0]))
+    logger.debug('DY{}_HR{}: {} sec to read {} OD pairs \n'.format(day, hour, t_OD_1-t_OD_0, OD.shape[0]))
 
     return OD
 
 def main():
 
-    logging.basicConfig(filename=absolute_path+'/sf_abm_mp.log', level=logging.DEBUG)
+    logging.basicConfig(filename=absolute_path+'/sf_abm_mp.log', level=logging.INFO)
     logger = logging.getLogger('main')
     logger.info('{} \n'.format(datetime.datetime.now()))
 
@@ -152,12 +151,12 @@ def main():
 
     ### Prepare to split the hourly OD into increments
     global OD_incre
-    incre_p_list = [0.4, 0.3, 0.2, 0.1]
-    incre_id_list = [0, 1, 2, 3]
+    incre_p_list = [0.1 for i in range(10)]
+    incre_id_list = [i for i in range(10)]
 
     ### Loop through days and hours
-    for day in [4]:
-        for hour in range(3, 5):
+    for day in [0]:
+        for hour in range(3, 26):
 
             logger.info('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()
@@ -185,11 +184,11 @@ def main():
             t_hour_1 = time.time()
             logger.info('DY{}_HR{}: {} sec \n'.format(day, hour, t_hour_1-t_hour_0))
 
-            with open(absolute_path + '/output/travel_time_DY{}_HR{}.txt'.format(day, hour), 'w') as f:
+            with open(absolute_path + '/output_time/travel_time_DY{}_HR{}.txt'.format(day, hour), 'w') as f:
                 for travel_time_item in travel_time_list:
                     f.write("%s\n" % travel_time_item)
 
-            #g.writegraph(bytes(absolute_path+'/output/network_result_DY{}_HR{}.mtx'.format(day, hour), encoding='utf-8'))
+            #g.writegraph(bytes(absolute_path+'/output_incre/network_result_DY{}_HR{}.mtx'.format(day, hour), encoding='utf-8'))
 
     t_main_1 = time.time()
     logger.info('total run time: {} sec \n\n\n\n\n'.format(t_main_1 - t_main_0))

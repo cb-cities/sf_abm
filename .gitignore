@@ -15,6 +15,7 @@ figures/private/
 2_ABM/*_profile.txt
 2_ABM/sf_abm.py
 2_ABM/output
+2_ABM/output_incre
 2_ABM/output_time
 3_visualization
 London_SSSP/
