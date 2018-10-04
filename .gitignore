@@ -10,10 +10,12 @@ figures/private/
 0_network/data/sf/*.csv
 1_OD/old/
 1_OD/output/*
+1_OD/output_scaled/*
 2_ABM/*.json
 2_ABM/*_profile.txt
 2_ABM/sf_abm.py
 2_ABM/output
+2_ABM/output_time
 3_visualization
 London_SSSP/
 SF_SSSP/
