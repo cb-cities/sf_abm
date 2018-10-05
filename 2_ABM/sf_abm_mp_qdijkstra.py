@@ -13,8 +13,8 @@ import pandas as pd
 from ctypes import *
 
 absolute_path = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, absolute_path+'/../')
-#sys.path.insert(0, '/Users/bz247/')
+#sys.path.insert(0, absolute_path+'/../')
+sys.path.insert(0, '/Users/bz247/')
 from sp import interface 
 
 def map_edge_flow(row):
@@ -65,11 +65,11 @@ def map_reduce_edge_flow(day, hour, incre_id):
     logger = logging.getLogger('map')
 
     ### Build a pool
-    process_count = 32
+    process_count = 4
     pool = Pool(processes=process_count)
 
     ### Find shortest pathes
-    unique_origin = OD_incre.shape[0]
+    unique_origin = 200#OD_incre.shape[0]
     t_odsp_0 = time.time()
     res = pool.imap_unordered(map_edge_flow, range(unique_origin))
 
@@ -94,19 +94,20 @@ def update_graph(edge_volume, network_attr_df, day, hour, incre_id):
     logger = logging.getLogger('update')
     t_update_0 = time.time()
 
-    ### if edge_volume is a pandas data frame
     ### first update the cumulative flow in the current time step
     network_attr_df = pd.merge(network_attr_df, edge_volume, how='left', left_on=['start_mtx', 'end_mtx'], right_on=['start', 'end'])
     network_attr_df = network_attr_df.fillna(value={'flow': 0}) ### fill flow for unused edges as 0
     network_attr_df['cum_flow'] += network_attr_df['flow'] ### update the cumulative flow
     edge_update_df = network_attr_df.loc[network_attr_df['flow']>0].copy().reset_index() ### extract rows that are actually being used in the current increment
-    #print(edge_update_df.shape)
-    #print(edge_update_df.head())
-    edge_update_df['t_new'] = edge_update_df.apply(lambda row: row['fft']*(1.2+0.78*(row['cum_flow']/row['capacity'])**4) , axis=1)  ### get the travel time based on cumulative flow in the time step, the new time for the next iteration
+    #edge_update_df['t_new'] = edge_update_df.apply(lambda row: row['fft']*(1.2+0.78*(row['cum_flow']/row['capacity'])**4) , axis=1)  ### get the travel time based on cumulative flow in the time step, the new time for the next iteration
+    edge_update_df['t_new'] = edge_update_df['fft'].values*(1.2+0.78*(edge_update_df['cum_flow'].values/edge_update_df['capacity'].values)**4)
 
     ### Update weights edge by edge
-    for index, row in edge_update_df.iterrows():
-        g.update_edge(int(row['start_mtx']), int(row['end_mtx']), c_double(row['t_new']))
+    # for index, row in edge_update_df.iterrows():
+    #     g.update_edge(int(row['start_mtx']), int(row['end_mtx']), c_double(row['t_new']))
+
+    for row in edge_update_df.itertuples():
+        g.update_edge(getattr(row,'start_mtx'), getattr(row,'end_mtx'), c_double(getattr(row,'t_new')))
 
     t_update_1 = time.time()
     logger.info('DY{}_HR{} INC {}: max volume {}, max_delay {}, updating time {}'.format(day, hour, incre_id, max(edge_update_df['flow']), max(edge_update_df['t_new']/edge_update_df['fft']), t_update_1-t_update_0))
