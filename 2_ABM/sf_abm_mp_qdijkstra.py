@@ -13,8 +13,8 @@ import pandas as pd
 from ctypes import *
 
 absolute_path = os.path.dirname(os.path.abspath(__file__))
-#sys.path.insert(0, absolute_path+'/../')
-sys.path.insert(0, '/Users/bz247/')
+sys.path.insert(0, absolute_path+'/../')
+#sys.path.insert(0, '/Users/bz247/')
 from sp import interface 
 
 def map_edge_flow(row):
@@ -65,11 +65,11 @@ def map_reduce_edge_flow(day, hour, incre_id):
     logger = logging.getLogger('map')
 
     ### Build a pool
-    process_count = 4
+    process_count = 32
     pool = Pool(processes=process_count)
 
     ### Find shortest pathes
-    unique_origin = 200#OD_incre.shape[0]
+    unique_origin = OD_incre.shape[0]
     t_odsp_0 = time.time()
     res = pool.imap_unordered(map_edge_flow, range(unique_origin))
 
@@ -157,7 +157,7 @@ def main():
 
     ### Loop through days and hours
     for day in [0]:
-        for hour in range(3, 26):
+        for hour in range(3, 4):
 
             logger.info('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()
@@ -185,9 +185,9 @@ def main():
             t_hour_1 = time.time()
             logger.info('DY{}_HR{}: {} sec \n'.format(day, hour, t_hour_1-t_hour_0))
 
-            with open(absolute_path + '/output_time/travel_time_DY{}_HR{}.txt'.format(day, hour), 'w') as f:
-                for travel_time_item in travel_time_list:
-                    f.write("%s\n" % travel_time_item)
+            #with open(absolute_path + '/output_time/travel_time_DY{}_HR{}.txt'.format(day, hour), 'w') as f:
+            #    for travel_time_item in travel_time_list:
+            #        f.write("%s\n" % travel_time_item)
 
             #g.writegraph(bytes(absolute_path+'/output_incre/network_result_DY{}_HR{}.mtx'.format(day, hour), encoding='utf-8'))
 
