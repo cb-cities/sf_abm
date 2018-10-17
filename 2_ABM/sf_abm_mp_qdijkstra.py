@@ -42,13 +42,13 @@ def reduce_edge_flow_pd(L, day, hour, incre_id):
     logger = logging.getLogger('reduce')
     t0 = time.time()
     flat_L = [edge_pop_tuple for sublist in L for edge_pop_tuple in sublist]
-    df_L = pd.DataFrame(flat_L, columns=['start', 'end', 'flow'])
+    df_L = pd.DataFrame(flat_L, columns=['start_mtx', 'end_mtx', 'flow'])
     df_L_flow = df_L.groupby(['start', 'end']).sum().reset_index()
     t1 = time.time()
     logger.debug('DY{}_HR{} INC {}: reduce find {} edges, {} sec w/ pd.groupby'.format(day, hour, incre_id, df_L_flow.shape[0], t1-t0))
 
     # print(df_L_flow.head())
-    #        start    end  flow
+    #        start_mtx    end_mtx  flow
     # 0      1      35200    29
     # 1      1      35201    24
     # 2      2      38960     1
@@ -95,7 +95,7 @@ def update_graph(edge_volume, network_attr_df, day, hour, incre_id):
     t_update_0 = time.time()
 
     ### first update the cumulative flow in the current time step
-    network_attr_df = pd.merge(network_attr_df, edge_volume, how='left', left_on=['start_mtx', 'end_mtx'], right_on=['start', 'end'])
+    network_attr_df = pd.merge(network_attr_df, edge_volume, how='left', on=['start_mtx', 'end_mtx'])
     network_attr_df = network_attr_df.fillna(value={'flow': 0}) ### fill flow for unused edges as 0
     network_attr_df['cum_flow'] += network_attr_df['flow'] ### update the cumulative flow
     edge_update_df = network_attr_df.loc[network_attr_df['flow']>0].copy().reset_index() ### extract rows that are actually being used in the current increment
@@ -108,7 +108,7 @@ def update_graph(edge_volume, network_attr_df, day, hour, incre_id):
     t_update_1 = time.time()
     logger.info('DY{}_HR{} INC {}: max volume {}, max_delay {}, updating time {}'.format(day, hour, incre_id, max(edge_update_df['flow']), max(edge_update_df['t_new']/edge_update_df['fft']), t_update_1-t_update_0))
 
-    network_attr_df = network_attr_df.drop(columns=['start', 'end', 'flow'])
+    network_attr_df = network_attr_df.drop(columns=['flow'])
     return network_attr_df
 
 def read_OD(day, hour):
