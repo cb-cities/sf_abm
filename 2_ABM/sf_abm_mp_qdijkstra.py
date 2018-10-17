@@ -14,7 +14,7 @@ from ctypes import *
 
 absolute_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, absolute_path+'/../')
-#sys.path.insert(0, '/Users/bz247/')
+sys.path.insert(0, '/Users/bz247/')
 from sp import interface 
 
 def map_edge_flow(row):
@@ -43,7 +43,7 @@ def reduce_edge_flow_pd(L, day, hour, incre_id):
     t0 = time.time()
     flat_L = [edge_pop_tuple for sublist in L for edge_pop_tuple in sublist]
     df_L = pd.DataFrame(flat_L, columns=['start_mtx', 'end_mtx', 'flow'])
-    df_L_flow = df_L.groupby(['start', 'end']).sum().reset_index()
+    df_L_flow = df_L.groupby(['start_mtx', 'end_mtx']).sum().reset_index()
     t1 = time.time()
     logger.debug('DY{}_HR{} INC {}: reduce find {} edges, {} sec w/ pd.groupby'.format(day, hour, incre_id, df_L_flow.shape[0], t1-t0))
 
@@ -65,11 +65,11 @@ def map_reduce_edge_flow(day, hour, incre_id):
     logger = logging.getLogger('map')
 
     ### Build a pool
-    process_count = 32
+    process_count = 2
     pool = Pool(processes=process_count)
 
     ### Find shortest pathes
-    unique_origin = OD_incre.shape[0]
+    unique_origin = 10#OD_incre.shape[0]
     t_odsp_0 = time.time()
     res = pool.imap_unordered(map_edge_flow, range(unique_origin))
 
@@ -109,6 +109,7 @@ def update_graph(edge_volume, network_attr_df, day, hour, incre_id):
     logger.info('DY{}_HR{} INC {}: max volume {}, max_delay {}, updating time {}'.format(day, hour, incre_id, max(edge_update_df['flow']), max(edge_update_df['t_new']/edge_update_df['fft']), t_update_1-t_update_0))
 
     network_attr_df = network_attr_df.drop(columns=['flow'])
+    #print(network_attr_df.loc[0])
     return network_attr_df
 
 def read_OD(day, hour):
@@ -183,7 +184,7 @@ def main():
             t_hour_1 = time.time()
             logger.info('DY{}_HR{}: {} sec \n'.format(day, hour, t_hour_1-t_hour_0))
 
-            network_attr_df[['start', 'end', 'cum_flow']].to_csv(absolute_path+'/output/{}/edge_flow_DY{}_HR{}.csv'.format(scenario, day, hour), index=False)
+            network_attr_df[['start_mtx', 'end_mtx', 'cum_flow']].to_csv(absolute_path+'/output/edge_flow_DY{}_HR{}.csv'.format(day, hour), index=False)
 
             with open(absolute_path + '/output/travel_time_DY{}_HR{}.txt'.format(day, hour), 'w') as f:
                 for travel_time_item in travel_time_list:
