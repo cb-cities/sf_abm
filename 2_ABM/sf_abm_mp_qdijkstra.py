@@ -117,7 +117,7 @@ def read_OD(day, hour):
     logger = logging.getLogger('read_OD')
     t_OD_0 = time.time()
 
-    OD = pd.read_csv(absolute_path+'/../1_OD/output/DY{}/SF_OD_DY{}_HR{}.csv'.format(day, day, hour))
+    OD = pd.read_csv(absolute_path+'/../1_OD/output/output_scaled_buffered/DY{}/SF_OD_DY{}_HR{}.csv'.format(day, day, hour))
     node_osmid2graphid_dict = json.load(open(absolute_path+'/../0_network/data/sf/node_osmid2graphid.json'))
     OD['graph_O'] = OD.apply(lambda row: node_osmid2graphid_dict[str(row['O'])], axis=1)
     OD['graph_D'] = OD.apply(lambda row: node_osmid2graphid_dict[str(row['D'])], axis=1)
