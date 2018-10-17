@@ -102,10 +102,6 @@ def update_graph(edge_volume, network_attr_df, day, hour, incre_id):
     #edge_update_df['t_new'] = edge_update_df.apply(lambda row: row['fft']*(1.2+0.78*(row['cum_flow']/row['capacity'])**4) , axis=1)  ### get the travel time based on cumulative flow in the time step, the new time for the next iteration
     edge_update_df['t_new'] = edge_update_df['fft'].values*(1.2+0.78*(edge_update_df['cum_flow'].values/edge_update_df['capacity'].values)**4)
 
-    ### Update weights edge by edge
-    # for index, row in edge_update_df.iterrows():
-    #     g.update_edge(int(row['start_mtx']), int(row['end_mtx']), c_double(row['t_new']))
-
     for row in edge_update_df.itertuples():
         g.update_edge(getattr(row,'start_mtx'), getattr(row,'end_mtx'), c_double(getattr(row,'t_new')))
 
@@ -138,6 +134,7 @@ def main():
     logging.basicConfig(filename=absolute_path+'/sf_abm_mp.log', level=logging.INFO)
     logger = logging.getLogger('main')
     logger.info('{} \n'.format(datetime.datetime.now()))
+    logger.info('scaled and buffered OD generation')
 
     t_main_0 = time.time()
 
@@ -154,6 +151,7 @@ def main():
     global OD_incre
     incre_p_list = [0.1 for i in range(10)]
     incre_id_list = [i for i in range(10)]
+    logger.info('{} increments'.format(10))
 
     ### Loop through days and hours
     for day in [0]:
@@ -185,9 +183,11 @@ def main():
             t_hour_1 = time.time()
             logger.info('DY{}_HR{}: {} sec \n'.format(day, hour, t_hour_1-t_hour_0))
 
-            #with open(absolute_path + '/output_time/travel_time_DY{}_HR{}.txt'.format(day, hour), 'w') as f:
-            #    for travel_time_item in travel_time_list:
-            #        f.write("%s\n" % travel_time_item)
+            network_attr_df[['start', 'end', 'cum_flow']].to_csv(absolute_path+'/output/{}/edge_flow_DY{}_HR{}.csv'.format(scenario, day, hour), index=False)
+
+            with open(absolute_path + '/output/travel_time_DY{}_HR{}.txt'.format(day, hour), 'w') as f:
+                for travel_time_item in travel_time_list:
+                    f.write("%s\n" % travel_time_item)
 
             #g.writegraph(bytes(absolute_path+'/output_incre/network_result_DY{}_HR{}.mtx'.format(day, hour), encoding='utf-8'))
 

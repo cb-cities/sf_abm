@@ -118,7 +118,7 @@ def TAZ_nodes_OD(day, hour, count=50000):
     ### 3. TAZ-level OD pairs
     ### The probability of trips from each origin (to each destination) TAZ is proporional to the # trip origins (destinations) of that TAZ devided by the total origins (destinations) in all TAZs.
     hour_demand = int(0.5 * (O_counts + D_counts))
-    logger.debug('total number of OD pairs: ', hour_demand)
+    logger.debug('DY{}, HR{}, total number of OD pairs: {}'.format(day, hour, hour_demand))
     O_prob = hour_taz_travel_df['veh_pickups']/O_counts
     D_prob = hour_taz_travel_df['veh_dropoffs']/D_counts
     
@@ -136,14 +136,14 @@ def TAZ_nodes_OD(day, hour, count=50000):
         OD_list += list(zip(step_OD_df['O'], step_OD_df['D']))
         logger.debug('step demand {}, length of OD at step {}: {}'.format(step_demand, step, len(OD_list)))
         step += 1
-    sys.exit(0)
+    #sys.exit(0)
 
-    OD_list = OD_list[0:total_demand]
+    OD_list = OD_list[0:hour_demand]
     OD_counter = Counter(OD_list) ### get dictionary of list item count
 
     ### 4. Nodal-level OD pairs
     ### Now sample the nodes for each TAZ level OD pair
-    taz_nodes_dict = json.load(open(absolute_path+'/output/taz_nodes.json'))
+    taz_nodes_dict = json.load(open(absolute_path+'/../output/taz_nodes.json'))
     #node_osmid2graphid_dict = json.load(open(absolute_path+'/../0_network/data/sf/node_osmid2graphid.json'))
     nodal_OD = []
     for k, v in OD_counter.items():
@@ -157,6 +157,7 @@ def TAZ_nodes_OD(day, hour, count=50000):
 
         try:
             nodal_OD_pairs = random.choices(list(itertools.product(taz_nodes_dict[str(taz_O)], taz_nodes_dict[str(taz_D)])), k=v)
+            ### random.choices generate k elements from the population with replacement
         except IndexError:
             #print(taz_O, taz_D) ### 868-872 does not have nodes
             continue
@@ -169,14 +170,14 @@ def TAZ_nodes_OD(day, hour, count=50000):
     nodal_OD_df = pd.DataFrame(nodal_OD, columns=['O', 'D', 'flow'])
     #print(nodal_OD_df.head())
 
-    nodal_OD_df.to_csv(absolute_path+'/output_scaled/DY{}/SF_OD_DY{}_HR{}.csv'.format(day, day, hour))
+    nodal_OD_df.to_csv(absolute_path+'/../output/output_scaled_buffered/DY{}/SF_OD_DY{}_HR{}.csv'.format(day, day, hour))
 
-    return total_pickup_counts, total_dropoff_counts
+    return hour_demand
 
 
 if __name__ == '__main__':
 
-    logging.basicConfig(filename=absolute_path+'/../output/OS2csv_supervisorial.log', level=logging.INFO)
+    logging.basicConfig(filename=absolute_path+'/../output/OS2csv_supervisorial.log', level=logging.DEBUG)
     logger = logging.getLogger('main')
     logger.info('{} \n'.format(datetime.datetime.now()))
 
@@ -184,11 +185,10 @@ if __name__ == '__main__':
     #TAZ_nodes()
 
     ### Based on the output of TAZ_nodes(), generate hourly node-level ODs by setting "day_of_week" and "hour".
-    daily_origins, daily_destins = 0, 0
+    daily_demand = 0
 
-    for day_of_week in [0]: ### 4 for Friday
-        for hour in range(3, 4): ### 24 hour-slices per day. Monday is 0 -- Sunday is 6. Hour is from 3am-26am(2am next day)
-            hourly_origns, hourly_destins = TAZ_nodes_OD(day_of_week, hour)
-            daily_origins += hourly_origns
-            daily_destins += hourly_destins
-        logger.info('DY {} daily_origins {}, daily_destins {}'.format(day_of_week, np.sum(daily_origins), np.sum(daily_destins)))
+    for day_of_week in [4]: ### 4 for Friday
+        for hour in range(3, 27): ### 24 hour-slices per day. Monday is 0 -- Sunday is 6. Hour is from 3am-26am(2am next day)
+            hour_demand = TAZ_nodes_OD(day_of_week, hour)
+            daily_demand += hour_demand
+        logger.info('DY {} total demand {}'.format(day_of_week, daily_demand))
