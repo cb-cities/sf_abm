@@ -18,6 +18,7 @@ figures/private/
 2_ABM/output_incre
 2_ABM/output_time
 3_visualization
+4_validation/uber_movement
 London_SSSP/
 SF_SSSP/
 **/*.xml
