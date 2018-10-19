@@ -14,7 +14,7 @@ from ctypes import *
 
 absolute_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, absolute_path+'/../')
-sys.path.insert(0, '/Users/bz247/')
+#sys.path.insert(0, '/Users/bz247/')
 from sp import interface 
 
 def map_edge_flow(row):
@@ -65,11 +65,11 @@ def map_reduce_edge_flow(day, hour, incre_id):
     logger = logging.getLogger('map')
 
     ### Build a pool
-    process_count = 2
+    process_count = 32
     pool = Pool(processes=process_count)
 
     ### Find shortest pathes
-    unique_origin = 10#OD_incre.shape[0]
+    unique_origin = OD_incre.shape[0]
     t_odsp_0 = time.time()
     res = pool.imap_unordered(map_edge_flow, range(unique_origin))
 
@@ -81,7 +81,7 @@ def map_reduce_edge_flow(day, hour, incre_id):
     ### Collapse into edge total population dictionary
     edge_flow_tuples, destination_counts, travel_time_list_incre = zip(*res)
 
-    logger.info('DY{}_HR{} INC {}: {} O --> {} D found, dijkstra pool {} sec on {} processes'.format(day, hour, incre_id, unique_origin, sum(destination_counts), t_odsp_1 - t_odsp_0, process_count))
+    logger.debug('DY{}_HR{} INC {}: {} O --> {} D found, dijkstra pool {} sec on {} processes'.format(day, hour, incre_id, unique_origin, sum(destination_counts), t_odsp_1 - t_odsp_0, process_count))
 
     #edge_volume = reduce_edge_flow(edge_flow_tuples, day, hour)
     edge_volume = reduce_edge_flow_pd(edge_flow_tuples, day, hour, incre_id)
@@ -99,7 +99,6 @@ def update_graph(edge_volume, network_attr_df, day, hour, incre_id):
     network_attr_df = network_attr_df.fillna(value={'flow': 0}) ### fill flow for unused edges as 0
     network_attr_df['cum_flow'] += network_attr_df['flow'] ### update the cumulative flow
     edge_update_df = network_attr_df.loc[network_attr_df['flow']>0].copy().reset_index() ### extract rows that are actually being used in the current increment
-    #edge_update_df['t_new'] = edge_update_df.apply(lambda row: row['fft']*(1.2+0.78*(row['cum_flow']/row['capacity'])**4) , axis=1)  ### get the travel time based on cumulative flow in the time step, the new time for the next iteration
     edge_update_df['t_new'] = edge_update_df['fft'].values*(1.2+0.78*(edge_update_df['cum_flow'].values/edge_update_df['capacity'].values)**4)
 
     for row in edge_update_df.itertuples():
@@ -156,9 +155,9 @@ def main():
 
     ### Loop through days and hours
     for day in [0]:
-        for hour in range(3, 4):
+        for hour in range(3, 27):
 
-            logger.info('*************** DY{} HR{} ***************'.format(day, hour))
+            logger.debug('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()
 
             OD = read_OD(day, hour)
@@ -190,7 +189,7 @@ def main():
                 for travel_time_item in travel_time_list:
                     f.write("%s\n" % travel_time_item)
 
-            #g.writegraph(bytes(absolute_path+'/output_incre/network_result_DY{}_HR{}.mtx'.format(day, hour), encoding='utf-8'))
+            g.writegraph(bytes(absolute_path+'/output/network_DY{}_HR{}.mtx'.format(day, hour), encoding='utf-8'))
 
     t_main_1 = time.time()
     logger.info('total run time: {} sec \n\n\n\n\n'.format(t_main_1 - t_main_0))
