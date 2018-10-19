@@ -34,8 +34,9 @@ def sssp_travel_time(row, g, taz_nodes_df, benchmark_df, sio_g_node_count):
     sp_dist_df = pd.DataFrame({'destin_graphid': list(range(sio_g_node_count)), 'destin_dist': sp_dist})
     sp_dist_df = sp_dist_df.loc[sp_dist_df['destin_dist']<10e5]
     sp_dist_df = pd.merge(sp_dist_df, taz_nodes_df, how='left', left_on='destin_graphid', right_on='node_graphid')
-    taz_dist_df = sp_dist_df.groupby(['taz', 'movement_id'])['destin_dist'].agg([np.mean, np.std]).reset_index()
-    #print(taz_dist_df.head())
+    taz_dist_df = sp_dist_df.groupby(['taz', 'movement_id'])['destin_dist'].agg([np.mean, np.std, 'count']).reset_index()
+    print(taz_dist_df.head())
+    #sys.exit(0)
 
     taz_dist_df = pd.merge(taz_dist_df, benchmark_df[benchmark_df['sourceid']==getattr(row, 'movement_id')].reset_index(drop=True), how='left', left_on='movement_id', right_on='dstid')
     #print(taz_dist_df.iloc[108])
@@ -44,8 +45,12 @@ def sssp_travel_time(row, g, taz_nodes_df, benchmark_df, sio_g_node_count):
 
 def df2geojson(taz_dist_df, taz_gdf, day, hour, node_osmid):
     output_gdf = taz_gdf.merge(taz_dist_df, how='right', on=['movement_id'])
-    output_gdf = output_gdf[['taz', 'mean', 'std', 'sourceid', 'dstid', 'mean_travel_time', 'standard_deviation_travel_time', 'geometry']]
-    output_gdf.columns = ['taz', 'sim_mean', 'sim_std', 'sourceid', 'dstid', 'uber_mean', 'uber_std', 'geometry']
+    output_gdf = output_gdf[['taz', 'mean', 'std', 'count', 'sourceid', 'dstid', 'mean_travel_time', 'standard_deviation_travel_time', 'geometry']]
+    output_gdf.columns = ['taz', 'sim_mean', 'sim_std', 'sim_count', 'sourceid', 'dstid', 'uber_mean', 'uber_std', 'geometry']
+    output_gdf['time_diff'] = output_gdf['sim_mean'] - output_gdf['uber_mean']
+    output_gdf['var_diff'] = np.sqrt(output_gdf['sim_std']**2/output_gdf['sim_count'] - output_gdf['uber_std']**2/output_gdf['sim_count'])
+    #print(output_gdf.iloc[1])
+    #sys.exit(0)
     print('output day {}, hour {}, node {}'.format(day, hour, node_osmid))
     output_gdf.to_file(absolute_path+'/../4_validation/output/uber_benchmark_DY{}_HR{}_node{}.json'.format(day, hour, node_osmid), driver='GeoJSON')
 

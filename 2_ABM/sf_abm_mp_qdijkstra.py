@@ -100,7 +100,7 @@ def update_graph(edge_volume, network_attr_df, day, hour, incre_id):
     network_attr_df['cum_flow'] += network_attr_df['flow'] ### update the cumulative flow
     edge_update_df = network_attr_df.loc[network_attr_df['flow']>0].copy().reset_index() ### extract rows that are actually being used in the current increment
     #edge_update_df['t_new'] = edge_update_df.apply(lambda row: row['fft']*(1.2+0.78*(row['cum_flow']/row['capacity'])**4) , axis=1)  ### get the travel time based on cumulative flow in the time step, the new time for the next iteration
-    edge_update_df['t_new'] = edge_update_df['fft'].values*(1.2+0.78*(edge_update_df['cum_flow'].values/edge_update_df['capacity'].values)**4)
+    edge_update_df['t_new'] = edge_update_df['fft']*(1.5 + 1.5*0.6*(edge_update_df['cum_flow']/edge_update_df['capacity'])**3)
 
     for row in edge_update_df.itertuples():
         g.update_edge(getattr(row,'start_mtx'), getattr(row,'end_mtx'), c_double(getattr(row,'t_new')))
@@ -145,7 +145,6 @@ def main():
 
     ### Read in the edge attribute for volume delay calculation later
     network_attr_df = pd.read_csv(absolute_path+'/../0_network/data/sf/network_attributes.csv')
-    network_attr_df['fft'] = network_attr_df['sec_length']/network_attr_df['maxmph']*2.23694 ### mph to m/s
     network_attr_df = network_attr_df.drop(columns=['start', 'end'])
 
     ### Prepare to split the hourly OD into increments
