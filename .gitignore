@@ -19,6 +19,9 @@ figures/private/
 2_ABM/output_time
 3_visualization
 4_validation/uber_movement
+4_validation/input
+4_validation/output
+4_validation/figures
 London_SSSP/
 SF_SSSP/
 **/*.xml

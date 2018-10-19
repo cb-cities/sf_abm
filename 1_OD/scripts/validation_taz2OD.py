@@ -31,19 +31,25 @@ def find_in_nodes(row, points, nodes_df):
 def uber_taz_nodes():
     ### Find corresponding nodes for each TAZ
     ### Input 1: TAZ polyline
-    taz_gdf = gpd.read_file(absolute_path+'/../../4_validation/uber_movements/san_francisco_taz.json')
+    taz_gdf = gpd.read_file(absolute_path+'/../../4_validation/uber_movement/san_francisco_taz.json')
     taz_gdf = taz_gdf.to_crs({'init': 'epsg:4326'})
+    taz_gdf = taz_gdf[['TAZ', 'MOVEMENT_ID', 'geometry']]
 
     ### Input 2: OSM nodes coordinate
     nodes_dict = json.load(open(absolute_path+'/../../0_network/data/sf/nodes.json'))
     nodes_df = pd.DataFrame.from_dict(nodes_dict, orient='index', columns=['lat', 'lon']).reset_index()
     points = nodes_df[['lon', 'lat']].values
     taz_gdf['in_nodes'] = taz_gdf.apply(lambda row: find_in_nodes(row, points, nodes_df), axis=1)
-    taz_nodes_dict = {getattr(row, 'TAZ'): getattr(row, 'in_nodes') for row in taz_gdf.itertuples() if len(getattr(row, 'in_nodes'))>0}
-    
-    ### [{'taz': 1, 'in_nodes': '[...]''}, ...]
-    with open(absolute_path+'/../../4_validation/uber_movements/uber_taz_nodes.json', 'w') as outfile:
-        json.dump(taz_nodes_dict, outfile, indent=2)
+    #taz_nodes_dict = {getattr(row, 'TAZ'): getattr(row, 'in_nodes') for row in taz_gdf.itertuples() if len(getattr(row, 'in_nodes'))>0}
+    taz_df_stack = taz_gdf.set_index(['TAZ', 'MOVEMENT_ID'])['in_nodes'].apply(pd.Series).stack().reset_index()
+    taz_df_stack.columns = ['taz', 'movement_id', 'node_num', 'node_osmid']
+    taz_df_stack = taz_df_stack[['taz', 'movement_id', 'node_osmid']]
+    print(taz_df_stack.shape)
+    taz_df_stack = taz_df_stack.dropna(subset=['node_osmid'])
+    print(taz_df_stack.shape)
+    print(taz_df_stack.head())
+
+    taz_df_stack.to_csv(absolute_path+'/../../4_validation/input/uber_taz_nodes.csv', index=False)
 
 if __name__ == '__main__':
 

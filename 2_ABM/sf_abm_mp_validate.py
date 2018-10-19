@@ -12,6 +12,7 @@ import warnings
 import pandas as pd 
 from ctypes import *
 import random 
+import scipy.io as sio 
 
 absolute_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, absolute_path+'/../')
@@ -32,7 +33,18 @@ def map_travel_time(origin):
         destin_mtx = destin+1
         sp_dist.append(sp.distance(destin_mtx))
 
-    return sp_dist
+    sp_dist_df = pd.DataFrame({'destin_graphid': list(range(simulation_info['node_count'])), 'destin_dist': sp_dist})
+    sp_dist_df = sp_dist_df.loc[sp_dist_df['destin_dist']<10e5]
+    sp_dist_df = pd.merge(sp_dist_df, taz_nodes_df, how='left', left_on='destin_graphid', right_on='node_graphid')
+    taz_dist_df = sp_dist_df.groupby(['taz', 'movement_id'])['destin_dist'].agg([np.mean, np.std]).reset_index()
+    #print(sp_dist_df_grp.head())
+
+    origin_movement_id = int(taz_nodes_df.loc[taz_nodes_df['node_graphid']==origin, 'movement_id'])
+    #print(origin_movement_id)
+    taz_dist_df = pd.merge(taz_dist_df, benchmark_df[benchmark_df['sourceid']==origin_movement_id].reset_index(), how='left', left_on='movement_id', right_on='dstid')
+    print(taz_dist_df.iloc[0])
+
+    return origin, sp_dist
 
 
 def reduce_edge_flow_pd(L, day, hour, incre_id):
@@ -58,17 +70,17 @@ def reduce_edge_flow_pd(L, day, hour, incre_id):
     
     return df_L_flow
 
-def map_reduce_uber_movements(day, hour, node_list):
+def map_reduce_uber_movements(day, hour):
     ### One time step of ABM simulation
     
     logger = logging.getLogger('map_reduce')
 
     ### Build a pool
-    process_count = 2
+    process_count = 4
     pool = Pool(processes=process_count)
 
     ### Find shortest pathes
-    unique_origin = node_list[0:10]
+    unique_origin = sample_taz_nodes_df['node_graphid'].tolist()[0:10]
     t_pool_0 = time.time()
     res = pool.imap_unordered(map_travel_time, unique_origin)
 
@@ -78,12 +90,10 @@ def map_reduce_uber_movements(day, hour, node_list):
     t_pool_1 = time.time()
 
     ### Collapse into edge total population dictionary
-    print(type(res))
-    dist_list = list(res)
-    print(dist_list[1][0])
+    origin_list, dist_list = zip(*res)
+    print(len(origin_list), len(dist_list))
+    #print(origin_list[0:10])
     sys.exit(0)
-
-    logger.info('DY{}_HR{} INC {}: {} O --> {} D found, dijkstra pool {} sec on {} processes'.format(day, hour, incre_id, unique_origin, sum(destination_counts), t_pool_1 - t_pool_0, process_count))
 
     #edge_volume = reduce_edge_flow(edge_flow_tuples, day, hour)
     edge_volume = reduce_edge_flow_pd(edge_flow_tuples, day, hour, incre_id)
@@ -103,31 +113,39 @@ def main():
     ### Initialising a global variable to represent the network
     global g
     global simulation_info
+    origina_g = sio.mmread(absolute_path+'/../0_network/data/sf/network_sparse.mtx')
+    simulation_info = {'node_count': origina_g.shape[0]}
 
     ### Read in the {TAZ: nodes} dictionary
-    taz_nodes_dict = json.load(open(absolute_path+'/../4_validation/uber_movement/uber_taz_nodes.json'))
+    global taz_nodes_df
+    global sample_taz_nodes_df
+    taz_nodes_df = pd.read_csv(absolute_path+'/../4_validation/input/uber_taz_nodes.csv')
     node_osmid2graphid_dict = json.load(open(absolute_path+'/../0_network/data/sf/node_osmid2graphid.json'))
-    simulation_info = {'node_count': len(node_osmid2graphid_dict)}
+    taz_nodes_df['node_graphid'] = taz_nodes_df.apply(lambda row: node_osmid2graphid_dict[str(row['node_osmid'])], axis=1)
+    print(taz_nodes_df.shape)
+    print(taz_nodes_df.head())
+    sample_taz_nodes_df = taz_nodes_df.sample(frac=1).reset_index(drop=True).groupby('taz').head(1).reset_index(drop=True).sort_values(by='taz').reset_index(drop=True)
+    print(sample_taz_nodes_df.shape)
+    print(sample_taz_nodes_df.head())
+
+    ### Read in benchmark data
+    uber_df = pd.read_csv(absolute_path+'/../4_validation/uber_movement/san_francisco-taz-2016-4-OnlyWeekdays-hourlyAggregate.csv')
+    uber_df = uber_df[['sourceid', 'dstid', 'hod', 'mean_travel_time', 'standard_deviation_travel_time']]
+    global benchmark_df
 
     ### Loop through days and hours
     for day in [0]:
         for hour in range(3, 4):
+            ### In each hour, there are hundreds of ODSPs (starting from a few nodes per TAZ) to parallel
 
             logger.info('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()
 
-            ### Read in the graph output from ABM
+            ### Read in the hourly graph output from ABM
             g = interface.readgraph(bytes(absolute_path+'/output/network_DY{}_HR{}.mtx'.format(day, hour), encoding='utf-8'))
+            benchmark_df = uber_df.loc[uber_df['hod']==hour].reset_index()
 
-            sample_node_list = []
-            for taz, taz_nodes in taz_nodes_dict.items():
-                try:
-                    taz_sample_nodes = random.sample(taz_nodes, min(2, len(taz_nodes)))
-                except ValueError:
-                    print(taz)
-                taz_sample_nodes_graph_id = [node_osmid2graphid_dict[sample_node] for sample_node in taz_sample_nodes]
-                sample_node_list += taz_sample_nodes_graph_id
-            map_reduce_uber_movements(day, hour, sample_node_list)
+            map_reduce_uber_movements(day, hour)
             sys.exit(0)
 
             t_hour_1 = time.time()
