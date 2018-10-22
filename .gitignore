@@ -2,6 +2,7 @@ sp/
 figures/private/
 0_network/data/sf_old/
 0_network/data/sf_slower
+0_network/data/sf_osmnx
 0_network/data/London_Directed/
 0_network/data/sf/target.osm
 0_network/data/sf/*.json
