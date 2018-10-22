@@ -2,6 +2,7 @@ sp/
 figures/private/
 0_network/data/sf_old/
 0_network/data/sf_slower
+0_network/data/sf_osmnx
 0_network/data/London_Directed/
 0_network/data/sf/target.osm
 0_network/data/sf/*.json
@@ -19,7 +20,10 @@ figures/private/
 2_ABM/output_incre
 2_ABM/output_time
 3_visualization
-sf_abm_mp_profile.txt
+4_validation/uber_movement
+4_validation/input
+4_validation/output
+4_validation/figures
 London_SSSP/
 SF_SSSP/
 **/*.xml

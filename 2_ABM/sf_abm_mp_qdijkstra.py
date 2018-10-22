@@ -99,7 +99,9 @@ def update_graph(edge_volume, network_attr_df, day, hour, incre_id):
     network_attr_df = network_attr_df.fillna(value={'flow': 0}) ### fill flow for unused edges as 0
     network_attr_df['cum_flow'] += network_attr_df['flow'] ### update the cumulative flow
     edge_update_df = network_attr_df.loc[network_attr_df['flow']>0].copy().reset_index() ### extract rows that are actually being used in the current increment
-    edge_update_df['t_new'] = edge_update_df['fft'].values*(1.2+0.78*(edge_update_df['cum_flow'].values/edge_update_df['capacity'].values)**4)
+
+    #edge_update_df['t_new'] = edge_update_df.apply(lambda row: row['fft']*(1.2+0.78*(row['cum_flow']/row['capacity'])**4) , axis=1)  ### get the travel time based on cumulative flow in the time step, the new time for the next iteration
+    edge_update_df['t_new'] = edge_update_df['fft']*(1.5 + 1.5*1.6*(edge_update_df['cum_flow']/edge_update_df['capacity'])**3)
 
     for row in edge_update_df.itertuples():
         g.update_edge(getattr(row,'start_mtx'), getattr(row,'end_mtx'), c_double(getattr(row,'t_new')))
@@ -134,17 +136,16 @@ def main():
     logging.basicConfig(filename=absolute_path+'/sf_abm_mp.log', level=logging.INFO)
     logger = logging.getLogger('main')
     logger.info('{} \n'.format(datetime.datetime.now()))
-    logger.info('scaled and buffered OD generation')
+    logger.info('slower BPR')
 
     t_main_0 = time.time()
 
     ### Read in the initial network and make it a global variable
     global g
-    g = interface.readgraph(bytes(absolute_path+'/../0_network/data/sf/network_sparse.mtx', encoding='utf-8'))
+    g = interface.readgraph(bytes(absolute_path+'/../0_network/data/sf_slower/network_sparse.mtx', encoding='utf-8'))
 
     ### Read in the edge attribute for volume delay calculation later
-    network_attr_df = pd.read_csv(absolute_path+'/../0_network/data/sf/network_attributes.csv')
-    network_attr_df['fft'] = network_attr_df['sec_length']/network_attr_df['maxmph']*2.23694 ### mph to m/s
+    network_attr_df = pd.read_csv(absolute_path+'/../0_network/data/sf_slower/network_attributes.csv')
     network_attr_df = network_attr_df.drop(columns=['start', 'end'])
 
     ### Prepare to split the hourly OD into increments
@@ -155,7 +156,7 @@ def main():
 
     ### Loop through days and hours
     for day in [0]:
-        for hour in range(3, 27):
+        for hour in range(3, 26):
 
             logger.debug('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()
@@ -183,13 +184,13 @@ def main():
             t_hour_1 = time.time()
             logger.info('DY{}_HR{}: {} sec \n'.format(day, hour, t_hour_1-t_hour_0))
 
-            network_attr_df[['start_mtx', 'end_mtx', 'cum_flow']].to_csv(absolute_path+'/output/edge_flow_DY{}_HR{}.csv'.format(day, hour), index=False)
+            network_attr_df[['start_mtx', 'end_mtx', 'cum_flow']].to_csv(absolute_path+'/output/sf_slower/edge_flow_DY{}_HR{}.csv'.format(day, hour), index=False)
 
-            with open(absolute_path + '/output/travel_time_DY{}_HR{}.txt'.format(day, hour), 'w') as f:
+            with open(absolute_path + '/output/sf_slower/travel_time_DY{}_HR{}.txt'.format(day, hour), 'w') as f:
                 for travel_time_item in travel_time_list:
                     f.write("%s\n" % travel_time_item)
 
-            g.writegraph(bytes(absolute_path+'/output/network_DY{}_HR{}.mtx'.format(day, hour), encoding='utf-8'))
+            g.writegraph(bytes(absolute_path+'/output/sf_slower/network_DY{}_HR{}.mtx'.format(day, hour), encoding='utf-8'))
 
     t_main_1 = time.time()
     logger.info('total run time: {} sec \n\n\n\n\n'.format(t_main_1 - t_main_0))

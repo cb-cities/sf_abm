@@ -9,7 +9,7 @@ import os
 import pandas as pd 
 
 absolute_path = os.path.dirname(os.path.abspath(__file__))
-folder = 'sf'
+folder = 'sf_slower'
 
 ### Read the igraph object in
 sf_graph_file = absolute_path+'/../data/{}/network_graph.pkl'.format(folder)
@@ -32,12 +32,11 @@ print('Summary of the graph: \n', g.summary())
 # sys.exit(0)
 
 ### Create initial weight
-g.es['fft'] = np.array(g.es['sec_length'], dtype=np.float)/np.array(g.es['maxmph'], dtype=np.float)*2.23694
+g.es['fft'] = np.array(g.es['sec_length'], dtype=np.float)/np.array(g.es['maxmph'], dtype=np.float)*2.23694 * 1.3
 fft_array = np.array(g.es['fft'], dtype=np.float)
 capacity_array = np.array(g.es['capacity'], dtype=np.float)
 ### 2.23694 is to convert mph to m/s;
-### the free flow time should still be calibrated rather than equal to the time at speed limit, check coefficient 1.2 in defining ['weight']
-g.es['weight'] = fft_array * 1.2 ### According to (Colak, 2015), for SF, even vol=0, t=1.2*fft, maybe traffic light? 1.2 is f_p - k_bay
+g.es['weight'] = fft_array * 1.5
 
 
 ### Convert to mtx
@@ -68,7 +67,13 @@ sio.mmwrite(absolute_path+'/../data/{}/network_sparse.mtx'.format(folder), g_coo
 
 
 ### Additional Attributes from the graph
-network_attributes_df = pd.DataFrame({'start': row, 'end': col, 'sec_length': g.es['sec_length'], 'maxmph': g.es['maxmph'], 'capacity': g.es['capacity']})
+network_attributes_df = pd.DataFrame({
+	'start': row, 
+	'end': col, 
+	'sec_length': g.es['sec_length'], 
+	'maxmph': g.es['maxmph'], 
+	'capacity': g.es['capacity'],
+	'fft': g.es['fft']})
 network_attributes_df['start_mtx'] = network_attributes_df['start'] + 1
 network_attributes_df['end_mtx'] = network_attributes_df['end'] + 1
 network_attributes_df.to_csv(absolute_path+'/../data/{}/network_attributes.csv'.format(folder))
