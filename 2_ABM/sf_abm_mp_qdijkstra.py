@@ -17,12 +17,15 @@ sys.path.insert(0, absolute_path+'/../')
 #sys.path.insert(0, '/Users/bz247/')
 from sp import interface 
 
+folder = 'sf_osmnx'
+scenario = 'original'
+
 def map_edge_flow(row):
     ### Find shortest path for each unique origin --> one destination
     ### In the future change to multiple destinations
     
-    origin_ID = int(OD_incre['graph_O'].iloc[row]) + 1 ### origin's ID to graph.mtx node ID
-    destin_ID = int(OD_incre['graph_D'].iloc[row]) + 1 ### destination's ID to graph.mtx node ID
+    origin_ID = int(OD_incre['node_id_O'].iloc[row]) + 1 ### origin's ID to graph.mtx node ID
+    destin_ID = int(OD_incre['node_id_D'].iloc[row]) + 1 ### destination's ID to graph.mtx node ID
     traffic_flow = int(OD_incre['flow'].iloc[row]) ### number of travellers with this OD
 
     results = []
@@ -42,20 +45,10 @@ def reduce_edge_flow_pd(L, day, hour, incre_id):
     logger = logging.getLogger('reduce')
     t0 = time.time()
     flat_L = [edge_pop_tuple for sublist in L for edge_pop_tuple in sublist]
-    df_L = pd.DataFrame(flat_L, columns=['start_mtx', 'end_mtx', 'flow'])
-    df_L_flow = df_L.groupby(['start_mtx', 'end_mtx']).sum().reset_index()
+    df_L = pd.DataFrame(flat_L, columns=['sp_id_u', 'sp_id_v', 'flow'])
+    df_L_flow = df_L.groupby(['sp_id_u', 'sp_id_v']).sum().reset_index()
     t1 = time.time()
     logger.debug('DY{}_HR{} INC {}: reduce find {} edges, {} sec w/ pd.groupby'.format(day, hour, incre_id, df_L_flow.shape[0], t1-t0))
-
-    # print(df_L_flow.head())
-    #        start_mtx    end_mtx  flow
-    # 0      1      35200    29
-    # 1      1      35201    24
-    # 2      2      38960     1
-    # 3      3      23600     1
-    # 4      3      36959     1
-    
-    #df_L_pop.to_csv('edge_volume_pq.csv')
     
     return df_L_flow
 
@@ -95,16 +88,14 @@ def update_graph(edge_volume, network_attr_df, day, hour, incre_id):
     t_update_0 = time.time()
 
     ### first update the cumulative flow in the current time step
-    network_attr_df = pd.merge(network_attr_df, edge_volume, how='left', on=['start_mtx', 'end_mtx'])
+    network_attr_df = pd.merge(network_attr_df, edge_volume, how='left', on=['sp_id_u', 'sp_id_v'])
     network_attr_df = network_attr_df.fillna(value={'flow': 0}) ### fill flow for unused edges as 0
-    network_attr_df['cum_flow'] += network_attr_df['flow'] ### update the cumulative flow
+    network_attr_df['hour_flow'] += network_attr_df['flow'] ### update the cumulative flow
     edge_update_df = network_attr_df.loc[network_attr_df['flow']>0].copy().reset_index() ### extract rows that are actually being used in the current increment
-
-    #edge_update_df['t_new'] = edge_update_df.apply(lambda row: row['fft']*(1.2+0.78*(row['cum_flow']/row['capacity'])**4) , axis=1)  ### get the travel time based on cumulative flow in the time step, the new time for the next iteration
-    edge_update_df['t_new'] = edge_update_df['fft']*(1.5 + 1.5*1.6*(edge_update_df['cum_flow']/edge_update_df['capacity'])**3)
+    edge_update_df['t_new'] = edge_update_df['fft']*(1.3 + 1.3*0.6*(edge_update_df['hour_flow']/edge_update_df['capacity'])**3)
 
     for row in edge_update_df.itertuples():
-        g.update_edge(getattr(row,'start_mtx'), getattr(row,'end_mtx'), c_double(getattr(row,'t_new')))
+        g.update_edge(getattr(row,'sp_id_u'), getattr(row,'sp_id_v'), c_double(getattr(row,'t_new')))
 
     t_update_1 = time.time()
     logger.info('DY{}_HR{} INC {}: max volume {}, max_delay {}, updating time {}'.format(day, hour, incre_id, max(edge_update_df['flow']), max(edge_update_df['t_new']/edge_update_df['fft']), t_update_1-t_update_0))
@@ -119,11 +110,12 @@ def read_OD(day, hour):
     logger = logging.getLogger('read_OD')
     t_OD_0 = time.time()
 
-    OD = pd.read_csv(absolute_path+'/../1_OD/output/output_scaled_buffered/DY{}/SF_OD_DY{}_HR{}.csv'.format(day, day, hour))
-    node_osmid2graphid_dict = json.load(open(absolute_path+'/../0_network/data/sf/node_osmid2graphid.json'))
-    OD['graph_O'] = OD.apply(lambda row: node_osmid2graphid_dict[str(row['O'])], axis=1)
-    OD['graph_D'] = OD.apply(lambda row: node_osmid2graphid_dict[str(row['D'])], axis=1)
-    OD = OD[['graph_O', 'graph_D', 'flow']]
+    OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/DY{}/SF_OD_DY{}_HR{}.csv'.format(folder, day, day, hour))
+    nodes_df = pd.read_csv(absolute_path+'/../0_network/data/{}/sf_simplified_nodes.csv'.format(folder))
+    nodes_df['node_id'] = range(nodes_df.shape[0])
+    OD = pd.merge(OD, nodes_df[['node_id', 'osmid']], how='left', left_on='O', right_on='osmid')
+    OD = pd.merge(OD, nodes_df[['node_id', 'osmid']], how='left', left_on='D', right_on='osmid', suffixes=['_O', '_D'])
+    OD = OD[['node_id_O', 'node_id_D', 'flow']]
     OD = OD.sample(frac=1).reset_index(drop=True) ### randomly shuffle rows
 
     t_OD_1 = time.time()
@@ -136,17 +128,17 @@ def main():
     logging.basicConfig(filename=absolute_path+'/sf_abm_mp.log', level=logging.INFO)
     logger = logging.getLogger('main')
     logger.info('{} \n'.format(datetime.datetime.now()))
-    logger.info('slower BPR')
+    logger.info('OSMnx network')
 
     t_main_0 = time.time()
 
     ### Read in the initial network and make it a global variable
     global g
-    g = interface.readgraph(bytes(absolute_path+'/../0_network/data/sf_slower/network_sparse.mtx', encoding='utf-8'))
+    g = interface.readgraph(bytes(absolute_path+'/../0_network/data/{}/{}/network_sparse.mtx'.format(folder, scenario), encoding='utf-8'))
 
     ### Read in the edge attribute for volume delay calculation later
-    network_attr_df = pd.read_csv(absolute_path+'/../0_network/data/sf_slower/network_attributes.csv')
-    network_attr_df = network_attr_df.drop(columns=['start', 'end'])
+    network_attr_df = pd.read_csv(absolute_path+'/../0_network/data/{}/{}/network_attributes.csv'.format(folder, scenario))
+    network_attr_df = network_attr_df[['length', 'capacity', 'fft', 'sp_id_u', 'sp_id_v']]
 
     ### Prepare to split the hourly OD into increments
     global OD_incre
@@ -164,7 +156,7 @@ def main():
             OD = read_OD(day, hour)
             OD_msk = np.random.choice(incre_id_list, size=OD.shape[0], p=incre_p_list)
 
-            network_attr_df['cum_flow'] = 0 ### Reset the hourly cumulative traffic flow to zero at the beginning of each time step. This cumulates during the incremental assignment.
+            network_attr_df['hour_flow'] = 0 ### Reset the hourly cumulative traffic flow to zero at the beginning of each time step. This cumulates during the incremental assignment.
 
             travel_time_list = [] ### A list holding all the travel times
 
@@ -184,13 +176,13 @@ def main():
             t_hour_1 = time.time()
             logger.info('DY{}_HR{}: {} sec \n'.format(day, hour, t_hour_1-t_hour_0))
 
-            network_attr_df[['start_mtx', 'end_mtx', 'cum_flow']].to_csv(absolute_path+'/output/sf_slower/edge_flow_DY{}_HR{}.csv'.format(day, hour), index=False)
+            network_attr_df[['sp_id_u', 'sp_id_v', 'hour_flow']].to_csv(absolute_path+'/output/edge_flow_DY{}_HR{}.csv'.format(day, hour), index=False)
 
-            with open(absolute_path + '/output/sf_slower/travel_time_DY{}_HR{}.txt'.format(day, hour), 'w') as f:
+            with open(absolute_path + '/output/travel_time_DY{}_HR{}.txt'.format(day, hour), 'w') as f:
                 for travel_time_item in travel_time_list:
                     f.write("%s\n" % travel_time_item)
 
-            g.writegraph(bytes(absolute_path+'/output/sf_slower/network_DY{}_HR{}.mtx'.format(day, hour), encoding='utf-8'))
+            g.writegraph(bytes(absolute_path+'/output/network_DY{}_HR{}.mtx'.format(day, hour), encoding='utf-8'))
 
     t_main_1 = time.time()
     logger.info('total run time: {} sec \n\n\n\n\n'.format(t_main_1 - t_main_0))
