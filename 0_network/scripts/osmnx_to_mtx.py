@@ -65,7 +65,7 @@ def add_capacity(maxspeed_array, lanes_array):
 edges_data['capacity'] = add_capacity(edges_data['maxspeed_num'], edges_data['lanes_num'])
 
 ### Create initial weight
-edges_data['fft'] = edges_data['length']/edges_data['maxspeed_num']*2.23694 + edges_data['signals']*15
+edges_data['fft'] = edges_data['length']/edges_data['maxspeed_num']*2.23694 + edges_data['signals']*20
 ### 2.23694 is to convert mph to m/s;
 edges_data['weight'] = edges_data['fft'] * 1.3 ### (Colak, 2015)
 

@@ -13,6 +13,7 @@ import os
 import datetime
 
 absolute_path = os.path.dirname(os.path.abspath(__file__))
+folder = 'sf_osmnx'
 
 ################################################################
 ### Estabilish relationship between OSM/graph nodes and TAZs ###
@@ -26,7 +27,7 @@ def find_in_nodes(row, points, nodes_df):
     else:
         path = mpltPath.Path(list(zip(*row['geometry'].exterior.coords.xy)))
         in_index = path.contains_points(points)
-        return nodes_df['index'].loc[in_index].tolist()
+        return nodes_df['osmid'].loc[in_index].tolist()
 
 def uber_taz_nodes():
     ### Find corresponding nodes for each TAZ
@@ -36,9 +37,8 @@ def uber_taz_nodes():
     taz_gdf = taz_gdf[['TAZ', 'MOVEMENT_ID', 'geometry']]
 
     ### Input 2: OSM nodes coordinate
-    nodes_dict = json.load(open(absolute_path+'/../../0_network/data/sf/nodes.json'))
-    nodes_df = pd.DataFrame.from_dict(nodes_dict, orient='index', columns=['lat', 'lon']).reset_index()
-    points = nodes_df[['lon', 'lat']].values
+    nodes_df = pd.read_csv(absolute_path+'/../../0_network/data/{}/sf_simplified_nodes.csv'.format(folder))
+    points = nodes_df[['x', 'y']].values
     taz_gdf['in_nodes'] = taz_gdf.apply(lambda row: find_in_nodes(row, points, nodes_df), axis=1)
     #taz_nodes_dict = {getattr(row, 'TAZ'): getattr(row, 'in_nodes') for row in taz_gdf.itertuples() if len(getattr(row, 'in_nodes'))>0}
     taz_df_stack = taz_gdf.set_index(['TAZ', 'MOVEMENT_ID'])['in_nodes'].apply(pd.Series).stack().reset_index()
@@ -49,7 +49,7 @@ def uber_taz_nodes():
     print(taz_df_stack.shape)
     print(taz_df_stack.head())
 
-    taz_df_stack.to_csv(absolute_path+'/../../4_validation/input/uber_taz_nodes.csv', index=False)
+    taz_df_stack.to_csv(absolute_path+'/../../4_validation/input/{}/uber_taz_nodes.csv'.format(folder), index=False)
 
 if __name__ == '__main__':
 

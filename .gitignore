@@ -1,7 +1,6 @@
 sp/
 figures/private/
-0_network/data/sf_old/
-0_network/data/sf_slower
+0_network/data/sf_overpass
 0_network/data/sf_osmnx
 0_network/data/London_Directed/
 0_network/data/sf/target.osm
@@ -24,6 +23,8 @@ figures/private/
 4_validation/input
 4_validation/output
 4_validation/figures
+4_validation/mtc_travelmodelone/avgload5period
+4_validation/mtc_travelmodelone/*.csv
 London_SSSP/
 SF_SSSP/
 **/*.xml

@@ -6,6 +6,7 @@ import numpy as np
 import re
 import sys
 import random
+import pandas as pd 
 
 # user defined module
 import haversine
@@ -141,6 +142,23 @@ def create_way(w, intersection_nodes, oneway_str, reverse):
         w_capacity = (1700+10*w_speed_limit) * w_lanes
 
     # return a cleaned way element
+    split_way = []
+    for segment in range(len(nodes_in_way)-1):
+        way = {
+            'osmid': w['id'],
+            'oneway': oneway_str, 
+            'type': w['tags']['highway'], 
+            'lanes': w_lanes,
+            'maxmph': w_speed_limit,
+            'capacity': w_capacity,
+            'start_node': nodes_in_way[segment], 
+            'end_node': nodes_in_way[segment+1],
+            'length': length_in_way[segment],
+            'all_nodes': w['nodes'][nid_in_way[segment]:nid_in_way[segment+1]+1]
+            }
+        split_way.append(way)
+    return split_way, nodes_in_way
+
     way = {
         'osmid': w['id'], 
         'oneway': oneway_str, 
@@ -149,12 +167,13 @@ def create_way(w, intersection_nodes, oneway_str, reverse):
         'maxmph': w_speed_limit,
         'capacity': w_capacity,
         'nodes': nodes_in_way, 
-        'length': length_in_way}
+        'length': length_in_way,
+        'all_nodes': w['nodes']}
 
     return way, nodes_in_way
 
 
-def osm_to_json(output_geojson=False, folder = 'sf'):
+def osm_to_json(output_csv=False, folder = 'sf'):
     ### Clean the OSM data by removing curve nodes, separate into nodes and ways, output .json (for further processing) and .geosjon (for visualisation).
 
     # Load OSM data as downloaded from overpass
@@ -164,14 +183,21 @@ def osm_to_json(output_geojson=False, folder = 'sf'):
     print('length of the OSM data: ', len(osm_data))
 
     # Based on the OSM data, make a dictionary of node element: all_nodes = {osm_node_id:(lat,lon), ...}
-    all_nodes = {n['id']: (n['lat'], n['lon']) for n in osm_data if n['type']=='node'}
+    # also include any highway tags, such as traffic signals
+    all_nodes = {}
+    for n in osm_data:
+        if n['type']=='node':
+            try:
+                all_nodes[n['id']] = (n['lat'], n['lon'], n['tags']['highway'])
+            except KeyError:
+                all_nodes[n['id']] = (n['lat'], n['lon'], '')
     print('it includes {} nodes'.format(len(all_nodes)))
-    random_key = random.choice(list(all_nodes))
-    print('example, {}: {}'.format(random_key, all_nodes[random_key]))
+    #random_key = random.choice(list(all_nodes))
+    #print('example, {}: {}'.format(random_key, all_nodes[random_key]))
 
     # Make a list of way elements
     all_ways = [w_e for w_e in osm_data if w_e['type']=='way']
-    print('it includes {} nodes'.format(len(all_ways)))
+    print('it includes {} ways'.format(len(all_ways)))
     end_nodes_l = [] # list holding all end nodes of the way elements. All will be preserved.
     mid_nodes_l = [] # list holding all mid nodes of the way elements. Some will be discarded as curve nodes.
     ###################### lecture break ############################
@@ -206,76 +232,62 @@ def osm_to_json(output_geojson=False, folder = 'sf'):
     # In OSM, the following types of roads are one-way by default:
     drivable_oneway_default = ['motorway', 'motorway_link', 'motorway_junction', 'trunk', 'trunk_link']
     # These roads are two-way by default:
-    drivable_twoway_default = ['primary', 'primary_link', 'secondary', 'secondary_link', 'tertiary', 'tertiary_link', 'unclassified', 'unsurfaced', 'track', 'residential', 'living_street', 'service']
+    drivable_twoway_default = ['primary', 'primary_link', 'secondary', 'secondary_link', 'tertiary', 'tertiary_link', 'unclassified', 'unsurfaced', 'residential', 'living_street']
 
     ways_list = []
     nodes_in_ways_list = []
     for w in all_ways:
         if w['tags']['highway'] in drivable_oneway_default:
-            way, nodes_in_way = create_way(w, intersection_nodes, 'y', False)
-            ways_list.append(way)
+            split_way, nodes_in_way = create_way(w, intersection_nodes, 'y', False)
+            ways_list += split_way
             nodes_in_ways_list += nodes_in_way
         if w['tags']['highway'] in drivable_twoway_default:
             if ('oneway' in w['tags']) and (w['tags']['oneway'] in ['yes', 'true', '1']):
-                way, nodes_in_way = create_way(w, intersection_nodes, 'y', False)
-                ways_list.append(way)
+                split_way, nodes_in_way = create_way(w, intersection_nodes, 'y', False)
+                ways_list += split_way
                 nodes_in_ways_list += nodes_in_way
             elif ('oneway' in w['tags']) and w['tags']['oneway'] in ['reverse', '-1']:
-                way, nodes_in_way = create_way(w, intersection_nodes, 'y', True)
-                ways_list.append(way)
+                split_way, nodes_in_way = create_way(w, intersection_nodes, 'y', True)
+                ways_list += split_way
                 nodes_in_ways_list += nodes_in_way
             else:
-                way, nodes_in_way = create_way(w, intersection_nodes, 'nf', False) ### twoway and the forward lane direction
-                ways_list.append(way)
+                split_way, nodes_in_way = create_way(w, intersection_nodes, 'nf', False) ### twoway and the forward lane direction
+                ways_list += split_way
                 nodes_in_ways_list += nodes_in_way
-                way, nodes_in_way = create_way(w, intersection_nodes, 'nb', True) ### twoway and the reverse/backward lane direction
-                ways_list.append(way)
+                split_way, nodes_in_way = create_way(w, intersection_nodes, 'nb', True) ### twoway and the reverse/backward lane direction
+                ways_list += split_way
                 nodes_in_ways_list += nodes_in_way
 
-    with open(absolute_path+'/../data/{}/ways.json'.format(folder), 'w') as links_outfile:
-        json.dump(ways_list, links_outfile, indent=2)
+    print('number of ways after split: {}'.format(len(ways_list)))
+    # with open(absolute_path+'/../data/{}/ways.json'.format(folder), 'w') as links_outfile:
+    #     json.dump(ways_list, links_outfile, indent=2)
 
-    nodes_in_ways_set = set(nodes_in_ways_list)
-    nodes_in_links_dict = {n: all_nodes[n] for n in nodes_in_ways_set}
-    with open(absolute_path+'/../data/{}/nodes.json'.format(folder), 'w') as nodes_outfile:
-        json.dump(nodes_in_links_dict, nodes_outfile, indent=2)
+    # nodes_in_ways_set = set(nodes_in_ways_list)
+    # nodes_in_links_dict = {n: all_nodes[n] for n in nodes_in_ways_set}
+    # with open(absolute_path+'/../data/{}/nodes.json'.format(folder), 'w') as nodes_outfile:
+    #     json.dump(nodes_in_links_dict, nodes_outfile, indent=2)
 
-    if output_geojson:
-        nodes_feature_list = []
-        for k, v in nodes_in_links_dict.items():
-            node_feature = {
-                'type': 'Feature', 
-                'geometry': {'type': 'Point', 'coordinates': [v[1], v[0]]},
-                'properties': {'osmid': k}
-                }
-            nodes_feature_list.append(node_feature)
-        nodes_geojson = {'type': 'FeatureCollection', 'features': nodes_feature_list}
+    if output_csv:
+        nodes_in_ways_set = set(nodes_in_ways_list)
+        nodes_in_ways_df = pd.DataFrame([
+            (n, all_nodes[n][1], all_nodes[n][0], all_nodes[n][2]) 
+            for n in nodes_in_ways_set], columns=['osmid', 'lon', 'lat', 'signal'])
+        print(nodes_in_ways_df.head())
+        nodes_in_ways_df.to_csv(absolute_path+'/../data/{}/nodes.csv'.format(folder), index=False)
 
-        links_feature_list = []
-        for w in ways_list:
-            link_feature = {
-                'type': 'Feature', 
-                'geometry': {
-                    'type': 'LineString', 
-                    'coordinates': [[nodes_in_links_dict[n][1], nodes_in_links_dict[n][0]] for n in w['nodes']]
-                    },
-                'properties': {
-                    'osmid': w['osmid'],
-                    'type': w['type']
-                    }
-                }
-            links_feature_list.append(link_feature)
-        links_geojson = {'type': 'FeatureCollection', 'features': links_feature_list}
-
-        with open(absolute_path+'/../data/{}/converted_ways.geojson'.format(folder), 'w') as links_outfile:
-            json.dump(links_geojson, links_outfile, indent=2)
-
-        with open(absolute_path+'/../data/{}/convertd_nodes.geojson'.format(folder), 'w') as nodes_outfile:
-            json.dump(nodes_geojson, nodes_outfile, indent=2)
+        edge_id = 0
+        for way in ways_list:
+            way['edge_id'] = edge_id
+            edge_id += 1
+            way['geometry'] = 'LINESTRING ({})'.format(','.join(['{} {}'.format(all_nodes[n][1], all_nodes[n][0]) for n in way['all_nodes']]))
+            way.pop('all_nodes')
+        ways_df = pd.DataFrame(ways_list)
+        print(ways_df.iloc[0])
+        ways_df[['edge_id', 'osmid', 'start_node', 'end_node', 'type', 'length', 'lanes', 'oneway', 'maxmph', 'capacity', 'geometry']].to_csv(absolute_path+'/../data/{}/edges.csv'.format(folder), index=False)
 
 
 if __name__ == '__main__':
     #osm_to_geojson(folder = 'sf')
-    osm_to_json(output_geojson=False, folder = 'sf')
+    osm_to_json(output_csv=True, folder = 'sf_overpass')
 
 

@@ -188,7 +188,7 @@ if __name__ == '__main__':
     ### Based on the output of TAZ_nodes(), generate hourly node-level ODs by setting "day_of_week" and "hour".
     daily_demand = 0
 
-    for day_of_week in [0, 4]: ### 4 for Friday
+    for day_of_week in [1, 2, 3, 5, 6]: ### 4 for Friday
         for hour in range(3, 27): ### 24 hour-slices per day. Monday is 0 -- Sunday is 6. Hour is from 3am-26am(2am next day)
             hour_demand = TAZ_nodes_OD(day_of_week, hour)
             daily_demand += hour_demand
