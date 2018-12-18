@@ -17,7 +17,7 @@ sys.path.insert(0, absolute_path+'/../')
 #sys.path.insert(0, '/Users/bz247/')
 from sp import interface 
 
-folder = 'sf_osmnx'
+folder = 'sf_overpass'
 scenario = 'original'
 
 def map_edge_flow(row):
@@ -45,8 +45,8 @@ def reduce_edge_flow_pd(L, day, hour, incre_id):
     logger = logging.getLogger('reduce')
     t0 = time.time()
     flat_L = [edge_pop_tuple for sublist in L for edge_pop_tuple in sublist]
-    df_L = pd.DataFrame(flat_L, columns=['sp_id_u', 'sp_id_v', 'flow'])
-    df_L_flow = df_L.groupby(['sp_id_u', 'sp_id_v']).sum().reset_index()
+    df_L = pd.DataFrame(flat_L, columns=['start_sp', 'end_sp', 'flow'])
+    df_L_flow = df_L.groupby(['start_sp', 'end_sp']).sum().reset_index()
     t1 = time.time()
     logger.debug('DY{}_HR{} INC {}: reduce find {} edges, {} sec w/ pd.groupby'.format(day, hour, incre_id, df_L_flow.shape[0], t1-t0))
     
@@ -88,14 +88,14 @@ def update_graph(edge_volume, network_attr_df, day, hour, incre_id):
     t_update_0 = time.time()
 
     ### first update the cumulative flow in the current time step
-    network_attr_df = pd.merge(network_attr_df, edge_volume, how='left', on=['sp_id_u', 'sp_id_v'])
+    network_attr_df = pd.merge(network_attr_df, edge_volume, how='left', on=['start_sp', 'end_sp'])
     network_attr_df = network_attr_df.fillna(value={'flow': 0}) ### fill flow for unused edges as 0
     network_attr_df['hour_flow'] += network_attr_df['flow'] ### update the cumulative flow
     edge_update_df = network_attr_df.loc[network_attr_df['flow']>0].copy().reset_index() ### extract rows that are actually being used in the current increment
     edge_update_df['t_new'] = edge_update_df['fft']*(1.3 + 1.3*0.6*(edge_update_df['hour_flow']/edge_update_df['capacity'])**4)
 
     for row in edge_update_df.itertuples():
-        g.update_edge(getattr(row,'sp_id_u'), getattr(row,'sp_id_v'), c_double(getattr(row,'t_new')))
+        g.update_edge(getattr(row,'start_sp'), getattr(row,'end_sp'), c_double(getattr(row,'t_new')))
 
     t_update_1 = time.time()
     logger.info('DY{}_HR{} INC {}: max volume {}, max_delay {}, updating time {}'.format(day, hour, incre_id, max(edge_update_df['flow']), max(edge_update_df['t_new']/edge_update_df['fft']), t_update_1-t_update_0))
@@ -110,8 +110,9 @@ def read_OD(day, hour):
     logger = logging.getLogger('read_OD')
     t_OD_0 = time.time()
 
+    ### Change OD list from using osmid to sequential id. It is easier to find the shortest path based on sequential index.
     OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/DY{}/SF_OD_DY{}_HR{}.csv'.format(folder, day, day, hour))
-    nodes_df = pd.read_csv(absolute_path+'/../0_network/data/{}/sf_simplified_nodes.csv'.format(folder))
+    nodes_df = pd.read_csv(absolute_path+'/../0_network/data/{}/nodes.csv'.format(folder))
     nodes_df['node_id'] = range(nodes_df.shape[0])
     OD = pd.merge(OD, nodes_df[['node_id', 'osmid']], how='left', left_on='O', right_on='osmid')
     OD = pd.merge(OD, nodes_df[['node_id', 'osmid']], how='left', left_on='D', right_on='osmid', suffixes=['_O', '_D'])
@@ -128,7 +129,7 @@ def main():
     logging.basicConfig(filename=absolute_path+'/sf_abm_mp.log', level=logging.INFO)
     logger = logging.getLogger('main')
     logger.info('{} \n'.format(datetime.datetime.now()))
-    logger.info('OSMnx network')
+    logger.info('{} network'.format(folder))
 
     t_main_0 = time.time()
 
@@ -138,7 +139,7 @@ def main():
 
     ### Read in the edge attribute for volume delay calculation later
     network_attr_df = pd.read_csv(absolute_path+'/../0_network/data/{}/{}/network_attributes.csv'.format(folder, scenario))
-    network_attr_df = network_attr_df[['length', 'capacity', 'fft', 'sp_id_u', 'sp_id_v']]
+    network_attr_df = network_attr_df[['length', 'capacity', 'fft', 'start_sp', 'end_sp']]
 
     ### Prepare to split the hourly OD into increments
     global OD_incre
@@ -176,7 +177,7 @@ def main():
             t_hour_1 = time.time()
             logger.info('DY{}_HR{}: {} sec \n'.format(day, hour, t_hour_1-t_hour_0))
 
-            network_attr_df[['sp_id_u', 'sp_id_v', 'hour_flow']].to_csv(absolute_path+'/output/DY{}/edge_flow_DY{}_HR{}.csv'.format(day, day, hour), index=False)
+            network_attr_df[['start_sp', 'end_sp', 'hour_flow']].to_csv(absolute_path+'/output/DY{}/edge_flow_DY{}_HR{}.csv'.format(day, day, hour), index=False)
 
             with open(absolute_path + '/output/DY{}/travel_time_DY{}_HR{}.txt'.format(day, day, hour), 'w') as f:
                 for travel_time_item in travel_time_list:
