@@ -15,7 +15,7 @@ import datetime
 from math import radians
 
 absolute_path = os.path.dirname(os.path.abspath(__file__))
-folder = 'sf_osmnx'
+folder = 'sf_overpass'
 
 ################################################################
 ### Estabilish relationship between OSM/graph nodes and TAZs ###
@@ -47,6 +47,7 @@ def haversine(lat1, lon1, lat2, lon2):
     return c * r * 1000
 
 def TAZ_pair_distance(taz_gdf):
+    ### Limit TAZ-level OD to those TAZs whose centroids are 2.5km away to avoid walking.
     taz_gdf['lon'] = taz_gdf.geometry.centroid.x
     taz_gdf['lat'] = taz_gdf.geometry.centroid.y
     taz_gdf['lon'] = taz_gdf['lon'].map(radians)
@@ -57,19 +58,19 @@ def TAZ_pair_distance(taz_gdf):
     taz_pair_df = pd.merge(taz_pair_df, taz_gdf[['TAZ', 'lon', 'lat']], how='left', left_on='TAZ_small', right_on='TAZ')
     taz_pair_df = pd.merge(taz_pair_df, taz_gdf[['TAZ', 'lon', 'lat']], how='left', left_on='TAZ_big', right_on='TAZ', suffixes=['_1', '_2'])
     taz_pair_df['distance'] = haversine(taz_pair_df['lat_1'], taz_pair_df['lon_1'], taz_pair_df['lat_2'], taz_pair_df['lon_2'])
-    taz_pair_df[['TAZ_small', 'TAZ_big', 'distance']].to_csv(absolute_path+'/../output/TAZ_pair_distance.csv', index=False)
+    taz_pair_df[['TAZ_small', 'TAZ_big', 'distance']].to_csv(absolute_path+'/../output/{}/TAZ_pair_distance.csv'.format(folder), index=False)
 
 def TAZ_nodes():
     ### Find corresponding nodes for each TAZ
     ### Input 1: TAZ polyline
     taz_gdf = gpd.read_file(absolute_path+'/../input/TAZ981/TAZ981.shp')
     taz_gdf = taz_gdf.to_crs({'init': 'epsg:4326'})
-    TAZ_pair_distance(taz_gdf) ### output a distance matrix between each TAZ pairs
+    #TAZ_pair_distance(taz_gdf) ### output a distance matrix between each TAZ pairs
     #sys.exit(0)
 
     ### Input 2: OSM nodes coordinate
-    nodes_df = pd.read_csv(absolute_path+'/../../0_network/data/sf_osmnx/sf_simplified_nodes.csv')
-    points = nodes_df[['x', 'y']].values
+    nodes_df = pd.read_csv(absolute_path+'/../../0_network/data/{}/nodes.csv'.format(folder))
+    points = nodes_df[['lon', 'lat']].values
     taz_gdf['in_nodes'] = taz_gdf.apply(lambda row: find_in_nodes(row, points, nodes_df), axis=1)
     taz_nodes_dict = {row['TAZ']:row['in_nodes'] for index, row in taz_gdf.iterrows()}
     
@@ -92,7 +93,7 @@ def TAZ_nodes_OD(day, hour, count=50000):
     ### 0. READING
     taz_travel_df = pd.read_csv(absolute_path+'/../input/TNC_pickups_dropoffs.csv') ### TNC ODs from each TAZ
     taz_scale_df = pd.read_csv(absolute_path+'/../input/TAZ_supervisorial.csv') ### Scaling factors for each TAZ
-    taz_pair_dist_df = pd.read_csv(absolute_path+'/../output/taz_pair_distance.csv') ### Centroid coordinates of each TAZ
+    taz_pair_dist_df = pd.read_csv(absolute_path+'/../output/{}/taz_pair_distance.csv'.format(folder)) ### Centroid coordinates of each TAZ
 
     ### 1. FILTERING to time of interest
     ### OD_df: pickups and dropoffs by TAZ from TNC study
@@ -177,7 +178,7 @@ def TAZ_nodes_OD(day, hour, count=50000):
 
 if __name__ == '__main__':
 
-    logging.basicConfig(filename=absolute_path+'/../output/OS_osmnx.log', level=logging.DEBUG)
+    logging.basicConfig(filename=absolute_path+'/../output/{}/OD.log'.format(folder), level=logging.DEBUG)
     logger = logging.getLogger('main')
     logger.info('{} \n'.format(datetime.datetime.now()))
 
@@ -188,7 +189,7 @@ if __name__ == '__main__':
     ### Based on the output of TAZ_nodes(), generate hourly node-level ODs by setting "day_of_week" and "hour".
     daily_demand = 0
 
-    for day_of_week in [1, 2, 3, 5, 6]: ### 4 for Friday
+    for day_of_week in [0, 1, 2, 3, 4, 5, 6]: ### 4 for Friday
         for hour in range(3, 27): ### 24 hour-slices per day. Monday is 0 -- Sunday is 6. Hour is from 3am-26am(2am next day)
             hour_demand = TAZ_nodes_OD(day_of_week, hour)
             daily_demand += hour_demand
