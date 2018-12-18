@@ -92,7 +92,7 @@ def update_graph(edge_volume, network_attr_df, day, hour, incre_id):
     network_attr_df = network_attr_df.fillna(value={'flow': 0}) ### fill flow for unused edges as 0
     network_attr_df['hour_flow'] += network_attr_df['flow'] ### update the cumulative flow
     edge_update_df = network_attr_df.loc[network_attr_df['flow']>0].copy().reset_index() ### extract rows that are actually being used in the current increment
-    edge_update_df['t_new'] = edge_update_df['fft']*(1.3 + 1.3*0.6*(edge_update_df['hour_flow']/edge_update_df['capacity'])**3)
+    edge_update_df['t_new'] = edge_update_df['fft']*(1.3 + 1.3*0.6*(edge_update_df['hour_flow']/edge_update_df['capacity'])**4)
 
     for row in edge_update_df.itertuples():
         g.update_edge(getattr(row,'sp_id_u'), getattr(row,'sp_id_v'), c_double(getattr(row,'t_new')))
@@ -147,7 +147,7 @@ def main():
     logger.info('{} increments'.format(10))
 
     ### Loop through days and hours
-    for day in [0]:
+    for day in [1,2,3,4,5,6]:
         for hour in range(3, 26):
 
             logger.debug('*************** DY{} HR{} ***************'.format(day, hour))
@@ -176,13 +176,13 @@ def main():
             t_hour_1 = time.time()
             logger.info('DY{}_HR{}: {} sec \n'.format(day, hour, t_hour_1-t_hour_0))
 
-            network_attr_df[['sp_id_u', 'sp_id_v', 'hour_flow']].to_csv(absolute_path+'/output/edge_flow_DY{}_HR{}.csv'.format(day, hour), index=False)
+            network_attr_df[['sp_id_u', 'sp_id_v', 'hour_flow']].to_csv(absolute_path+'/output/DY{}/edge_flow_DY{}_HR{}.csv'.format(day, day, hour), index=False)
 
-            with open(absolute_path + '/output/travel_time_DY{}_HR{}.txt'.format(day, hour), 'w') as f:
+            with open(absolute_path + '/output/DY{}/travel_time_DY{}_HR{}.txt'.format(day, day, hour), 'w') as f:
                 for travel_time_item in travel_time_list:
                     f.write("%s\n" % travel_time_item)
 
-            g.writegraph(bytes(absolute_path+'/output/network_DY{}_HR{}.mtx'.format(day, hour), encoding='utf-8'))
+            #g.writegraph(bytes(absolute_path+'/output/network_DY{}_HR{}.mtx'.format(day, hour), encoding='utf-8'))
 
     t_main_1 = time.time()
     logger.info('total run time: {} sec \n\n\n\n\n'.format(t_main_1 - t_main_0))
