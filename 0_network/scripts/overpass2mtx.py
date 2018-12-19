@@ -3,11 +3,13 @@ import pprint
 import json
 import os
 import numpy as np
+import scipy.sparse as sp
+import scipy.io as sio
 import re
 import sys
 import random
 import pandas as pd 
-import pprint 
+import igraph
 
 # user defined module
 import haversine
@@ -30,6 +32,9 @@ Output:
 Next step:
  * create graph as a sparse matrix .mtx for ABM simulation
 '''
+
+absolute_path = os.path.dirname(os.path.abspath(__file__))
+folder='sf_overpass'
 
 def populate_attributes(w):
 
@@ -229,7 +234,6 @@ def osm_to_json(output_csv=False, folder = 'sf'):
     ### Clean the OSM data by removing curve nodes, separate into nodes and ways, output .json (for further processing) and .geosjon (for visualisation).
 
     # Load OSM data as downloaded from overpass
-    absolute_path = os.path.dirname(os.path.abspath(__file__))
     osm_data = json.load(open(absolute_path+'/../data/{}/target.osm'.format(folder)))
     osm_data = osm_data['elements']
     print('length of the OSM data: ', len(osm_data))
@@ -272,20 +276,111 @@ def osm_to_json(output_csv=False, folder = 'sf'):
             (1500+30*split_ways['speed_limit'])*split_ways['split_lanes'], ### speed limit btw 40-60mph
             (1700+10*split_ways['speed_limit'])*split_ways['split_lanes'])) ### speed limit > 60mph
 
-    if output_csv:
-        intersection_nodes_df = pd.DataFrame([
-            (n, all_nodes[n][1], all_nodes[n][0], all_nodes[n][2]) 
-            for n in intersection_nodes], columns=['osmid', 'lon', 'lat', 'signal'])
-        print(intersection_nodes_df.head())
-        intersection_nodes_df.to_csv(absolute_path+'/../data/{}/nodes.csv'.format(folder), index=False)
+    ### Organize
+    intersection_nodes_df = pd.DataFrame([
+        (n, all_nodes[n][1], all_nodes[n][0], all_nodes[n][2]) for n in intersection_nodes], columns=['osmid', 'lon', 'lat', 'signal'])
+    split_ways = split_ways.rename(columns={'split_lanes': 'lanes'})
+    split_ways[['osmid', 'start_node', 'end_node', 'type', 'length', 'lanes', 'oneway', 'speed_limit', 'capacity', 'geometry']]
 
-        print(split_ways.iloc[0])
-        split_ways = split_ways.rename(columns={'split_lanes': 'lanes'})
-        split_ways[['osmid', 'start_node', 'end_node', 'type', 'length', 'lanes', 'oneway', 'speed_limit', 'capacity', 'geometry']].to_csv(absolute_path+'/../data/{}/edges.csv'.format(folder), index=False)
+    if output_csv:
+        intersection_nodes_df.to_csv(absolute_path+'/../data/{}/nodes.csv'.format(folder), index=False)
+        split_ways.to_csv(absolute_path+'/../data/{}/edges.csv'.format(folder), index=False)
+
+    return intersection_nodes_df, split_ways
+
+def graph_simplify(nodes_df, edges_df):
+
+    ### Construct the graph nodes from nodes.json
+    node_data = nodes_df.to_dict('records')
+    print(node_data[0])
+
+    ### Construct the graph edges
+    edge_data = edges_df.to_dict('records')
+    print(edge_data[0])
+
+    ### Construct the graph object
+    g = igraph.Graph.DictList(
+        vertices=node_data,
+        edges=edge_data, 
+        vertex_name_attr='osmid',
+        edge_foreign_keys=('start_node','end_node'),
+        directed=True)
+    print(g.summary())
+    ### IGRAPH D--- 9781 27166 -- 
+    ### + attr: lat (v), lon (v), osmid (v), signal (v), capacity (e), end_node (e), geometry (e), lanes (e), length (e), oneway (e), osmid (e), speed_limit (e), start_node (e), type (e)
+    
+    g = g.clusters(mode='STRONG').giant() ### STRONGLY connected components. All nodes are connected as a directed graph. Weak components mean components are connected as undirected graph.
+    print('Giant component: ', g.summary()) ### IGRAPH D--- 9643 26973 -- 
+    g.simplify(multiple=True, loops=True, 
+        combine_edges=dict(
+            osmid="first", start_node="first", end_node="first", geometry="first",
+            oneway="first", type="first", lanes="sum", speed_limit="mean", capacity="sum", length="max"))
+    print('Simplify loops and multiple edges: ', g.summary()) ### IGRAPH D--- 9643 26893 -- 
+    g.vs.select(_degree=0).delete()
+    print('Remove degree 0 vertices: ', g.summary()) ### IGRAPH D--- 9643 26893 -- 
+    
+    g.vs['node_id_igraph'] = list(range(g.vcount()))
+    g.es['edge_id_igraph'] = list(range(g.ecount()))
+
+    return g
+
+def convert_to_mtx(g, folder, scenario):
+
+    ### Create initial weight
+    g.es['fft'] = np.array(g.es['length'], dtype=np.float)/np.array(g.es['speed_limit'], dtype=np.float)*2.23694 * 1.3
+    ### 2.23694 is to convert mph to m/s;
+    g.es['weight'] = np.array(g.es['fft'], dtype=np.float)# * 1.5
+
+    ### Convert to mtx
+    edgelist = g.get_edgelist()
+    print(edgelist[0:10])
+    row = [e[0] for e in edgelist]
+    col = [e[1] for e in edgelist]
+    wgh = g.es['weight']
+    print(len(row), len(col), len(wgh))
+    print(min(row), max(row), min(col), max(col), min(wgh), max(wgh))
+
+    g_coo = sp.coo_matrix((wgh, (row, col)), shape=(g.vcount(), g.vcount()))
+    print(g_coo.shape, len(g_coo.data))
+    sio.mmwrite(absolute_path+'/../data/{}/{}/network_sparse.mtx'.format(folder, scenario), g_coo)
+    # g_coo = sio.mmread(absolute_path+'/../data/{}/network_sparse.mtx'.format(folder))
+
+    ### Node attributes
+    node_attributes_df = pd.DataFrame({
+        'node_id_igraph': g.vs['node_id_igraph'],
+        'node_osmid': g.vs['osmid'],
+        'lon': g.vs['lon'],
+        'lat': g.vs['lat'],
+        'signal': g.vs['signal']
+        })
+    node_attributes_df.to_csv(absolute_path+'/../data/{}/{}/nodes.csv'.format(folder, scenario), index=False)
+
+
+    ### Edge attributes
+    # ['osmid', 'start_node', 'end_node', 'type', 'length', 'lanes', 'oneway', 'speed_limit', 'capacity', 'geometry']
+    edge_attributes_df = pd.DataFrame({
+        'edge_id_igraph': g.es['edge_id_igraph'],
+        'start_igraph': row, 
+        'end_igraph': col, 
+        'edge_osmid': g.es['osmid'],
+        'start_osm': g.es['start_node'],
+        'end_osm': g.es['end_node'],
+        'length': g.es['length'], 
+        'lanes': g.es['lanes'],
+        'maxmph': g.es['speed_limit'], 
+        'oneway': g.es['oneway'],
+        'type': g.es['type'],
+        'capacity': g.es['capacity'],
+        'fft': g.es['fft'],
+        'geometry': g.es['geometry']})
+    edge_attributes_df['start_sp'] = edge_attributes_df['start_igraph'] + 1
+    edge_attributes_df['end_sp'] = edge_attributes_df['end_igraph'] + 1
+    edge_attributes_df.to_csv(absolute_path+'/../data/{}/{}/edges.csv'.format(folder, scenario), index=False)
 
 
 if __name__ == '__main__':
-    #osm_to_geojson(folder = 'sf')
-    osm_to_json(output_csv=True, folder = 'sf_overpass')
+    nodes_df, edges_df = osm_to_json(output_csv=False, folder = folder)
+    g = graph_simplify(nodes_df, edges_df)
+    convert_to_mtx(g, folder=folder, scenario = 'original')
 
 
