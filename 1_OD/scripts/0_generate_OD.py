@@ -16,6 +16,7 @@ from math import radians
 
 absolute_path = os.path.dirname(os.path.abspath(__file__))
 folder = 'sf_overpass'
+scenario = 'original'
 
 ################################################################
 ### Estabilish relationship between OSM/graph nodes and TAZs ###
@@ -69,13 +70,13 @@ def TAZ_nodes():
     #sys.exit(0)
 
     ### Input 2: OSM nodes coordinate
-    nodes_df = pd.read_csv(absolute_path+'/../../0_network/data/{}/nodes.csv'.format(folder))
+    nodes_df = pd.read_csv(absolute_path+'/../../0_network/data/{}/{}/nodes.csv'.format(folder, scenario))
     points = nodes_df[['lon', 'lat']].values
     taz_gdf['in_nodes'] = taz_gdf.apply(lambda row: find_in_nodes(row, points, nodes_df), axis=1)
     taz_nodes_dict = {row['TAZ']:row['in_nodes'] for index, row in taz_gdf.iterrows()}
     
     ### [{'taz': 1, 'in_nodes': '[...]''}, ...]
-    with open(absolute_path+'/../output/{}/taz_nodes.json'.format(folder), 'w') as outfile:
+    with open(absolute_path+'/../output/{}/{}/taz_nodes.json'.format(folder, scenario), 'w') as outfile:
         json.dump(taz_nodes_dict, outfile, indent=2)
 
 
@@ -93,7 +94,7 @@ def TAZ_nodes_OD(day, hour, count=50000):
     ### 0. READING
     taz_travel_df = pd.read_csv(absolute_path+'/../input/TNC_pickups_dropoffs.csv') ### TNC ODs from each TAZ
     taz_scale_df = pd.read_csv(absolute_path+'/../input/TAZ_supervisorial.csv') ### Scaling factors for each TAZ
-    taz_pair_dist_df = pd.read_csv(absolute_path+'/../output/{}/taz_pair_distance.csv'.format(folder)) ### Centroid coordinates of each TAZ
+    taz_pair_dist_df = pd.read_csv(absolute_path+'/../output/{}/{}/taz_pair_distance.csv'.format(folder, scenario)) ### Centroid coordinates of each TAZ
 
     ### 1. FILTERING to time of interest
     ### OD_df: pickups and dropoffs by TAZ from TNC study
@@ -144,7 +145,7 @@ def TAZ_nodes_OD(day, hour, count=50000):
 
     ### 4. Nodal-level OD pairs
     ### Now sample the nodes for each TAZ level OD pair
-    taz_nodes_dict = json.load(open(absolute_path+'/../output/{}/taz_nodes.json'.format(folder)))
+    taz_nodes_dict = json.load(open(absolute_path+'/../output/{}/{}/taz_nodes.json'.format(folder, scenario)))
     #node_osmid2graphid_dict = json.load(open(absolute_path+'/../0_network/data/sf/node_osmid2graphid.json'))
     nodal_OD = []
     for k, v in OD_counter.items():
@@ -171,14 +172,14 @@ def TAZ_nodes_OD(day, hour, count=50000):
     nodal_OD_df = pd.DataFrame(nodal_OD, columns=['O', 'D', 'flow'])
     #print(nodal_OD_df.head())
 
-    nodal_OD_df.to_csv(absolute_path+'/../output/{}/DY{}/SF_OD_DY{}_HR{}.csv'.format(folder, day, day, hour))
+    nodal_OD_df.to_csv(absolute_path+'/../output/{}/{}/DY{}/SF_OD_DY{}_HR{}.csv'.format(folder, scenario, day, day, hour))
 
     return hour_demand
 
 
 if __name__ == '__main__':
 
-    logging.basicConfig(filename=absolute_path+'/../output/{}/OD.log'.format(folder), level=logging.DEBUG)
+    logging.basicConfig(filename=absolute_path+'/../output/{}/{}/OD.log'.format(folder, scenario), level=logging.DEBUG)
     logger = logging.getLogger('main')
     logger.info('{} \n'.format(datetime.datetime.now()))
 
