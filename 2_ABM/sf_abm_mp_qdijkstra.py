@@ -177,11 +177,11 @@ def main():
             t_hour_1 = time.time()
             logger.info('DY{}_HR{}: {} sec \n'.format(day, hour, t_hour_1-t_hour_0))
 
-            network_attr_df[['start_sp', 'end_sp', 'hour_flow']].to_csv(absolute_path+'/output/DY{}/edge_flow_DY{}_HR{}.csv'.format(day, day, hour), index=False)
+            network_attr_df[['start_sp', 'end_sp', 'hour_flow']].to_csv(absolute_path+'/output/{}/DY{}/edge_flow_DY{}_HR{}.csv'.format(folder, day, day, hour), index=False)
 
-            with open(absolute_path + '/output/DY{}/travel_time_DY{}_HR{}.txt'.format(day, day, hour), 'w') as f:
-                for travel_time_item in travel_time_list:
-                    f.write("%s\n" % travel_time_item)
+            #with open(absolute_path + '/output/DY{}/travel_time_DY{}_HR{}.txt'.format(day, day, hour), 'w') as f:
+            #    for travel_time_item in travel_time_list:
+            #        f.write("%s\n" % travel_time_item)
 
             #g.writegraph(bytes(absolute_path+'/output/network_DY{}_HR{}.mtx'.format(day, hour), encoding='utf-8'))
 
