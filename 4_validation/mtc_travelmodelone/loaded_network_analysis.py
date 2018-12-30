@@ -3,6 +3,7 @@ import sys
 import pandas as pd 
 import geopandas as gpd 
 import shapely.wkt 
+import numpy as np 
 
 def main():
     ### Read data
@@ -31,12 +32,20 @@ def main():
     #     loaded_network['VOL_sum_DA'] += loaded_network['VOL{}_DA'.format(tp)]
     # print(sum(loaded_network['VOL_sum_DA']-loaded_network['VOL24HR_DA']), sum(loaded_network['VOL_sum_DA'])) # 0.05794999974178225 224231190.02852812
 
-    sf_loaded_network['VOL24HR_total'] = 0
+    sf_loaded_network['daily_traffic'] = 0
     for vc in vehicle_class:
-        sf_loaded_network['VOL24HR_total'] += sf_loaded_network['VOL24HR_{}'.format(vc)]
+        sf_loaded_network['daily_traffic'] += sf_loaded_network['VOL24HR_{}'.format(vc)]
+    sf_loaded_network['fiveday_traffic'] = sf_loaded_network['daily_traffic']*5
 
-    sf_loaded_network['VOL_weekly'] = sf_loaded_network['VOL24HR_total']*7
-    sf_loaded_network[['A', 'B', 'CAP', 'VOL_weekly', 'geometry']].to_csv('avgload5period_24hrtotal.csv', index=False)
+    ### Merge results from two directions
+    sf_loaded_network['undir_AB'] = pd.DataFrame(np.sort(sf_loaded_network[['A', 'B']].values, axis=1), columns=['small_nodeid', 'large_nodeid']).apply(lambda x:'%s_%s' % (x['small_nodeid'],x['large_nodeid']),axis=1)
+    sf_loaded_network_grp = sf_loaded_network.groupby('undir_AB').agg({
+            'fiveday_traffic': np.sum, 
+            'CAP': np.sum,
+            'geometry': 'first'}).reset_index()
+    sf_loaded_network_grp = sf_loaded_network_grp.rename(columns={'fiveday_traffic': 'undirected_fiveday_traffic'})
+
+    sf_loaded_network_grp[['undir_AB', 'CAP', 'undirected_fiveday_traffic', 'geometry']].to_csv('mtcone_5day_traffic.csv', index=False)
 
 if __name__ == '__main__':
     main()
