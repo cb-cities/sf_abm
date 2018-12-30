@@ -92,7 +92,7 @@ def update_graph(edge_volume, edges_df, day, hour, incre_id):
     edges_df = edges_df.fillna(value={'flow': 0}) ### fill flow for unused edges as 0
     edges_df['hour_flow'] += edges_df['flow'] ### update the cumulative flow
     edge_update_df = edges_df.loc[edges_df['flow']>0].copy().reset_index() ### extract rows that are actually being used in the current increment
-    edge_update_df['t_new'] = edge_update_df['fft']*(1.3 + 1.3*0.6*(edge_update_df['hour_flow']/edge_update_df['capacity'])**3)
+    edge_update_df['t_new'] = edge_update_df['fft']*(1.3 + 1.3*0.6*(edge_update_df['hour_flow']/edge_update_df['capacity'])**4)
 
     for row in edge_update_df.itertuples():
         g.update_edge(getattr(row,'start_sp'), getattr(row,'end_sp'), c_double(getattr(row,'t_new')))
@@ -111,11 +111,13 @@ def read_OD(day, hour):
     t_OD_0 = time.time()
 
     ### Change OD list from using osmid to sequential id. It is easier to find the shortest path based on sequential index.
-    OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/{}/DY{}/SF_OD_DY{}_HR{}.csv'.format(folder, scenario, day, day, hour))
+    intracity_OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/{}/DY{}/SF_OD_DY{}_HR{}.csv'.format(folder, scenario, day, day, hour))
+    intercity_OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/{}/intercity/intercity_HR{}.csv'.format(folder, scenario, hour))
+    OD = pd.concat([intracity_OD, intercity_OD], ignore_index=True)
     nodes_df = pd.read_csv(absolute_path+'/../0_network/data/{}/{}/nodes.csv'.format(folder, scenario))
 
-    OD = pd.merge(OD, nodes_df[['node_id_igraph', 'osmid']], how='left', left_on='O', right_on='osmid')
-    OD = pd.merge(OD, nodes_df[['node_id_igraph', 'osmid']], how='left', left_on='D', right_on='osmid', suffixes=['_O', '_D'])
+    OD = pd.merge(OD, nodes_df[['node_id_igraph', 'node_osmid']], how='left', left_on='O', right_on='node_osmid')
+    OD = pd.merge(OD, nodes_df[['node_id_igraph', 'node_osmid']], how='left', left_on='D', right_on='node_osmid', suffixes=['_O', '_D'])
     OD['start_sp'] = OD['node_id_igraph_O'] + 1 ### the node id in module sp is 1 higher than igraph id
     OD['end_sp'] = OD['node_id_igraph_D'] + 1
     OD = OD[['start_sp', 'end_sp', 'flow']]

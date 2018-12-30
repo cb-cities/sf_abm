@@ -30,7 +30,7 @@ def find_in_nodes(row, points, nodes_df):
     else:
         path = mpltPath.Path(list(zip(*row['geometry'].exterior.coords.xy)))
         in_index = path.contains_points(points)
-        return nodes_df['osmid'].loc[in_index].tolist()
+        return nodes_df['node_osmid'].loc[in_index].tolist()
 
 def haversine(lat1, lon1, lat2, lon2):
     """
@@ -59,14 +59,14 @@ def TAZ_pair_distance(taz_gdf):
     taz_pair_df = pd.merge(taz_pair_df, taz_gdf[['TAZ', 'lon', 'lat']], how='left', left_on='TAZ_small', right_on='TAZ')
     taz_pair_df = pd.merge(taz_pair_df, taz_gdf[['TAZ', 'lon', 'lat']], how='left', left_on='TAZ_big', right_on='TAZ', suffixes=['_1', '_2'])
     taz_pair_df['distance'] = haversine(taz_pair_df['lat_1'], taz_pair_df['lon_1'], taz_pair_df['lat_2'], taz_pair_df['lon_2'])
-    taz_pair_df[['TAZ_small', 'TAZ_big', 'distance']].to_csv(absolute_path+'/../output/{}/TAZ_pair_distance.csv'.format(folder), index=False)
+    taz_pair_df[['TAZ_small', 'TAZ_big', 'distance']].to_csv(absolute_path+'/../output/{}/{}/TAZ_pair_distance.csv'.format(folder, scenario), index=False)
 
 def TAZ_nodes():
     ### Find corresponding nodes for each TAZ
     ### Input 1: TAZ polyline
     taz_gdf = gpd.read_file(absolute_path+'/../input/TAZ981/TAZ981.shp')
     taz_gdf = taz_gdf.to_crs({'init': 'epsg:4326'})
-    #TAZ_pair_distance(taz_gdf) ### output a distance matrix between each TAZ pairs
+    TAZ_pair_distance(taz_gdf) ### output a distance matrix between each TAZ pairs
     #sys.exit(0)
 
     ### Input 2: OSM nodes coordinate
@@ -93,8 +93,8 @@ def TAZ_nodes_OD(day, hour, count=50000):
 
     ### 0. READING
     taz_travel_df = pd.read_csv(absolute_path+'/../input/TNC_pickups_dropoffs.csv') ### TNC ODs from each TAZ
-    taz_scale_df = pd.read_csv(absolute_path+'/../input/TAZ_supervisorial.csv') ### Scaling factors for each TAZ
-    taz_pair_dist_df = pd.read_csv(absolute_path+'/../output/{}/{}/taz_pair_distance.csv'.format(folder, scenario)) ### Centroid coordinates of each TAZ
+    taz_scale_df = pd.read_csv(absolute_path+'/../input/TAZ_supervisorial.csv') ### Scaling factors for each TAZ. Figure 17-19 in the SFCTA TNCs Today report
+    taz_pair_dist_df = pd.read_csv(absolute_path+'/../output/{}/{}/TAZ_pair_distance.csv'.format(folder, scenario)) ### Centroid coordinates of each TAZ
 
     ### 1. FILTERING to time of interest
     ### OD_df: pickups and dropoffs by TAZ from TNC study
@@ -104,9 +104,10 @@ def TAZ_nodes_OD(day, hour, count=50000):
 
     ### 2. SCALING
     ### Scale the TNC ODs to the total TAZ ODs using scaling factors that vary spatially (by superdistricts) and temporally (by AM, PM and off-peak)
-    if hour in [7, 8, 9]: share_col = 'AMshare'
-    elif hour in [17, 18, 19]: share_col = 'PMshare'
+    if hour in [7, 8]: share_col = 'AMshare' ### 7-9am according to https://sfgov.org/scorecards/transportation/congestion
+    elif hour in [17, 18]: share_col = 'PMshare' ### 4.30-6.30pm
     else: share_col = 'OPshare'
+    if day in [5, 6]: share_col = 'OPshare' ### Weekend is always off-peak
 
     hour_taz_travel_df = pd.merge(hour_taz_travel_df[['taz', 'pickups', 'dropoffs']], taz_scale_df, how='left', left_on='taz', right_on='TAZ')
     hour_taz_travel_df['veh_pickups'] = hour_taz_travel_df.apply(lambda row: row['pickups']/row[share_col], axis=1)
@@ -188,9 +189,8 @@ if __name__ == '__main__':
     #sys.exit(0)
 
     ### Based on the output of TAZ_nodes(), generate hourly node-level ODs by setting "day_of_week" and "hour".
-    daily_demand = 0
-
     for day_of_week in [0, 1, 2, 3, 4, 5, 6]: ### 4 for Friday
+        daily_demand = 0
         for hour in range(3, 27): ### 24 hour-slices per day. Monday is 0 -- Sunday is 6. Hour is from 3am-26am(2am next day)
             hour_demand = TAZ_nodes_OD(day_of_week, hour)
             daily_demand += hour_demand

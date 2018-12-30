@@ -279,8 +279,10 @@ def osm_to_json(output_csv=False, folder = 'sf'):
     ### Organize
     intersection_nodes_df = pd.DataFrame([
         (n, all_nodes[n][1], all_nodes[n][0], all_nodes[n][2]) for n in intersection_nodes], columns=['osmid', 'lon', 'lat', 'signal'])
-    split_ways = split_ways.rename(columns={'split_lanes': 'lanes'})
-    split_ways[['osmid', 'start_node', 'end_node', 'type', 'length', 'lanes', 'oneway', 'speed_limit', 'capacity', 'geometry']]
+    ### Add end signal type
+    split_ways = pd.merge(split_ways, intersection_nodes_df[['osmid', 'signal']], left_on='end_node', right_on='osmid', how='left')
+    split_ways = split_ways.rename(columns={'split_lanes': 'lanes', 'signal': 'end_node_signal', 'osmid_x': 'osmid'})
+    split_ways[['osmid', 'start_node', 'end_node', 'end_node_signal', 'type', 'length', 'lanes', 'oneway', 'speed_limit', 'capacity', 'geometry']]
 
     if output_csv:
         intersection_nodes_df.to_csv(absolute_path+'/../data/{}/nodes.csv'.format(folder), index=False)
@@ -313,7 +315,7 @@ def graph_simplify(nodes_df, edges_df):
     print('Giant component: ', g.summary()) ### IGRAPH D--- 9643 26973 -- 
     g.simplify(multiple=True, loops=True, 
         combine_edges=dict(
-            osmid="first", start_node="first", end_node="first", geometry="first",
+            osmid="first", start_node="first", end_node="first", end_node_signal='first', geometry="first",
             oneway="first", type="first", lanes="sum", speed_limit="mean", capacity="sum", length="max"))
     print('Simplify loops and multiple edges: ', g.summary()) ### IGRAPH D--- 9643 26893 -- 
     g.vs.select(_degree=0).delete()
@@ -326,25 +328,6 @@ def graph_simplify(nodes_df, edges_df):
 
 def convert_to_mtx(g, folder, scenario):
 
-    ### Create initial weight
-    g.es['fft'] = np.array(g.es['length'], dtype=np.float)/np.array(g.es['speed_limit'], dtype=np.float)*2.23694 * 1.3
-    ### 2.23694 is to convert mph to m/s;
-    g.es['weight'] = np.array(g.es['fft'], dtype=np.float)# * 1.5
-
-    ### Convert to mtx
-    edgelist = g.get_edgelist()
-    print(edgelist[0:10])
-    row = [e[0] for e in edgelist]
-    col = [e[1] for e in edgelist]
-    wgh = g.es['weight']
-    print(len(row), len(col), len(wgh))
-    print(min(row), max(row), min(col), max(col), min(wgh), max(wgh))
-
-    g_coo = sp.coo_matrix((wgh, (row, col)), shape=(g.vcount(), g.vcount()))
-    print(g_coo.shape, len(g_coo.data))
-    sio.mmwrite(absolute_path+'/../data/{}/{}/network_sparse.mtx'.format(folder, scenario), g_coo)
-    # g_coo = sio.mmread(absolute_path+'/../data/{}/network_sparse.mtx'.format(folder))
-
     ### Node attributes
     node_attributes_df = pd.DataFrame({
         'node_id_igraph': g.vs['node_id_igraph'],
@@ -353,11 +336,11 @@ def convert_to_mtx(g, folder, scenario):
         'lat': g.vs['lat'],
         'signal': g.vs['signal']
         })
-    node_attributes_df.to_csv(absolute_path+'/../data/{}/{}/nodes.csv'.format(folder, scenario), index=False)
-
 
     ### Edge attributes
-    # ['osmid', 'start_node', 'end_node', 'type', 'length', 'lanes', 'oneway', 'speed_limit', 'capacity', 'geometry']
+    edgelist = g.get_edgelist()
+    row = [e[0] for e in edgelist]
+    col = [e[1] for e in edgelist]
     edge_attributes_df = pd.DataFrame({
         'edge_id_igraph': g.es['edge_id_igraph'],
         'start_igraph': row, 
@@ -365,16 +348,29 @@ def convert_to_mtx(g, folder, scenario):
         'edge_osmid': g.es['osmid'],
         'start_osm': g.es['start_node'],
         'end_osm': g.es['end_node'],
+        'end_node_signal': g.es['end_node_signal'],
         'length': g.es['length'], 
         'lanes': g.es['lanes'],
         'maxmph': g.es['speed_limit'], 
         'oneway': g.es['oneway'],
         'type': g.es['type'],
         'capacity': g.es['capacity'],
-        'fft': g.es['fft'],
         'geometry': g.es['geometry']})
     edge_attributes_df['start_sp'] = edge_attributes_df['start_igraph'] + 1
     edge_attributes_df['end_sp'] = edge_attributes_df['end_igraph'] + 1
+
+    ### Create initial weight
+    edge_attributes_df['fft'] = edge_attributes_df.apply(lambda row: row['length']/row['maxmph']*2.23694 * 1.3, axis=1) # 2.23694 is to convert mph to m/s;
+    edge_attributes_df['fft'] = np.where(edge_attributes_df['end_node_signal']!='', edge_attributes_df['fft']+30,edge_attributes_df['fft'])
+    
+    ### Convert to mtx
+    wgh = edge_attributes_df['fft']
+    g_coo = sp.coo_matrix((wgh, (row, col)), shape=(g.vcount(), g.vcount()))
+    print(g_coo.shape, len(g_coo.data))
+    sio.mmwrite(absolute_path+'/../data/{}/{}/network_sparse.mtx'.format(folder, scenario), g_coo)
+    # g_coo = sio.mmread(absolute_path+'/../data/{}/network_sparse.mtx'.format(folder))
+
+    node_attributes_df.to_csv(absolute_path+'/../data/{}/{}/nodes.csv'.format(folder, scenario), index=False)
     edge_attributes_df.to_csv(absolute_path+'/../data/{}/{}/edges.csv'.format(folder, scenario), index=False)
 
 
