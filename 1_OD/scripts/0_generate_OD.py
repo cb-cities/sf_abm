@@ -59,7 +59,7 @@ def TAZ_pair_distance(taz_gdf):
     taz_pair_df = pd.merge(taz_pair_df, taz_gdf[['TAZ', 'lon', 'lat']], how='left', left_on='TAZ_small', right_on='TAZ')
     taz_pair_df = pd.merge(taz_pair_df, taz_gdf[['TAZ', 'lon', 'lat']], how='left', left_on='TAZ_big', right_on='TAZ', suffixes=['_1', '_2'])
     taz_pair_df['distance'] = haversine(taz_pair_df['lat_1'], taz_pair_df['lon_1'], taz_pair_df['lat_2'], taz_pair_df['lon_2'])
-    taz_pair_df[['TAZ_small', 'TAZ_big', 'distance']].to_csv(absolute_path+'/../output/{}/TAZ_pair_distance.csv'.format(folder), index=False)
+    taz_pair_df[['TAZ_small', 'TAZ_big', 'distance']].to_csv(absolute_path+'/../output/{}/{}/TAZ_pair_distance.csv'.format(folder, scenario), index=False)
 
 def TAZ_nodes():
     ### Find corresponding nodes for each TAZ
@@ -94,7 +94,7 @@ def TAZ_nodes_OD(day, hour, count=50000):
     ### 0. READING
     taz_travel_df = pd.read_csv(absolute_path+'/../input/TNC_pickups_dropoffs.csv') ### TNC ODs from each TAZ
     taz_scale_df = pd.read_csv(absolute_path+'/../input/TAZ_supervisorial.csv') ### Scaling factors for each TAZ
-    taz_pair_dist_df = pd.read_csv(absolute_path+'/../output/{}/{}/taz_pair_distance.csv'.format(folder, scenario)) ### Centroid coordinates of each TAZ
+    taz_pair_dist_df = pd.read_csv(absolute_path+'/../output/{}/{}/TAZ_pair_distance.csv'.format(folder, scenario)) ### Centroid coordinates of each TAZ
 
     ### 1. FILTERING to time of interest
     ### OD_df: pickups and dropoffs by TAZ from TNC study

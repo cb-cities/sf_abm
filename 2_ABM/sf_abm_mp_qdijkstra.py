@@ -114,8 +114,8 @@ def read_OD(day, hour):
     OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/{}/DY{}/SF_OD_DY{}_HR{}.csv'.format(folder, scenario, day, day, hour))
     nodes_df = pd.read_csv(absolute_path+'/../0_network/data/{}/{}/nodes.csv'.format(folder, scenario))
 
-    OD = pd.merge(OD, nodes_df[['node_id_igraph', 'osmid']], how='left', left_on='O', right_on='osmid')
-    OD = pd.merge(OD, nodes_df[['node_id_igraph', 'osmid']], how='left', left_on='D', right_on='osmid', suffixes=['_O', '_D'])
+    OD = pd.merge(OD, nodes_df[['node_id_igraph', 'node_osmid']], how='left', left_on='O', right_on='node_osmid')
+    OD = pd.merge(OD, nodes_df[['node_id_igraph', 'node_osmid']], how='left', left_on='D', right_on='node_osmid', suffixes=['_O', '_D'])
     OD['start_sp'] = OD['node_id_igraph_O'] + 1 ### the node id in module sp is 1 higher than igraph id
     OD['end_sp'] = OD['node_id_igraph_D'] + 1
     OD = OD[['start_sp', 'end_sp', 'flow']]
@@ -150,7 +150,7 @@ def main():
     logger.info('{} increments'.format(10))
 
     ### Loop through days and hours
-    for day in [1,2,3,4,5,6]:
+    for day in [0, 1, 2, 3, 4, 5, 6]:
         for hour in range(3, 26):
 
             logger.debug('*************** DY{} HR{} ***************'.format(day, hour))
@@ -181,7 +181,7 @@ def main():
 
             edges_df[['edge_id_igraph', 'hour_flow']].to_csv(absolute_path+'/output/{}/{}/DY{}/edge_flow_DY{}_HR{}.csv'.format(folder, scenario, day, day, hour), index=False)
 
-            with open(absolute_path + '/output/{}/{}/{}/travel_time_DY{}_HR{}.txt'.format(folder, scenario, day, day, hour), 'w') as f:
+            with open(absolute_path + '/output/{}/{}/DY{}/travel_time_DY{}_HR{}.txt'.format(folder, scenario, day, day, hour), 'w') as f:
                 for travel_time_item in travel_time_list:
                     f.write("%s\n" % travel_time_item)
 
