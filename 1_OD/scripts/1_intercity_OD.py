@@ -60,7 +60,17 @@ def main():
         print(hour, hourly_OD_osmid_df.shape)
         hourly_OD_osmid_df.to_csv(absolute_path+'/../output/{}/{}/intercity/intercity_HR{}.csv'.format(folder, scenario, hour))
 
+def check():
+
+    intercity_OD_df = pd.read_csv(absolute_path+'/../output/{}/{}/intercity/intercity_HR{}.csv'.format(folder, scenario, 3))
+    for hour in range(4, 27):
+        hourly_OD_df = pd.read_csv(absolute_path+'/../output/{}/{}/intercity/intercity_HR{}.csv'.format(folder, scenario, hour))
+        intercity_OD_df = pd.concat([intercity_OD_df, hourly_OD_df], ignore_index=True)
+    intercity_OD_df_grp = intercity_OD_df.groupby(['O', 'D']).size()
+    print(intercity_OD_df_grp)
+
 
 if __name__ == '__main__':
-    main()
+    #main()
+    check()
 

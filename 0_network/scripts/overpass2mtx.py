@@ -247,7 +247,9 @@ def osm_to_json(output_csv=False, folder = 'sf'):
                 all_nodes[n['id']] = (n['lat'], n['lon'], n['tags']['highway'])
             except KeyError:
                 all_nodes[n['id']] = (n['lat'], n['lon'], '')
-    print('it includes {} nodes'.format(len(all_nodes)))
+    crossings_stops = [k for k, v in all_nodes.items() if v[2] in ['crossing', 'stop']]
+    traffic_signals = [k for k, v in all_nodes.items() if v[2] in ['traffic_signals', 'psv:traffic_signals']]
+    print('{} nodes, including {} crossings_stops and {} traffic_signals'.format(len(all_nodes), len(crossings_stops), len(traffic_signals)))
     #random_key = random.choice(list(all_nodes))
     #print('example, {}: {}'.format(random_key, all_nodes[random_key]))
 
@@ -276,13 +278,17 @@ def osm_to_json(output_csv=False, folder = 'sf'):
             (1500+30*split_ways['speed_limit'])*split_ways['split_lanes'], ### speed limit btw 40-60mph
             (1700+10*split_ways['speed_limit'])*split_ways['split_lanes'])) ### speed limit > 60mph
 
+    ### add tagged nodes count
+    crossings_stops_sets = set(crossings_stops)
+    traffic_signals_sets = set(traffic_signals)
+    split_ways['crossings_stops'] = split_ways.apply(lambda way: len(set(way['split_nodes']).intersection(crossings_stops_sets)), axis=1)
+    split_ways['traffic_signals'] = split_ways.apply(lambda way: len(set(way['split_nodes']).intersection(traffic_signals_sets)), axis=1)
+
     ### Organize
     intersection_nodes_df = pd.DataFrame([
         (n, all_nodes[n][1], all_nodes[n][0], all_nodes[n][2]) for n in intersection_nodes], columns=['osmid', 'lon', 'lat', 'signal'])
-    ### Add end signal type
-    split_ways = pd.merge(split_ways, intersection_nodes_df[['osmid', 'signal']], left_on='end_node', right_on='osmid', how='left')
-    split_ways = split_ways.rename(columns={'split_lanes': 'lanes', 'signal': 'end_node_signal', 'osmid_x': 'osmid'})
-    split_ways[['osmid', 'start_node', 'end_node', 'end_node_signal', 'type', 'length', 'lanes', 'oneway', 'speed_limit', 'capacity', 'geometry']]
+    split_ways = split_ways.rename(columns={'split_lanes': 'lanes', 'split_nodes': 'nodes'})
+    split_ways = split_ways[['osmid', 'start_node', 'end_node', 'type', 'length', 'lanes', 'oneway', 'speed_limit', 'capacity', 'crossings_stops', 'traffic_signals', 'geometry', 'nodes']]
 
     if output_csv:
         intersection_nodes_df.to_csv(absolute_path+'/../data/{}/nodes.csv'.format(folder), index=False)
@@ -315,8 +321,7 @@ def graph_simplify(nodes_df, edges_df):
     print('Giant component: ', g.summary()) ### IGRAPH D--- 9643 26973 -- 
     g.simplify(multiple=True, loops=True, 
         combine_edges=dict(
-            osmid="first", start_node="first", end_node="first", end_node_signal='first', geometry="first",
-            oneway="first", type="first", lanes="sum", speed_limit="mean", capacity="sum", length="max"))
+            osmid="first", start_node="first", end_node="first", nodes='first', crossings_stops='first', traffic_signals='first', geometry="first", oneway="first", type="first", lanes="sum", speed_limit="mean", capacity="sum", length="max"))
     print('Simplify loops and multiple edges: ', g.summary()) ### IGRAPH D--- 9643 26893 -- 
     g.vs.select(_degree=0).delete()
     print('Remove degree 0 vertices: ', g.summary()) ### IGRAPH D--- 9643 26893 -- 
@@ -348,20 +353,24 @@ def convert_to_mtx(g, folder, scenario):
         'edge_osmid': g.es['osmid'],
         'start_osm': g.es['start_node'],
         'end_osm': g.es['end_node'],
-        'end_node_signal': g.es['end_node_signal'],
         'length': g.es['length'], 
         'lanes': g.es['lanes'],
         'maxmph': g.es['speed_limit'], 
         'oneway': g.es['oneway'],
         'type': g.es['type'],
         'capacity': g.es['capacity'],
+        'crossings_stops': g.es['crossings_stops'],
+        'traffic_signals': g.es['traffic_signals'],
         'geometry': g.es['geometry']})
     edge_attributes_df['start_sp'] = edge_attributes_df['start_igraph'] + 1
     edge_attributes_df['end_sp'] = edge_attributes_df['end_igraph'] + 1
 
+    ### Traffic signals: cycle length 80s, wait time average is 20s
+    ### 'Stop', 'Crossing': Stop for 3sec + deceleration + acceleration = 6s
+    edge_attributes_df['traffic_signals_delay'] = np.where(edge_attributes_df['type'].isin(['motorway', 'motorway_link', 'trunk', 'trunk_link']), 0, edge_attributes_df['traffic_signals']*20) ### Assume the traffic lights are synced for highways
+    edge_attributes_df['crossings_stops_delay'] = np.where(edge_attributes_df['oneway']=='yes', edge_attributes_df['crossings_stops']*6, edge_attributes_df['crossings_stops']/2*6) ### if oneway, then that link has all the stop signs. If twoway, then half of stop signs are used for one direction.
     ### Create initial weight
-    edge_attributes_df['fft'] = edge_attributes_df.apply(lambda row: row['length']/row['maxmph']*2.23694 * 1.3, axis=1) # 2.23694 is to convert mph to m/s;
-    edge_attributes_df['fft'] = np.where(edge_attributes_df['end_node_signal']!='', edge_attributes_df['fft']+30,edge_attributes_df['fft'])
+    edge_attributes_df['fft'] = edge_attributes_df.apply(lambda row: row['length']/row['maxmph']*2.23694 * 1.2 + row['traffic_signals_delay'] + row['crossings_stops_delay'], axis=1) # 2.23694 is to convert mph to m/s;
     
     ### Convert to mtx
     wgh = edge_attributes_df['fft']
