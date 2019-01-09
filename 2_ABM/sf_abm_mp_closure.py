@@ -145,6 +145,11 @@ def main():
     edges_df = pd.read_csv(absolute_path+'/../0_network/data/{}/{}/edges.csv'.format(folder, scenario))
     edges_df = edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft']] ### results will be returned for each (start_sp, end_sp)
 
+    ### Close road
+    closed_igraphid = pd.read_csv(absolute_path+'/../5_maintenance/closures/short_scen{}_week{}_closed_igraphid.csv'.format(scen, week), squeeze=True, header=None)
+    edges_df[edges_df['edge_id_igraph'].isin(closed_igraphid)]['capacity']=0
+    edges_df[edges_df['edge_id_igraph'].isin(closed_igraphid)]['fft']=1000000    
+
     ### Prepare to split the hourly OD into increments
     global OD_incre
     incre_p_list = [0.1 for i in range(10)]
@@ -152,8 +157,8 @@ def main():
     logger.info('{} increments'.format(10))
 
     ### Loop through days and hours
-    for day in [0, 1, 2, 3, 4]:
-        for hour in range(3, 26):
+    for day in [0]:
+        for hour in range(3, 4):
 
             logger.debug('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()
