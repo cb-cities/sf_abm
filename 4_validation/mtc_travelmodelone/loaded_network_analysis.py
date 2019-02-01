@@ -63,6 +63,9 @@ def plot_validation():
     mtc_gdf = mtc_gdf.sort_values(by='fiveday_traffic', ascending=False)
     mtc_gdf['cumsum_length'] = mtc_gdf['haversine_length'].cumsum()
     mtc_gdf['cumsum_length_traffic'] = mtc_gdf['length_traffic'].cumsum()
+    ### road length
+    mtc_gdf['scaled_length'] = mtc_gdf['haversine_length']*300000
+    mtc_gdf['length_cumsum_length'] = mtc_gdf.sort_values(by='scaled_length', ascending=False)['haversine_length'].cumsum()
 
     osm_df = pd.read_csv('../../3_visualization/weekly_traffic_20190102.csv')
     osm_gdf = gpd.GeoDataFrame(osm_df, 
@@ -74,22 +77,43 @@ def plot_validation():
     osm_gdf = osm_gdf.sort_values(by='fiveday_traffic', ascending=False)
     osm_gdf['cumsum_length'] = osm_gdf['length'].cumsum()
     osm_gdf['cumsum_length_traffic'] = osm_gdf['length_traffic'].cumsum()
+    ### A random variable
+    osm_gdf['rand'] = np.random.rand(osm_gdf.shape[0])*800000
+    osm_gdf['rand_cumsum_length'] = osm_gdf.sort_values(by='rand', ascending=False)['length'].cumsum()
+    ### road length
+    osm_gdf['scaled_length'] = osm_gdf['length']*300000
+    osm_gdf['length_cumsum_length'] = osm_gdf.sort_values(by='scaled_length', ascending=False)['length'].cumsum()
 
-    matplotlib.rcParams.update({'font.size': 16})
-    plt.plot('cumsum_length', 'fiveday_traffic', 'g.', data=osm_gdf, label='SF ABM')
-    plt.plot('cumsum_length', 'fiveday_traffic', 'r.', data=mtc_gdf, label='MTC Travel Model One')
-    plt.xlabel('Cumulative road length (km)')
-    plt.ylabel('Weekday traffic')
+    ### Road length distribution
+    # plt.hist(mtc_gdf['haversine_length'], bins=500, label='MTC')
+    # plt.hist(osm_gdf['length'], bins=500, alpha=0.2, label='OSM')
+    # plt.xlim(0, 0.8)
+    # plt.xlabel('link length (km)')
+    # plt.legend()
+    # plt.show()
+    # sys.exit(0)
+
+    matplotlib.rcParams.update({'font.size': 20})
+    osm_gdf['fiveday_traffic_thousand'] = osm_gdf['fiveday_traffic']/1000
+    mtc_gdf['fiveday_traffic_thousand'] = mtc_gdf['fiveday_traffic']/1000
+    plt.plot('cumsum_length', 'fiveday_traffic_thousand', 'g^', ms=10, data=osm_gdf, label='SF ABM')
+    plt.plot('cumsum_length', 'fiveday_traffic_thousand', 'r+', ms=10, data=mtc_gdf, label='MTC Travel Model One')
+    #plt.plot('length_cumsum_length', 'scaled_length', 'b.', ms=0.1, data=osm_gdf, label='SF ABM road length')
+    #plt.plot('length_cumsum_length', 'scaled_length', 'y+', ms=0.1, data=mtc_gdf, label='MTC road length')
+    plt.xlabel('Cumulative road length "mileage" (km)')
+    plt.ylabel('Weekday traffic (in 1000)')
     #plt.xlim([0, 200])
     plt.legend()
+    plt.xscale('log')
     plt.show()
     sys.exit(0)
 
     ###
     plt.plot('cumsum_length', 'cumsum_length_traffic', 'r.', data=mtc_gdf, label='MTC Travel Model One')
     plt.plot('cumsum_length', 'cumsum_length_traffic', 'g.', data=osm_gdf, label='SF ABM')
-    plt.xlabel('Cumulative road length (km)')
+    plt.xlabel('Cumulative road length "mileage" (km)')
     plt.ylabel('Cumulative vehicle kilometers in a typical Mon-Fri (veh*km)')
+    plt.xscale('log')
     plt.legend()
     plt.show()
 
