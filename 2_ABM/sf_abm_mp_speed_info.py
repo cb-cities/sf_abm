@@ -12,8 +12,6 @@ import warnings
 import pandas as pd 
 from ctypes import *
 
-np.random.seed(0)
-
 pd.set_option('display.max_columns', 10)
 
 absolute_path = os.path.dirname(os.path.abspath(__file__))
@@ -94,7 +92,7 @@ def map_reduce_edge_flow(day, hour, incre_id):
 
     return edge_volume
 
-def update_graph(edge_volume, edges_df, day, hour, incre_id, link_probe_set, link_probe_count):
+def update_graph(edge_volume, edges_df, day, hour, incre_id, sigma, link_probe_set, link_probe_count):
     ### Update graph
 
     logger = logging.getLogger('update')
@@ -112,7 +110,7 @@ def update_graph(edge_volume, edges_df, day, hour, incre_id, link_probe_set, lin
     else:
         edge_probe_df['t_avg'] = edge_probe_df['fft']*(1.3 + 1.3*0.6*(edge_probe_df['hour_flow']/edge_probe_df['capacity'])**4) ### ground truth average travel time for links that are being used
         edge_probe_df['v_avg'] = edge_probe_df['length']/edge_probe_df['t_avg']
-        edge_probe_df['v_probe'] = edge_probe_df.apply(lambda r: max(0.1, np.random.normal(r['v_avg'], speed_sdev/np.sqrt(r['link_probe']))), axis=1) ### Assuming individual speed ~ N(v_avg, v_avg*0.73151*exp(v_avg)). With probe vehicle size of N, the mean of all probe vehicles ~ N(v_avg, sigma/sqrt(N)). Chung and Recker, 2014. 2.23694 to convert m/s to mph.
+        edge_probe_df['v_probe'] = edge_probe_df.apply(lambda r: max(0.1, np.random.normal(r['v_avg'], sigma/np.sqrt(r['link_probe']))), axis=1) ### Assuming individual speed ~ N(v_avg, v_avg*0.73151*exp(v_avg)). With probe vehicle size of N, the mean of all probe vehicles ~ N(v_avg, sigma/sqrt(N)). Chung and Recker, 2014. 2.23694 to convert m/s to mph.
         edge_probe_df['t_probe'] = edge_probe_df['length']/edge_probe_df['v_probe']
         #edge_probe_df['t_probe'] = edge_probe_df.apply(lambda r: max(0.1, r['t_avg']*np.random.normal(1, 1/np.sqrt(r['link_probe']))), axis=1)
         edge_probe_df['o-d'] = edge_probe_df.apply(lambda r: '{}-{}'.format(r['start_sp'], r['end_sp']), axis=1)
@@ -131,7 +129,7 @@ def update_graph(edge_volume, edges_df, day, hour, incre_id, link_probe_set, lin
     #print(network_attr_df.loc[0])
     return edges_df, link_probe_set, link_probe_count
 
-def read_OD(day, hour):
+def read_OD(day, hour, probe_ratio):
     ### Read the OD table of this time step
 
     logger = logging.getLogger('read_OD')
@@ -152,24 +150,18 @@ def read_OD(day, hour):
     OD = OD.sample(frac=1).reset_index(drop=True) ### randomly shuffle rows
 
     t_OD_1 = time.time()
-    logger.info('DY{}_HR{}: {} sec to read {} OD pairs, {} probes \n'.format(day, hour, t_OD_1-t_OD_0, OD.shape[0], sum(OD['probe'])))
+    logger.debug('DY{}_HR{}: {} sec to read {} OD pairs, {} probes \n'.format(day, hour, t_OD_1-t_OD_0, OD.shape[0], sum(OD['probe'])))
 
-    return OD
+    return OD, sum(OD['probe'])
 
-def main():
+def main(random_seed, sigma, probe_ratio):
 
     logging.basicConfig(filename=absolute_path+'/sf_abm_mp_speed_info.log', level=logging.INFO)
     logger = logging.getLogger('main')
-    logger.info('{} \n'.format(datetime.datetime.now()))
-    logger.info('{} network'.format(folder))
-
-    global probe_ratio
-    probe_ratio = 1
-    global speed_sdev
-    speed_sdev = 1
-    logger.info('probe ratio: {}, speed_sdev: {}'.format(probe_ratio, speed_sdev))
-    link_probe_set = set()
-    link_probe_count = 0
+    logger.debug('{} \n'.format(datetime.datetime.now()))
+    logger.debug('{} network'.format(folder))
+    logger.debug('random seed {}'.format(random_seed))
+    logger.debug('probe ratio: {}, sigma: {}'.format(probe_ratio, sigma))
 
     t_main_0 = time.time()
 
@@ -188,7 +180,10 @@ def main():
     num_of_incre = 20
     incre_p_list = [1/num_of_incre for i in range(num_of_incre)]
     incre_id_list = [i for i in range(num_of_incre)]
-    logger.info('{} increments'.format(num_of_incre))
+    logger.debug('{} increments'.format(num_of_incre))
+
+    link_probe_set = set()
+    link_probe_count = 0
 
     ### Loop through days and hours
     for day in [4]:
@@ -200,7 +195,7 @@ def main():
             ### static iterative assignment in each hour
             g_0 = interface.readgraph(bytes(absolute_path+'/../0_network/data/{}/{}/network_sparse.mtx'.format(folder, scenario), encoding='utf-8'))
 
-            OD = read_OD(day, hour)
+            OD, probe_veh_counts = read_OD(day, hour, probe_ratio)
             OD_msk = np.random.choice(incre_id_list, size=OD.shape[0], p=incre_p_list)
 
             edges_df['hour_flow'] = 0 ### Reset the hourly cumulative traffic flow to zero at the beginning of each time step. This cumulates during the incremental assignment.
@@ -213,28 +208,39 @@ def main():
                 ### Routing (map reduce)
                 edge_volume = map_reduce_edge_flow(day, hour, incre_id)
                 ### Updating
-                edges_df, link_probe_set, link_probe_count = update_graph(edge_volume, edges_df, day, hour, incre_id, link_probe_set, link_probe_count)
+                edges_df, link_probe_set, link_probe_count = update_graph(edge_volume, edges_df, day, hour, incre_id, sigma,link_probe_set, link_probe_count)
                 t_incre_1 = time.time()
                 logger.debug('DY{}_HR{} INCRE {}: {} sec, {} OD pairs \n'.format(day, hour, incre_id, t_incre_1-t_incre_0, OD_incre.shape[0]))
 
             t_hour_1 = time.time()
             logger.debug('DY{}_HR{}: {} sec \n'.format(day, hour, t_hour_1-t_hour_0))
 
-            #edges_df[['edge_id_igraph', 'hour_flow']].to_csv(absolute_path+'/output/test/edge_flow_DY{}_HR{}_probe{}_vsdev{}.csv'.format(day, hour, probe_ratio, speed_sdev), index=False)
+            #edges_df[['edge_id_igraph', 'hour_flow']].to_csv(absolute_path+'/output/test/edge_flow_DY{}_HR{}_probe{}_vsdev{}.csv'.format(day, hour, probe_ratio, sigma), index=False)
             edges_df['t_avg'] = edges_df['fft']*(1.3 + 1.3*0.6*(edges_df['hour_flow']/edges_df['capacity'])**4)
             edges_df['v_avg'] = edges_df['length']/edges_df['t_avg']
-            logger.info(edges_df[['length', 't_avg', 'v_avg']].describe())
             edges_df['vht'] = edges_df['t_avg']*edges_df['hour_flow']/3600
             edges_df['vkmt'] = edges_df['length']*edges_df['hour_flow']/1000
             n_largest = edges_df['hour_flow'].sort_values(ascending=False).tolist()[0:10]
-            logger.info('N largest flow {}, VHT {}, VKMT {}'.format(np.average(n_largest), sum(edges_df['vht']), sum(edges_df['vkmt'])))
-            logger.info('{} of links probed, {} with repeatition'.format(len(link_probe_set), link_probe_count))
-
+            logger.debug('links probed {}, w/ repetition {}, VHT {}, VKMT {}, Max.10 {}'.format(len(link_probe_set), link_probe_count, sum(edges_df['vht']), sum(edges_df['vkmt']), np.average(n_largest)))
             #g.writegraph(bytes(absolute_path+'/output_incre/network_result_DY{}_HR{}.mtx'.format(day, hour), encoding='utf-8'))
 
     t_main_1 = time.time()
-    logger.info('total run time: {} sec \n\n\n\n\n'.format(t_main_1 - t_main_0))
+    logger.debug('total run time: {} sec \n\n\n\n\n'.format(t_main_1 - t_main_0))
+    return [probe_veh_counts, len(link_probe_set), link_probe_count, sum(edges_df['vht']), sum(edges_df['vkmt']), np.average(n_largest)]
 
 if __name__ == '__main__':
-    main()
+    #random_seed = os.environ['SLURM_ARRAY_TASK_ID']
+    random_seed = 0
+
+    results_collect = []
+    #for sigma in [0, 1, 2, 5, 10]:
+    for sigma in [0]:
+        #for probe_ratio in [0, 0.0001, 0.0002, 0.0005, 0.001, 0.01, 0.1, 1]:
+        for probe_ratio in [0]:
+            results_main = main(random_seed, sigma, probe_ratio)
+            results_main = [sigma, probe_ratio] + results_main
+            results_collect.append(results_main)
+
+    results_collect_df = pd.DataFrame(results_collect, columns = ['sigma', 'probe_ratio', 'probe_veh_counts', 'links_probed_norepe', 'links_probed_repe', 'VHT', 'VKMT', 'max10'])
+    results_collect_df.to_csv(absolute_path+'/output/speed_sensor/random_seed_{}.csv'.format(random_seed), index=False)
 
