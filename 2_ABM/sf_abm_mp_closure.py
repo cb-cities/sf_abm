@@ -19,6 +19,8 @@ from sp import interface
 
 folder = 'sf_overpass'
 scenario = 'original'
+scen = 1
+week = os.environ['SLURM_ARRAY_TASK_ID']
 
 def map_edge_flow(row):
     ### Find shortest path for each unique origin --> one destination
@@ -130,10 +132,10 @@ def read_OD(day, hour):
 
 def main():
 
-    logging.basicConfig(filename=absolute_path+'/sf_abm_mp.log', level=logging.INFO)
+    logging.basicConfig(filename=absolute_path+'/output/{}/closures/scen{}/week{}/sf_abm_mp.log'.format(folder, scen, week), level=logging.INFO)
     logger = logging.getLogger('main')
     logger.info('{} \n'.format(datetime.datetime.now()))
-    logger.info('{} network'.format(folder))
+    logger.info('{} network {} scen {} week'.format(folder, scen, week))
 
     t_main_0 = time.time()
 
@@ -147,9 +149,15 @@ def main():
 
     ### Close road
     closed_igraphid = pd.read_csv(absolute_path+'/../5_maintenance/closures/short_scen{}_week{}_closed_igraphid.csv'.format(scen, week), squeeze=True, header=None)
-    edges_df[edges_df['edge_id_igraph'].isin(closed_igraphid)]['capacity']=0
-    edges_df[edges_df['edge_id_igraph'].isin(closed_igraphid)]['fft']=1000000    
 
+    # first change edge attributes
+    edges_df.loc[edges_df['edge_id_igraph'].isin(closed_igraphid), 'capacity']=0
+    edges_df.loc[edges_df['edge_id_igraph'].isin(closed_igraphid), 'fft']=1000000
+    # then change the mtx
+    closed_edges_df = edges_df[edges_df['edge_id_igraph'].isin(closed_igraphid)]
+    for row in closed_edges_df.itertuples():
+        g.update_edge(getattr(row,'start_sp'), getattr(row,'end_sp'), 1300000)
+    
     ### Prepare to split the hourly OD into increments
     global OD_incre
     incre_p_list = [0.1 for i in range(10)]
@@ -157,8 +165,8 @@ def main():
     logger.info('{} increments'.format(10))
 
     ### Loop through days and hours
-    for day in [0]:
-        for hour in range(3, 4):
+    for day in [0, 1, 2, 3, 4, 5, 6]:
+        for hour in range(3, 27):
 
             logger.debug('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()
@@ -186,9 +194,9 @@ def main():
             t_hour_1 = time.time()
             logger.info('DY{}_HR{}: {} sec \n'.format(day, hour, t_hour_1-t_hour_0))
 
-            edges_df[['edge_id_igraph', 'hour_flow']].to_csv(absolute_path+'/output/{}/{}/DY{}/edge_flow_DY{}_HR{}.csv'.format(folder, scenario, day, day, hour), index=False)
+            edges_df[['edge_id_igraph', 'hour_flow']].to_csv(absolute_path+'/output/{}/closures/scen{}/week{}/DY{}/edge_flow_DY{}_HR{}.csv'.format(folder, scen, week, day, day, hour), index=False)
 
-            with open(absolute_path + '/output/{}/{}/DY{}/travel_time_DY{}_HR{}.txt'.format(folder, scenario, day, day, hour), 'w') as f:
+            with open(absolute_path + '/output/{}/closures/scen{}/week{}/DY{}/travel_time_DY{}_HR{}.txt'.format(folder, scen, week, day, day, hour), 'w') as f:
                 for travel_time_item in travel_time_list:
                     f.write("%s\n" % travel_time_item)
 
