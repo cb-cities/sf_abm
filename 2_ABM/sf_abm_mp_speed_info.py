@@ -26,8 +26,10 @@ def map_edge_flow(row):
     ### Find shortest path for each unique origin --> one destination
     ### In the future change to multiple destinations
     
-    origin_ID = int(OD_incre['start_sp'].iloc[row])
-    destin_ID = int(OD_incre['end_sp'].iloc[row])
+    agent_id = int(OD_incre['agent_id'].iloc[row])
+    origin_ID = int(OD_incre['origin_sp'].iloc[row])
+    destin_ID = int(OD_incre['destin_sp'].iloc[row])
+    incre_id = int(OD_incre['incre_id'].iloc[row])
     traffic_flow = int(OD_incre['flow'].iloc[row]) ### number of travellers with this OD
     probe_veh = int(OD_incre['probe'].iloc[row]) ### 1 if the shortest path between this OD pair is traversed by a probe vehicle
 
@@ -37,22 +39,20 @@ def map_edge_flow(row):
         return [], 0 ### empty path; not reach destination; travel time 0
     else:
         sp_route = sp.route(destin_ID) ### agent route planned with imperfect information
-        results = [origin_ID, destin_ID, sp_dist, traffic_flow, probe_veh]+[(edge[0], edge[1]) for edge in sp_route]
-        ### origin_ID: start node in sp
-        ### destin_ID: end node in sp
-        ### sp_dist: agent-believed travel time
+        results = {'agent_id': agent_id, 'o_sp': origin_ID, 'd_sp': destin_ID, 'incre': incre_id, 'flow': traffic_flow, 'probe': probe_veh, 'route': [edge[0] for edge in sp_route]+[destin_ID]}
+        ### agent_ID: agent for each OD pair
         ### traffic_flow: num of agents between this OD pair
         ### probe_veh: num of probe vehicles (with location service on) between this OD pair
         ### [(edge[0], edge[1]) for edge in sp_route]: agent's choice of route
         return results, 1
 
 
-def reduce_edge_flow_pd(agent_routes, day, hour, incre_id):
+def reduce_edge_flow_pd(agent_info_routes, day, hour, incre_id):
     ### Reduce (count the total traffic flow per edge) with pandas groupby
 
     logger = logging.getLogger('reduce')
     t0 = time.time()
-    flat_L = [(e[0], e[1], r[3], r[4]) for r in agent_routes for e in r[5:]] ### r[0]-r[4] are origin_ID, destin_ID, sp_dist, traffic_flow and probe_flow
+    flat_L = [(e[0], e[1], r['flow'], r['probe']) for r in agent_info_routes for e in zip(r['route'], r['route'][1:])]
     df_L = pd.DataFrame(flat_L, columns=['start_sp', 'end_sp', 'flow', 'probe'])
     df_L_flow = df_L.groupby(['start_sp', 'end_sp']).agg({
         'flow': np.sum, 'probe': np.sum}).rename(columns={
@@ -83,14 +83,14 @@ def map_reduce_edge_flow(day, hour, incre_id):
 
     ### Organize results
     ### non-empty path; 1 reaches destination;
-    agent_routes, destination_counts = zip(*res)
+    agent_info_routes, destination_counts = zip(*res)
 
     logger.debug('DY{}_HR{} INC {}: {} O --> {} D found, dijkstra pool {} sec on {} processes'.format(day, hour, incre_id, unique_origin, sum(destination_counts), t_odsp_1 - t_odsp_0, process_count))
 
     #edge_volume = reduce_edge_flow(edge_flow_tuples, day, hour)
-    edge_volume = reduce_edge_flow_pd(agent_routes, day, hour, incre_id)
+    edge_volume = reduce_edge_flow_pd(agent_info_routes, day, hour, incre_id)
 
-    return edge_volume
+    return edge_volume, agent_info_routes
 
 def update_graph(edge_volume, edges_df, day, hour, incre_id, sigma, link_probe_set, link_probe_count):
     ### Update graph
@@ -143,9 +143,10 @@ def read_OD(day, hour, probe_ratio):
 
     OD = pd.merge(OD, nodes_df[['node_id_igraph', 'node_osmid']], how='left', left_on='O', right_on='node_osmid')
     OD = pd.merge(OD, nodes_df[['node_id_igraph', 'node_osmid']], how='left', left_on='D', right_on='node_osmid', suffixes=['_O', '_D'])
-    OD['start_sp'] = OD['node_id_igraph_O'] + 1 ### the node id in module sp is 1 higher than igraph id
-    OD['end_sp'] = OD['node_id_igraph_D'] + 1
-    OD = OD[['start_sp', 'end_sp', 'flow']]
+    OD['origin_sp'] = OD['node_id_igraph_O'] + 1 ### the node id in module sp is 1 higher than igraph id
+    OD['destin_sp'] = OD['node_id_igraph_D'] + 1
+    OD = OD[['origin_sp', 'destin_sp', 'flow']]
+    OD['agent_id'] = range(OD.shape[0])
     OD['probe'] = np.random.choice([0, 1], size=OD.shape[0], p=[1-probe_ratio, probe_ratio]) ### Randomly assigning 1% of vehicles to report speed
     OD = OD.sample(frac=1).reset_index(drop=True) ### randomly shuffle rows
 
@@ -154,7 +155,26 @@ def read_OD(day, hour, probe_ratio):
 
     return OD, sum(OD['probe'])
 
-def main(random_seed, sigma, probe_ratio):
+def output_edges_df(edges_df, random_seed, sigma, probe_ratio, incre_id, link_probe_set, link_probe_count):
+
+    ### Aggregate and calculate link-level variables after all increments
+    logger = logging.getLogger('edges_df')
+    
+    edges_df['t_avg'] = edges_df['fft']*(1.3 + 1.3*0.6*(edges_df['hour_flow']/edges_df['capacity'])**4)
+    edges_df['v_avg'] = edges_df['length']/edges_df['t_avg']
+    edges_df['vht'] = edges_df['t_avg']*edges_df['hour_flow']/3600
+    edges_df['vkmt'] = edges_df['length']*edges_df['hour_flow']/1000
+    n_largest = edges_df['hour_flow'].sort_values(ascending=False).tolist()[0:10]
+    logger.info('incre{}, links probed {}, w/ repetition {}, VHT {}, VKMT {}, Max.10 {}'.format(incre_id, len(link_probe_set), link_probe_count, sum(edges_df['vht']), sum(edges_df['vkmt']), np.average(n_largest)))
+
+    ### Output
+    #edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'hour_flow', 't_avg', 'v_avg', 'vht', 'vkmt']].to_csv(absolute_path+'/output/speed_sensor/incre/edge_flow_incre{}_random{}_probe{}_sigma{}.csv'.format(incre_id, random_seed, probe_ratio, sigma), index=False)
+
+    return len(link_probe_set), link_probe_count, sum(edges_df['vht']), sum(edges_df['vkmt']), np.average(n_largest)
+
+def main(random_seed=0, sigma=10, probe_ratio=0):
+
+    np.random.seed(random_seed)
 
     logging.basicConfig(filename=absolute_path+'/sf_abm_mp_speed_info.log', level=logging.INFO)
     logger = logging.getLogger('main')
@@ -197,36 +217,42 @@ def main(random_seed, sigma, probe_ratio):
 
             OD, probe_veh_counts = read_OD(day, hour, probe_ratio)
             OD_msk = np.random.choice(incre_id_list, size=OD.shape[0], p=incre_p_list)
+            OD['incre_id'] = OD_msk
 
             edges_df['hour_flow'] = 0 ### Reset the hourly cumulative traffic flow to zero at the beginning of each time step. This cumulates during the incremental assignment.
+            agents_list = []
 
             for incre_id in incre_id_list:
 
                 t_incre_0 = time.time()
                 ### Split OD
-                OD_incre = OD[OD_msk == incre_id]
+                OD_incre = OD[OD['incre_id'] == incre_id]
+
                 ### Routing (map reduce)
-                edge_volume = map_reduce_edge_flow(day, hour, incre_id)
+                edge_volume, agent_info_routes = map_reduce_edge_flow(day, hour, incre_id)
+                ### Collecting agent routes in this increment
+                agents_list += agent_info_routes
+
                 ### Updating
                 edges_df, link_probe_set, link_probe_count = update_graph(edge_volume, edges_df, day, hour, incre_id, sigma,link_probe_set, link_probe_count)
+                ### log and output edges_df
+                links_probed_norepe, links_probed_repe, VHT, VKMT, max10 =  output_edges_df(edges_df, random_seed, sigma, probe_ratio, incre_id, link_probe_set, link_probe_count)
+                ### output increment graph
+                #g_0.writegraph(bytes(absolute_path+'/output/speed_sensor/incre_graph/network_i{}_r{}_p{}_s{}.mtx'.format(incre_id, random_seed, probe_ratio, sigma), encoding='utf-8'))
+
                 t_incre_1 = time.time()
                 logger.debug('DY{}_HR{} INCRE {}: {} sec, {} OD pairs \n'.format(day, hour, incre_id, t_incre_1-t_incre_0, OD_incre.shape[0]))
+
+            ### Output all agent route
+            with open(absolute_path+'/output/speed_sensor/indiv_agent/agent_routes_random{}_probe{}_sigma{}.json'.format(random_seed, probe_ratio, sigma), 'w') as outfile:
+                json.dump(agents_list, outfile, indent=2)
 
             t_hour_1 = time.time()
             logger.debug('DY{}_HR{}: {} sec \n'.format(day, hour, t_hour_1-t_hour_0))
 
-            #edges_df[['edge_id_igraph', 'hour_flow']].to_csv(absolute_path+'/output/test/edge_flow_DY{}_HR{}_probe{}_vsdev{}.csv'.format(day, hour, probe_ratio, sigma), index=False)
-            edges_df['t_avg'] = edges_df['fft']*(1.3 + 1.3*0.6*(edges_df['hour_flow']/edges_df['capacity'])**4)
-            edges_df['v_avg'] = edges_df['length']/edges_df['t_avg']
-            edges_df['vht'] = edges_df['t_avg']*edges_df['hour_flow']/3600
-            edges_df['vkmt'] = edges_df['length']*edges_df['hour_flow']/1000
-            n_largest = edges_df['hour_flow'].sort_values(ascending=False).tolist()[0:10]
-            logger.debug('links probed {}, w/ repetition {}, VHT {}, VKMT {}, Max.10 {}'.format(len(link_probe_set), link_probe_count, sum(edges_df['vht']), sum(edges_df['vkmt']), np.average(n_largest)))
-            #g.writegraph(bytes(absolute_path+'/output_incre/network_result_DY{}_HR{}.mtx'.format(day, hour), encoding='utf-8'))
-
     t_main_1 = time.time()
-    logger.debug('total run time: {} sec \n\n\n\n\n'.format(t_main_1 - t_main_0))
-    return [probe_veh_counts, len(link_probe_set), link_probe_count, sum(edges_df['vht']), sum(edges_df['vkmt']), np.average(n_largest)]
+    logger.info('total run time: {} sec \n\n\n\n\n'.format(t_main_1 - t_main_0))
+    return probe_veh_counts, links_probed_norepe, links_probed_repe, VHT, VKMT, max10
 
 if __name__ == '__main__':
     #random_seed = os.environ['SLURM_ARRAY_TASK_ID']
