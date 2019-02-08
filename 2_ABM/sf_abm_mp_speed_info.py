@@ -154,7 +154,7 @@ def read_OD(day, hour, probe_ratio):
 
     return OD, sum(OD['probe'])
 
-def main(random_seed, sigma, probe_ratio):
+def abm_static(random_seed, sigma, probe_ratio):
 
     logging.basicConfig(filename=absolute_path+'/sf_abm_mp_speed_info.log', level=logging.INFO)
     logger = logging.getLogger('main')
@@ -228,19 +228,21 @@ def main(random_seed, sigma, probe_ratio):
     logger.debug('total run time: {} sec \n\n\n\n\n'.format(t_main_1 - t_main_0))
     return [probe_veh_counts, len(link_probe_set), link_probe_count, sum(edges_df['vht']), sum(edges_df['vkmt']), np.average(n_largest)]
 
-if __name__ == '__main__':
-    #random_seed = os.environ['SLURM_ARRAY_TASK_ID']
-    random_seed = 0
+def main():
+    random_seed = os.environ['SLURM_ARRAY_TASK_ID']
+    #random_seed = 0
 
     results_collect = []
-    #for sigma in [0, 1, 2, 5, 10]:
-    for sigma in [0]:
-        #for probe_ratio in [0, 0.0001, 0.0002, 0.0005, 0.001, 0.01, 0.1, 1]:
-        for probe_ratio in [0]:
-            results_main = main(random_seed, sigma, probe_ratio)
-            results_main = [sigma, probe_ratio] + results_main
-            results_collect.append(results_main)
+    for sigma in [0, 1, 2, 5, 10]:
+    #for sigma in [0]:
+        for probe_ratio in [0, 0.0001, 0.0002, 0.0005, 0.001, 0.01, 0.1, 1]:
+        #for probe_ratio in [0]:
+            results_abm = abm_static(random_seed, sigma, probe_ratio)
+            results_abm = [sigma, probe_ratio] + results_abm
+            results_collect.append(results_abm)
 
     results_collect_df = pd.DataFrame(results_collect, columns = ['sigma', 'probe_ratio', 'probe_veh_counts', 'links_probed_norepe', 'links_probed_repe', 'VHT', 'VKMT', 'max10'])
     results_collect_df.to_csv(absolute_path+'/output/speed_sensor/random_seed_{}.csv'.format(random_seed), index=False)
 
+if __name__ == "__main__":
+    main()

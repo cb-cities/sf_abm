@@ -1,4 +1,4 @@
 import cProfile
-import sf_abm_mp_closure ### with our sp implementation
+import sf_abm_mp_speed_info ### with our sp implementation
 
-cProfile.run('sf_abm_mp_closure.main()', 'sf_abm_mp_profile.txt')
+cProfile.run('sf_abm_mp_speed_info.main()', 'sf_abm_mp_profile.txt')
