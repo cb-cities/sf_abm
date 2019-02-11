@@ -26,8 +26,9 @@ figures/private/
 4_validation/mtc_travelmodelone/avgload5period
 4_validation/mtc_travelmodelone/*.csv
 5_maintenance/closures/*.csv
-6_nash/**/*.csv
-6_nash/**/*.png
+6_sensor/**/*.png
+nash/**/*.csv
+nash/**/*.png
 London_SSSP/
 SF_SSSP/
 **/*.xml
