@@ -166,7 +166,7 @@ def output_edges_df(edges_df, day, hour, random_seed, probe_ratio):
     #edges_df['vkmt'] = edges_df['length']*edges_df['hour_flow']/1000
 
     ### Output
-    edges_df[['edge_id_igraph', 'hour_flow', 't_avg', 'perceived_hour_flow']].to_csv(absolute_path+'/output/speed_sensor/edges_df/edges_df_DY{}_HR{}_r{}_p{}.csv'.format(day, hour, random_seed, probe_ratio), index=False)
+    edges_df[['edge_id_igraph', 'hour_flow', 't_avg', 'perceived_hour_flow']].to_csv(absolute_path+'/output/speed_sensor/edges_df_no_carry_over/edges_df_DY{}_HR{}_r{}_p{}.csv'.format(day, hour, random_seed, probe_ratio), index=False)
 
 def sta(random_seed=0, probe_ratio=1):
 
@@ -215,7 +215,9 @@ def sta(random_seed=0, probe_ratio=1):
             ### Initialize some parameters
             probed_link_list = [] ### probed links
             ### Carry-over volume
-            edges_df['hour_flow'] -= edges_df['perceived_hour_flow']
+            #edges_df['hour_flow'] -= edges_df['perceived_hour_flow']
+            ### No carry-over between time steps
+            edges_df['hour_flow']=0
             edges_df['perceived_hour_flow'] = 0
             #agents_list = []
 
@@ -255,6 +257,7 @@ def main():
 
     logging.basicConfig(filename=absolute_path+'/sf_abm_mp_speed_info.log', level=logging.INFO)
     logger = logging.getLogger('main')
+    logger.info('No carry over volume between time steps')
     logger.info('{}'.format(datetime.datetime.now()))
 
     random_seed = int(os.environ['RANDOM_SEED'])
