@@ -263,7 +263,7 @@ def main():
     random_seed = 0
 
     results_collect = []
-    for probe_ratio in [0.001]:
+    for probe_ratio in [0.01]:
     #for probe_ratio in [1, 0.1, 0.01, 0.005, 0.001, 0]:
         results_main = sta(random_seed, probe_ratio)
         #results_main = [sigma, probe_ratio] + results_main
