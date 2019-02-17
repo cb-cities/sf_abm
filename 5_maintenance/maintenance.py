@@ -160,12 +160,12 @@ def eco_incentivize(budget):
         aad_df['aad_vol'] = 0
         aad_df['aad_vmt'] = 0
         aad_df['aad_base_emi'] = 0
-        for hour in range(3, 4):
+        for hour in range(3, 27):
             hour_volume_df = pd.read_csv(absolute_path+'/output/edges_df_abm/edges_df_y{}_DY{}_HR{}_r{}_p{}.csv'.format(year, day, hour, random_seed, probe_ratio))
             aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df)
 
         aad_df = pd.merge(aad_df, edges_df[['edge_id_igraph', 'pci_current', 'alpha', 'xi']], on='edge_id_igraph', how='left')
-        vmt_total = np.sum(aad_df['aad_vmt'])/1609.34
+        vmlt_total = np.sum(aad_df['aad_vmt'])/1609.34
         ### Adjust emission by considering the impact of pavement degradation
         aad_df['aad_pci_emi'] = aad_df['aad_base_emi']*(1+0.07*0.03*(100-aad_df['pci_current'])) ### daily emission (aad) in gram
 
@@ -176,7 +176,7 @@ def eco_incentivize(budget):
         edges_df['age_current'] = edges_df['age_current']+365
         edges_df.loc[edges_df['edge_id_igraph'].isin(edges_repair), 'age_current'] = 0
 
-        print('average emission pmlpv {}, total {}'.format(np.sum(aad_df['aad_pci_emi'])/vmt_total, np.sum(aad_df['aad_pci_emi'])))
+        print('average emission pmlpv {}, total {}, vmlt {}'.format(np.sum(aad_df['aad_pci_emi'])/vmlt_total, np.sum(aad_df['aad_pci_emi']), vmlt_total))
 
 if __name__ == '__main__':
     budget = 500

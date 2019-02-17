@@ -74,7 +74,7 @@ def map_reduce_edge_flow(day, hour, ss_id):
     logger = logging.getLogger('map-reduce')
 
     ### Build a pool
-    process_count = 4
+    process_count = 32
     pool = Pool(processes=process_count)
 
     ### Find shortest pathes
@@ -213,7 +213,7 @@ def sta(year, day=4, random_seed=0, probe_ratio=1):
 
     ### Loop through days and hours
     for day in [4]:
-        for hour in range(3, 4):
+        for hour in range(3, 27):
 
             #logger.info('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()
