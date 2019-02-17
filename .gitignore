@@ -26,7 +26,8 @@ figures/private/
 4_validation/figures
 4_validation/mtc_travelmodelone/avgload5period
 4_validation/mtc_travelmodelone/*.csv
-5_maintenance/closures/*.csv
+5_maintenance/**/*.csv
+5_maintenance/**/*.mtx
 6_sensor/**/*.png
 6_sensor/**/*.csv
 nash/**/*.csv

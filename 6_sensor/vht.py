@@ -46,22 +46,30 @@ def main():
     vht_df_grp['mean+std'] = vht_df_grp['VHT_mean'] + vht_df_grp['VHT_std']
     vht_df_grp['mean-std'] = vht_df_grp['VHT_mean'] - vht_df_grp['VHT_std']
     vht_df_grp.to_csv('vht_df_grp_carry_1step.csv', index=False)
+    #print(vht_df_grp)
     sys.exit(0)
 
+def plot_vht():
+    
+    vht_df_grp = pd.read_csv('vht_df_grp_carry_1step.csv')
+
     fig, ax = plt.subplots(1)
+    fig.set_size_inches(10.5, 5.5)
     color = iter(cm.rainbow(np.linspace(0, 1, 6)))
-    for probe_ratio in [1, 0.1, 0.01, 0.005, 0.001, 0]:
+    for probe_ratio in [1, 0.1, 0.01, 0.005]:
+    #for probe_ratio in [0.001]:
         series_df = vht_df_grp[vht_df_grp['probe_ratio_']==probe_ratio]
         c = next(color)
         ax.plot('HR_', 'VHT_mean', data=series_df, label='{}'.format(probe_ratio), c=c)
         ax.fill_between('HR_', 'mean-std', 'mean+std', data=series_df, facecolor=c, alpha=0.5)
     ax.set_title('VHT on a typical Friday and probe ratio')
-    ax.legend(title='probe ratio', bbox_to_anchor=(1, 0.5))
+    ax.legend(title='probe ratio', bbox_to_anchor=(0.15, 0.9))
     ax.set_xlabel('Hour')
     ax.set_ylabel('VHT')
     ax.set_yscale('log')
-    plt.savefig('vht_hour.png')
+    plt.savefig('Figs/vht_by_hour_carry_1step_0.5above.png')
 
 
 if __name__ == '__main__':
-    main()
+    #main()
+    plot_vht()
