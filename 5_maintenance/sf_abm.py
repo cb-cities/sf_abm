@@ -167,7 +167,7 @@ def read_OD(day, hour, probe_ratio):
 
     return OD
 
-def output_edges_df(edges_df, year, day, hour, random_seed, probe_ratio):
+def output_edges_df(edges_df, year, day, hour, random_seed, probe_ratio, budget):
 
     ### Aggregate and calculate link-level variables after all increments
     
@@ -180,9 +180,9 @@ def output_edges_df(edges_df, year, day, hour, random_seed, probe_ratio):
     #edges_df['pci_co2'] = edges_df['base_co2_avg'] * (1+0.07*0.03*(100-edges_df['pci_current']))
 
     ### Output
-    edges_df[['edge_id_igraph', 'hour_flow', 't_avg', 'perceived_hour_flow', 'carryover_flow']].to_csv(absolute_path+'/output/edges_df_abm/edges_df_y{}_DY{}_HR{}_r{}_p{}.csv'.format(year, day, hour, random_seed, probe_ratio), index=False)
+    edges_df[['edge_id_igraph', 'hour_flow', 't_avg', 'perceived_hour_flow', 'carryover_flow']].to_csv(absolute_path+'/output/edges_df_abm/edges_df_b{}_y{}_DY{}_HR{}_r{}_p{}.csv'.format(budget, year, day, hour, random_seed, probe_ratio), index=False)
 
-def sta(year, day=4, random_seed=0, probe_ratio=1):
+def sta(year, day=4, random_seed=0, probe_ratio=1, budget=100):
 
     logging.basicConfig(filename=absolute_path+'/logs/sta.log', level=logging.INFO)
     logger = logging.getLogger('sta')
@@ -197,10 +197,10 @@ def sta(year, day=4, random_seed=0, probe_ratio=1):
     global OD_ss ### substep demand
 
     ### Read in the initial network (free flow travel time)
-    g = interface.readgraph(bytes(absolute_path+'/output/network/network_sparse_y{}.mtx'.format(year), encoding='utf-8'))
+    g = interface.readgraph(bytes(absolute_path+'/output/network/network_sparse_b{}_y{}.mtx'.format(budget, year), encoding='utf-8'))
 
     ### Read in the edge attribute for volume delay calculation later
-    edges_df = pd.read_csv(absolute_path+'/output/edge_df/edges_y{}.csv'.format(year))
+    edges_df = pd.read_csv(absolute_path+'/output/edge_df/edges_b{}_y{}.csv'.format(budget, year))
     ### Set edge variables that will be updated at the end of each time step
     edges_df['carryover_flow'] = 0 ### The same value for a whole time step, equals to the unperceived flow (newly added, not including the carry over from the previous time step) at the end of the previous time step
     edges_df['previous_co2'] = edges_df['eco_wgh']
@@ -213,7 +213,7 @@ def sta(year, day=4, random_seed=0, probe_ratio=1):
 
     ### Loop through days and hours
     for day in [4]:
-        for hour in range(3, 4):
+        for hour in range(3, 5):
 
             #logger.info('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()
@@ -254,7 +254,7 @@ def sta(year, day=4, random_seed=0, probe_ratio=1):
                 t_substep_1 = time.time()
                 logger.debug('DY{}_HR{} SS {}: {} sec, {} OD pairs'.format(day, hour, ss_id, t_substep_1-t_substep_0, OD_ss.shape[0], ))
 
-            output_edges_df(edges_df, year, day, hour, random_seed, probe_ratio)
+            output_edges_df(edges_df, year, day, hour, random_seed, probe_ratio, budget)
 
             ### Update carry over flow
             edges_df['carryover_flow'] = np.where(edges_df['perceived_hour_flow']==0,
