@@ -184,10 +184,10 @@ def output_edges_df(edges_df, year, day, hour, random_seed, probe_ratio):
 
 def sta(year, day=4, random_seed=0, probe_ratio=1):
 
-    logging.basicConfig(filename=absolute_path+'/logs/sf_abm_y{}.log'.format(year), level=logging.DEBUG)
+    logging.basicConfig(filename=absolute_path+'/logs/sta.log', level=logging.INFO)
     logger = logging.getLogger('sta')
     logger.info('{}'.format(datetime.datetime.now()))
-    logger.info('maintenance, {} network, random_seed {}, probe_ratio {}'.format(folder, random_seed, probe_ratio))
+    logger.info('maintenance, {} network, year {}, random_seed {}, probe_ratio {}'.format(folder, year, random_seed, probe_ratio))
 
     t_main_0 = time.time()
     ### Fix random seed
@@ -213,7 +213,7 @@ def sta(year, day=4, random_seed=0, probe_ratio=1):
 
     ### Loop through days and hours
     for day in [4]:
-        for hour in range(3, 7):
+        for hour in range(3, 4):
 
             #logger.info('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()

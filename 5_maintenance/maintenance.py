@@ -132,7 +132,7 @@ def eco_incentivize(budget):
     g_0 = sio.mmread(absolute_path+'/../0_network/data/{}/{}/network_sparse.mtx'.format(folder, scenario))
     g_0_shape = g_0.shape
 
-    for year in range(2):
+    for year in range(1,4):
 
         ### Calculate the current pci based on the coefficients and current age
         edges_df['pci_current'] = edges_df['alpha']+edges_df['xi'] + (edges_df['beta']+edges_df['uv'])*edges_df['age_current']/365
@@ -155,12 +155,12 @@ def eco_incentivize(budget):
         random_seed = 0
         probe_ratio = 0.01
         ### Run ABM
-        #sf_abm.sta(year, day=day, random_seed=random_seed, probe_ratio=probe_ratio)
+        sf_abm.sta(year, day=day, random_seed=random_seed, probe_ratio=probe_ratio)
         aad_df = edges_df[['edge_id_igraph', 'length', 'pci_current']].copy()
         aad_df['aad_vol'] = 0
         aad_df['aad_vmt'] = 0
         aad_df['aad_base_emi'] = 0
-        for hour in range(3, 7):
+        for hour in range(3, 4):
             hour_volume_df = pd.read_csv(absolute_path+'/output/edges_df_abm/edges_df_y{}_DY{}_HR{}_r{}_p{}.csv'.format(year, day, hour, random_seed, probe_ratio))
             aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df)
 
