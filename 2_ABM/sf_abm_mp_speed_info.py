@@ -103,10 +103,9 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
     ### first update the cumulative flow in the current time step
     edges_df = pd.merge(edges_df, edge_volume, how='left', on=['start_sp', 'end_sp'])
     edges_df = edges_df.fillna(value={'ss_flow': 0, 'ss_probe': 0}) ### fill flow for unused edges as 0
-    edges_df['hour_flow'] += edges_df['ss_flow'] ### update the cumulative flow
-    
-    #edges_df['hour_probe'] += edges_df['ss_probe'] ### update the probe
-    edges_df['perceived_hour_flow'] = np.where(edges_df['ss_probe']==0, edges_df['perceived_hour_flow'], edges_df['hour_flow'])
+    edges_df['hour_flow'] += edges_df['ss_flow'] ### update the total flow (newly assigned + carry over)
+ 
+    edges_df['perceived_hour_flow'] = np.where(edges_df['ss_probe']==0, edges_df['perceived_hour_flow'], edges_df['hour_flow']) ### If there is a probe, then we can perceive the true flow (net + carry over); otherwise, we don't update the perceived flow.
     probed_link_list += edges_df[edges_df['ss_probe']>0]['edge_id_igraph'].tolist()
 
     ### True flux
@@ -166,7 +165,7 @@ def output_edges_df(edges_df, day, hour, random_seed, probe_ratio):
     #edges_df['vkmt'] = edges_df['length']*edges_df['hour_flow']/1000
 
     ### Output
-    edges_df[['edge_id_igraph', 'hour_flow', 't_avg', 'perceived_hour_flow']].to_csv(absolute_path+'/output/speed_sensor/edges_df_no_carry_over/edges_df_DY{}_HR{}_r{}_p{}.csv'.format(day, hour, random_seed, probe_ratio), index=False)
+    edges_df[['edge_id_igraph', 'hour_flow', 't_avg', 'perceived_hour_flow', 'carryover_flow']].to_csv(absolute_path+'/output/speed_sensor/edges_df_carry_1step/edges_df_DY{}_HR{}_r{}_p{}.csv'.format(day, hour, random_seed, probe_ratio), index=False)
 
 def sta(random_seed=0, probe_ratio=1):
 
@@ -186,8 +185,8 @@ def sta(random_seed=0, probe_ratio=1):
     ### Read in the edge attribute for volume delay calculation later
     edges_df = pd.read_csv(absolute_path+'/../0_network/data/{}/{}/edges.csv'.format(folder, scenario))
     edges_df = edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft']]
-    edges_df['hour_flow'] = 0 ### carry over volume
-    edges_df['perceived_hour_flow'] = 0
+    ### Set edge variables that will be updated at the end of each time step
+    edges_df['carryover_flow'] = 0 ### The same value for a whole time step, equals to the unperceived flow (newly added, not including the carry over from the previous time step) at the end of the previous time step
     edges_df['previous_t'] = edges_df['fft']
 
     ### Define substep parameters
@@ -214,10 +213,9 @@ def sta(random_seed=0, probe_ratio=1):
             
             ### Initialize some parameters
             probed_link_list = [] ### probed links
-            ### Carry-over volume
-            #edges_df['hour_flow'] -= edges_df['perceived_hour_flow']
-            ### No carry-over between time steps
-            edges_df['hour_flow']=0
+
+            ### Reset some variables at the beginning of each time step
+            edges_df['hour_flow'] = edges_df['carryover_flow'] ### total hourly flow = carry over flow at the beginning of each time step
             edges_df['perceived_hour_flow'] = 0
             #agents_list = []
 
@@ -240,14 +238,17 @@ def sta(random_seed=0, probe_ratio=1):
                 t_substep_1 = time.time()
                 logger.debug('DY{}_HR{} SS {}: {} sec, {} OD pairs'.format(day, hour, ss_id, t_substep_1-t_substep_0, OD_ss.shape[0], ))
 
-            ### Output all agent route
-            #with open(absolute_path+'/output/speed_sensor/indiv_agent/agent_routes_random{}_probe{}_sigma{}.json'.format(random_seed, probe_ratio, sigma), 'w') as outfile:
-                #json.dump(agents_list, outfile, indent=2)
             output_edges_df(edges_df, day, hour, random_seed, probe_ratio)
+
+            ### Update carry over flow
+            edges_df['carryover_flow'] = np.where(edges_df['perceived_hour_flow']==0,
+                edges_df['hour_flow'] - edges_df['carryover_flow'],
+                edges_df['hour_flow'] - edges_df['perceived_hour_flow']
+                )
 
             t_hour_1 = time.time()
             ### log hour results before resetting the flow for the next time step
-            logger.info('DY{}_HR{}: {} sec, OD {}, VHT {}, l probed {}, unq l probed {}'.format(day, hour, round(t_hour_1-t_hour_0, 3), hour_demand, sum(edges_df['hour_flow']*edges_df['t_avg']/3600), len(probed_link_list), len(set(probed_link_list))))
+            logger.info('DY{}_HR{}: {} sec, OD {}, VHT {}, l probed {}, unq l probed {}, carry over min/max {}/{}'.format(day, hour, round(t_hour_1-t_hour_0, 3), hour_demand, sum(edges_df['hour_flow']*edges_df['t_avg']/3600), len(probed_link_list), len(set(probed_link_list)), min(edges_df['carryover_flow']), max(edges_df['carryover_flow'])))
 
     t_main_1 = time.time()
     logger.info('total run time: {} sec \n\n\n\n\n'.format(t_main_1 - t_main_0))
@@ -257,7 +258,7 @@ def main():
 
     logging.basicConfig(filename=absolute_path+'/sf_abm_mp_speed_info.log', level=logging.INFO)
     logger = logging.getLogger('main')
-    logger.info('No carry over volume between time steps')
+    logger.info('carry over volume expire in one time step')
     logger.info('{}'.format(datetime.datetime.now()))
 
     random_seed = int(os.environ['RANDOM_SEED'])
