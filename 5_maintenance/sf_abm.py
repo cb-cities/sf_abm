@@ -21,6 +21,12 @@ from sp import interface
 
 folder = 'sf_overpass'
 scenario = 'original'
+### CO2 - speed function constants (Barth and Boriboonsomsin, "Real-World Carbon Dioxide Impacts of Traffic Congestion")
+b0 = 7.362867270508520
+b1 = -0.149814315838651
+b2 = 0.004214810510200
+b3 = -0.000049253951464
+b4 = 0.000000217166574
 
 def map_edge_flow(row):
     ### Find shortest path for each unique origin --> one destination
@@ -112,14 +118,23 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
     ## Perceived flux
     edges_df['perceived_flux'] = edges_df['perceived_hour_flow']*hour_demand/assigned_demand
     edges_df['perceived_t'] = edges_df['fft']*(1 + 0.6*(edges_df['perceived_flux']/edges_df['capacity'])**4)
+    ### Perceived emission
+    edges_df['perceived_v'] = edges_df['length']/edges_df['perceived_t']
+    edges_df['perceived_co2'] = np.exp(
+        b0 + 
+        b1*edges_df['perceived_v'] + 
+        b2*edges_df['perceived_v']**2 + 
+        b3*edges_df['perceived_v']**3 + 
+        b4*edges_df['perceived_v']**4) * (
+        1+0.07*0.03*(100-edges_df['pci_current'])) / 1609.34*edges_df['length']
 
-    update_df = edges_df.loc[edges_df['perceived_t'] != edges_df['previous_t']].copy().reset_index()
+    update_df = edges_df.loc[edges_df['perceived_co2'] != edges_df['previous_co2']].copy().reset_index()
     #logger.info('links to be updated {}'.format(edge_probe_df.shape[0]))
     for row in update_df.itertuples():
-        g.update_edge(getattr(row,'start_sp'), getattr(row,'end_sp'), c_double(getattr(row,'perceived_t')))
+        g.update_edge(getattr(row,'start_sp'), getattr(row,'end_sp'), c_double(getattr(row,'perceived_co2')))
 
-    edges_df['previous_t'] = edges_df['perceived_t']
-    edges_df = edges_df.drop(columns=['ss_flow', 'ss_probe', 'perceived_flux', 'perceived_t'])
+    edges_df['previous_co2'] = edges_df['perceived_co2']
+    edges_df = edges_df.drop(columns=['ss_flow', 'ss_probe', 'perceived_flux', 'perceived_t', 'perceived_v', 'perceived_co2'])
 
     t_update_1 = time.time()
     #logger.info('DY{}_HR{} INC {}: {} edges updated in {} sec'.format(day, hour, incre_id, edge_probe_df.shape[0], t_update_1-t_update_0))
@@ -152,7 +167,7 @@ def read_OD(day, hour, probe_ratio):
 
     return OD
 
-def output_edges_df(edges_df, day, hour, random_seed, probe_ratio):
+def output_edges_df(edges_df, year, day, hour, random_seed, probe_ratio):
 
     ### Aggregate and calculate link-level variables after all increments
     
@@ -161,14 +176,18 @@ def output_edges_df(edges_df, day, hour, random_seed, probe_ratio):
     #edges_df['v_avg'] = edges_df['length']/edges_df['t_avg']
     #edges_df['vht'] = edges_df['t_avg']*edges_df['hour_flow']/3600
     #edges_df['vkmt'] = edges_df['length']*edges_df['hour_flow']/1000
+    #edges_df['base_co2'] = np.exp(b0 + b1*edges_df['v_avg'] + b2*edges_df['v_avg']**2 + b3*edges_df['v_avg']**3 + b4*edges_df['v_avg']**4)
+    #edges_df['pci_co2'] = edges_df['base_co2_avg'] * (1+0.07*0.03*(100-edges_df['pci_current']))
 
     ### Output
-    edges_df[['edge_id_igraph', 'hour_flow', 't_avg', 'perceived_hour_flow', 'carryover_flow']].to_csv(absolute_path+'/output/speed_sensor/edges_df_carry_1step/edges_df_DY{}_HR{}_r{}_p{}.csv'.format(day, hour, random_seed, probe_ratio), index=False)
+    edges_df[['edge_id_igraph', 'hour_flow', 't_avg', 'perceived_hour_flow', 'carryover_flow']].to_csv(absolute_path+'/output/edges_df_abm/edges_df_y{}_DY{}_HR{}_r{}_p{}.csv'.format(year, day, hour, random_seed, probe_ratio), index=False)
 
-def sta(random_seed=0, probe_ratio=1):
+def sta(year, day=4, random_seed=0, probe_ratio=1):
 
-    logger = logging.getLogger('main')
-    logger.info('{} network, random_seed {}, probe_ratio {}'.format(folder, random_seed, probe_ratio))
+    logging.basicConfig(filename=absolute_path+'/logs/sf_abm_y{}.log'.format(year), level=logging.DEBUG)
+    logger = logging.getLogger('sta')
+    logger.info('{}'.format(datetime.datetime.now()))
+    logger.info('maintenance, {} network, random_seed {}, probe_ratio {}'.format(folder, random_seed, probe_ratio))
 
     t_main_0 = time.time()
     ### Fix random seed
@@ -178,14 +197,13 @@ def sta(random_seed=0, probe_ratio=1):
     global OD_ss ### substep demand
 
     ### Read in the initial network (free flow travel time)
-    g = interface.readgraph(bytes(absolute_path+'/../0_network/data/{}/{}/network_sparse.mtx'.format(folder, scenario), encoding='utf-8'))
+    g = interface.readgraph(bytes(absolute_path+'/output/network/network_sparse_y{}.mtx'.format(year), encoding='utf-8'))
 
     ### Read in the edge attribute for volume delay calculation later
-    edges_df = pd.read_csv(absolute_path+'/../0_network/data/{}/{}/edges.csv'.format(folder, scenario))
-    edges_df = edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft']]
+    edges_df = pd.read_csv(absolute_path+'/output/edge_df/edges_y{}.csv'.format(year))
     ### Set edge variables that will be updated at the end of each time step
     edges_df['carryover_flow'] = 0 ### The same value for a whole time step, equals to the unperceived flow (newly added, not including the carry over from the previous time step) at the end of the previous time step
-    edges_df['previous_t'] = edges_df['fft']
+    edges_df['previous_co2'] = edges_df['eco_wgh']
 
     ### Define substep parameters
     substep_counts = 20
@@ -195,7 +213,7 @@ def sta(random_seed=0, probe_ratio=1):
 
     ### Loop through days and hours
     for day in [4]:
-        for hour in range(3, 27):
+        for hour in range(3, 7):
 
             #logger.info('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()
@@ -236,7 +254,7 @@ def sta(random_seed=0, probe_ratio=1):
                 t_substep_1 = time.time()
                 logger.debug('DY{}_HR{} SS {}: {} sec, {} OD pairs'.format(day, hour, ss_id, t_substep_1-t_substep_0, OD_ss.shape[0], ))
 
-            output_edges_df(edges_df, day, hour, random_seed, probe_ratio)
+            output_edges_df(edges_df, year, day, hour, random_seed, probe_ratio)
 
             ### Update carry over flow
             edges_df['carryover_flow'] = np.where(edges_df['perceived_hour_flow']==0,
@@ -251,27 +269,4 @@ def sta(random_seed=0, probe_ratio=1):
     t_main_1 = time.time()
     logger.info('total run time: {} sec \n\n\n\n\n'.format(t_main_1 - t_main_0))
     #return probe_veh_counts, links_probed_norepe, links_probed_repe, VHT, VKMT, max10
-
-def main():
-
-    logging.basicConfig(filename=absolute_path+'/sf_abm_mp_speed_info.log', level=logging.DEBUG)
-    logger = logging.getLogger('main')
-    logger.info('carry over volume expire in one time step')
-    logger.info('{}'.format(datetime.datetime.now()))
-
-    #random_seed = os.environ['SLURM_ARRAY_TASK_ID']
-    random_seed = 0
-
-    results_collect = []
-    for probe_ratio in [0.01]:
-    #for probe_ratio in [1, 0.1, 0.01, 0.005, 0.001, 0]:
-        results_main = sta(random_seed, probe_ratio)
-        #results_main = [sigma, probe_ratio] + results_main
-        #results_collect.append(results_main)
-
-    #results_collect_df = pd.DataFrame(results_collect, columns = ['sigma', 'probe_ratio', 'probe_veh_counts', 'links_probed_norepe', 'links_probed_repe', 'VHT', 'VKMT', 'max10'])
-    #results_collect_df.to_csv(absolute_path+'/output/speed_sensor/random_seed_{}.csv'.format(random_seed), index=False)
-
-if __name__ == '__main__':
-    main()
 
