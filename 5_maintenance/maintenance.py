@@ -37,14 +37,16 @@ def aad_vol_vmt_baseemi(aad_df, hour_volume_df):
 
     aad_df = pd.merge(aad_df, hour_volume_df, on='edge_id_igraph', how='left')
     aad_df['net_vol'] = aad_df['hour_flow'] - aad_df['carryover_flow']
+    aad_df['net_vht'] = aad_df['net_vol'] * aad_df['t_avg']/3600
     aad_df['v_avg_mph'] = aad_df['length']/aad_df['t_avg'] * 2.23694 ### time step link speed in mph
     aad_df['base_co2'] = base_co2(aad_df['v_avg_mph']) ### link-level co2 eimission in gram per mile per vehicle
     aad_df['base_emi'] = aad_df['base_co2'] * aad_df['length'] /1609.34 * aad_df['net_vol'] ### speed related CO2 x length x flow. Final results unit is gram.
 
     aad_df['aad_vol'] += aad_df['net_vol']
+    aad_df['aad_vht'] += aad_df['net_vht']
     aad_df['aad_vmt'] += aad_df['net_vol']*aad_df['length']
     aad_df['aad_base_emi'] += aad_df['base_emi']
-    aad_df = aad_df[['edge_id_igraph', 'length', 'aad_vol', 'aad_vmt', 'aad_base_emi']]
+    aad_df = aad_df[['edge_id_igraph', 'length', 'aad_vol', 'aad_vht', 'aad_vmt', 'aad_base_emi']]
     return aad_df
 
 def preprocessing():
@@ -87,9 +89,10 @@ def eco(budget, case):
     probe_ratio = 0.01
     aad_df = edges_df[['edge_id_igraph', 'length']].copy()
     aad_df['aad_vol'] = 0 ### daily volume
+    aad_df['aad_vht'] = 0 ### daily vehicle hours travelled
     aad_df['aad_vmt'] = 0 ### vehicle meters traveled
     aad_df['aad_base_emi'] = 0 ### daily emission (in grams) if not considering pavement degradation
-    for hour in range(3, 7):
+    for hour in range(3, 27):
         hour_volume_df = pd.read_csv(absolute_path+'/output/edges_df_singleyear/edges_df_DY{}_HR{}_r{}_p{}.csv'.format(day, hour, random_seed, probe_ratio))
         aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df) ### aad_df[['edge_id_igraph', 'length', 'aad_vol', 'aad_vmt', 'aad_base_emi']]
 
@@ -97,7 +100,7 @@ def eco(budget, case):
     vmlt_total = np.sum(edges_df['aad_vmt'])/1609.34
 
     ### Fix road sbased on PCI RELATED EMISSION
-    for year in range(2):
+    for year in range(10):
 
         ### Calculate the current pci based on the coefficients and current age
         edges_df['pci_current'] = edges_df['alpha']+edges_df['xi'] + (edges_df['beta']+edges_df['uv'])*edges_df['age_current']/365
@@ -112,10 +115,8 @@ def eco(budget, case):
         ### Repairing
         edges_df['age_current'] = edges_df['age_current']+365
         edges_df.loc[edges_df['edge_id_igraph'].isin(edges_repair), 'age_current'] = 0
-        #print(year, '\n', edges_df[['age_current', 'aad_vol', 'aad_pci_emi']].describe())
-        #print(year, np.mean(edges_df['pci_current']), np.mean(edges_df['aad_pci_emi']))
-        #print('aad emission total {}'.format(np.sum(edges_df['aad_pci_emi'])))
-        print('average emission pmlpv {}, total {}, vmlt'.format(np.sum(edges_df['aad_pci_emi'])/vmlt_total, np.sum(edges_df['aad_pci_emi']), vmlt_total))
+        print('average emission pmlpv {}, total {}, vmlt {}'.format(np.sum(edges_df['aad_pci_emi'])/vmlt_total, np.sum(edges_df['aad_pci_emi']), vmlt_total))
+        print('total VHT {}'.format(np.sum(edges_df['aad_vht'])))
 
 def eco_incentivize(budget):
 
@@ -158,6 +159,7 @@ def eco_incentivize(budget):
         sf_abm.sta(year, day=day, random_seed=random_seed, probe_ratio=probe_ratio, budget=budget)
         aad_df = edges_df[['edge_id_igraph', 'length', 'pci_current']].copy()
         aad_df['aad_vol'] = 0
+        aad_df['aad_vht'] = 0 ### daily vehicle hours travelled
         aad_df['aad_vmt'] = 0
         aad_df['aad_base_emi'] = 0
         for hour in range(3, 27):
@@ -177,9 +179,10 @@ def eco_incentivize(budget):
         edges_df.loc[edges_df['edge_id_igraph'].isin(edges_repair), 'age_current'] = 0
 
         print('average emission pmlpv {}, total {}, vmlt {}'.format(np.sum(aad_df['aad_pci_emi'])/vmlt_total, np.sum(aad_df['aad_pci_emi']), vmlt_total))
+        print('total VHT {}'.format(np.sum(edges_df['aad_vht'])))
 
 if __name__ == '__main__':
+
     budget = int(os.environ['BUDGET'])
     #eco(budget, 'eco')
-    eco_incentivize(budget)
-
+    eco_incentivize(budget))
