@@ -118,7 +118,7 @@ def eco(budget, case):
         print('average emission pmlpv {}, total {}, vmlt {}'.format(np.sum(edges_df['aad_pci_emi'])/vmlt_total, np.sum(edges_df['aad_pci_emi']), vmlt_total))
         print('total VHT {}'.format(np.sum(edges_df['aad_vht'])))
 
-def eco_incentivize(budget):
+def eco_incentivize(budget, eco_route_ratio):
 
     ### Read in the edge attribute. 
     edges_df = preprocessing()
@@ -130,10 +130,10 @@ def eco_incentivize(budget):
     edges_df['base_co2_ffs'] = base_co2(edges_df['ffs_mph']) ### link-level co2 eimission in gram per mile per vehicle
 
     ### Shape of the network as a sparse matrix
-    g_0 = sio.mmread(absolute_path+'/../0_network/data/{}/{}/network_sparse.mtx'.format(folder, scenario))
-    g_0_shape = g_0.shape
+    g_time = sio.mmread(absolute_path+'/../0_network/data/{}/{}/network_sparse.mtx'.format(folder, scenario))
+    g_time_shape = g_time.shape
 
-    for year in range(10):
+    for year in range(2):
 
         ### Calculate the current pci based on the coefficients and current age
         edges_df['pci_current'] = edges_df['alpha']+edges_df['xi'] + (edges_df['beta']+edges_df['uv'])*edges_df['age_current']/365
@@ -145,25 +145,25 @@ def eco_incentivize(budget):
         wgh = edges_df['eco_wgh']
         row = edges_df['start_sp']-1
         col = edges_df['end_sp']-1
-        g_coo = scipy.sparse.coo_matrix((wgh, (row, col)), shape=g_0_shape)
-        sio.mmwrite(absolute_path+'/output/network/network_sparse_b{}_y{}.mtx'.format(budget, year), g_coo)
+        g_eco = scipy.sparse.coo_matrix((wgh, (row, col)), shape=g_time_shape)
+        sio.mmwrite(absolute_path+'/output/network/network_sparse_b{}_y{}_e{}.mtx'.format(budget, year, eco_route_ratio), g_eco)
         # g_coo = sio.mmread(absolute_path+'/../data/{}/network_sparse.mtx'.format(folder))
 
         ### Output edge attributes for ABM simulation
-        edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']].to_csv(absolute_path+'/output/edge_df/edges_b{}_y{}.csv'.format(budget, year), index=False)
+        edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']].to_csv(absolute_path+'/output/edge_df/edges_b{}_y{}_e{}.csv'.format(budget, year, eco_route_ratio), index=False)
 
         day = 4
         random_seed = 0
         probe_ratio = 0.01
         ### Run ABM
-        sf_abm.sta(year, day=day, random_seed=random_seed, probe_ratio=probe_ratio, budget=budget)
+        sf_abm.sta(year, day=day, random_seed=random_seed, probe_ratio=probe_ratio, budget=budget, eco_route_ratio=eco_route_ratio)
         aad_df = edges_df[['edge_id_igraph', 'length', 'pci_current']].copy()
         aad_df['aad_vol'] = 0
         aad_df['aad_vht'] = 0 ### daily vehicle hours travelled
         aad_df['aad_vmt'] = 0
         aad_df['aad_base_emi'] = 0
         for hour in range(3, 5):
-            hour_volume_df = pd.read_csv(absolute_path+'/output/edges_df_abm/edges_df_b{}_y{}_DY{}_HR{}_r{}_p{}.csv'.format(budget, year, day, hour, random_seed, probe_ratio))
+            hour_volume_df = pd.read_csv(absolute_path+'/output/edges_df_abm/edges_df_b{}_y{}_DY{}_HR{}_r{}_p{}_e{}.csv'.format(budget, year, day, hour, random_seed, probe_ratio, eco_route_ratio))
             aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df)
 
         aad_df = pd.merge(aad_df, edges_df[['edge_id_igraph', 'pci_current', 'alpha', 'xi']], on='edge_id_igraph', how='left')
@@ -179,10 +179,13 @@ def eco_incentivize(budget):
         edges_df.loc[edges_df['edge_id_igraph'].isin(edges_repair), 'age_current'] = 0
 
         print('average emission pmlpv {}, total {}, vmlt {}'.format(np.sum(aad_df['aad_pci_emi'])/vmlt_total, np.sum(aad_df['aad_pci_emi']), vmlt_total))
-        print('total VHT {}'.format(np.sum(edges_df['aad_vht'])))
+        print('total VHT {}'.format(np.sum(aad_df['aad_vht'])))
 
 if __name__ == '__main__':
     budget = 500
-    eco(budget, 'normal')
-    #eco_incentivize(budget)
+    eco_route_ratio = 1
+    print('budget {}, eco_route_ratio {}'.format(budget, eco_route_ratio))
+
+    #eco(budget, 'normal')
+    eco_incentivize(budget, eco_route_ratio)
 

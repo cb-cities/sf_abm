@@ -29,7 +29,7 @@ def eco_incentivize_analysis(budget):
     probe_ratio = 0.01
     for year in range(10):
         aad_vht = 0
-        for hour in range(3, 5):
+        for hour in range(3, 27):
             hour_volume_df = pd.read_csv(absolute_path+'/output/edges_df_abm/edges_df_b{}_y{}_DY{}_HR{}_r{}_p{}.csv'.format(budget, year, day, hour, random_seed, probe_ratio))
             hour_volume_df['net_vol'] = hour_volume_df['hour_flow'] - hour_volume_df['carryover_flow']
             hour_volume_df['net_vht'] = hour_volume_df['net_vol'] * hour_volume_df['t_avg']/3600

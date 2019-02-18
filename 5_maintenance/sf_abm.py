@@ -38,14 +38,23 @@ def map_edge_flow(row):
     ss_id = int(OD_ss['ss_id'].iloc[row])
     agent_flow = int(OD_ss['flow'].iloc[row]) ### number of travellers with this OD
     probe_veh = int(OD_ss['probe'].iloc[row]) ### 1 if the shortest path between this OD pair is traversed by a probe vehicle
+    eco_veh = int(OD_ss['eco'].iloc[row]) ### 1 if the vehicle is going on the least co2 route
 
-    sp = g.dijkstra(origin_ID, destin_ID) ### g_0 is the network with imperfect information for route planning
+    ### Graph
+    if eco_veh == 0:
+        sp = g_time.dijkstra(origin_ID, destin_ID)
+    elif eco_veh == 1:
+        sp = g_eco.dijkstra(origin_ID, destin_ID)
+    else:
+        return [], 0
+
+    ### Route distance
     sp_dist = sp.distance(destin_ID) ### agent believed travel time with imperfect information
     if sp_dist > 10e7:
         return [], 0 ### empty path; not reach destination; travel time 0
     else:
         sp_route = sp.route(destin_ID) ### agent route planned with imperfect information
-        results = {'agent_id': agent_id, 'o_sp': origin_ID, 'd_sp': destin_ID, 'ss': ss_id, 'flow': agent_flow, 'probe': probe_veh, 'route': [edge[0] for edge in sp_route]+[destin_ID]}
+        results = {'agent_id': agent_id, 'o_sp': origin_ID, 'd_sp': destin_ID, 'ss': ss_id, 'flow': agent_flow, 'probe': probe_veh, 'eco': eco_veh, 'route': [edge[0] for edge in sp_route]+[destin_ID]}
         ### agent_ID: agent for each OD pair
         ### traffic_flow: num of agents between this OD pair
         ### probe_veh: num of probe vehicles (with location service on) between this OD pair
@@ -128,11 +137,19 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
         b4*edges_df['perceived_v']**4) * (
         1+0.07*0.03*(100-edges_df['pci_current'])) / 1609.34*edges_df['length']
 
-    update_df = edges_df.loc[edges_df['perceived_co2'] != edges_df['previous_co2']].copy().reset_index()
+    ### Update time weights
+    time_update_df = edges_df.loc[edges_df['perceived_t'] != edges_df['previous_t']].copy().reset_index()
     #logger.info('links to be updated {}'.format(edge_probe_df.shape[0]))
-    for row in update_df.itertuples():
-        g.update_edge(getattr(row,'start_sp'), getattr(row,'end_sp'), c_double(getattr(row,'perceived_co2')))
+    for row in time_update_df.itertuples():
+        g_time.update_edge(getattr(row,'start_sp'), getattr(row,'end_sp'), c_double(getattr(row,'perceived_t')))
 
+    ### Update co2 weights
+    eco_update_df = edges_df.loc[edges_df['perceived_co2'] != edges_df['previous_co2']].copy().reset_index()
+    #logger.info('links to be updated {}'.format(edge_probe_df.shape[0]))
+    for row in eco_update_df.itertuples():
+        g_eco.update_edge(getattr(row,'start_sp'), getattr(row,'end_sp'), c_double(getattr(row,'perceived_co2')))
+
+    edges_df['previous_t'] = edges_df['perceived_t']
     edges_df['previous_co2'] = edges_df['perceived_co2']
     edges_df = edges_df.drop(columns=['ss_flow', 'ss_probe', 'perceived_flux', 'perceived_t', 'perceived_v', 'perceived_co2'])
 
@@ -141,7 +158,7 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
 
     return edges_df, probed_link_list
 
-def read_OD(day, hour, probe_ratio):
+def read_OD(day, hour, probe_ratio, eco_route_ratio):
     ### Read the OD table of this time step
 
     logger = logging.getLogger('read_OD')
@@ -158,16 +175,17 @@ def read_OD(day, hour, probe_ratio):
     OD['agent_id'] = range(OD.shape[0])
     OD['origin_sp'] = OD['node_id_igraph_O'] + 1 ### the node id in module sp is 1 higher than igraph id
     OD['destin_sp'] = OD['node_id_igraph_D'] + 1
-    OD['probe'] = np.random.choice([0, 1], size=OD.shape[0], p=[1-probe_ratio, probe_ratio]) ### Randomly assigning 1% of vehicles to report speed
-    OD = OD[['agent_id', 'origin_sp', 'destin_sp', 'flow', 'probe']]
+    OD['probe'] = np.random.choice([0, 1], size=OD.shape[0], p=[1-probe_ratio, probe_ratio]) ### Randomly assigning probe_ratio of vehicles to report speed
+    OD['eco'] = np.random.choice([0, 1], size=OD.shape[0], p=[1-eco_route_ratio, eco_route_ratio]) ### Randomly assigning eco_route_ratio of vehicles to route by least emission route
+    OD = OD[['agent_id', 'origin_sp', 'destin_sp', 'flow', 'probe', 'eco']]
     OD = OD.sample(frac=1).reset_index(drop=True) ### randomly shuffle rows
 
     t_OD_1 = time.time()
-    logger.debug('DY{}_HR{}: {} sec to read {} OD pairs, {} probes \n'.format(day, hour, t_OD_1-t_OD_0, OD.shape[0], sum(OD['probe'])))
+    logger.debug('DY{}_HR{}: {} sec to read {} OD pairs, {} probes, {} eco \n'.format(day, hour, t_OD_1-t_OD_0, OD.shape[0], sum(OD['probe']), sum(OD['eco'])))
 
     return OD
 
-def output_edges_df(edges_df, year, day, hour, random_seed, probe_ratio, budget):
+def output_edges_df(edges_df, year, day, hour, random_seed, probe_ratio, budget, eco_route_ratio):
 
     ### Aggregate and calculate link-level variables after all increments
     
@@ -180,29 +198,32 @@ def output_edges_df(edges_df, year, day, hour, random_seed, probe_ratio, budget)
     #edges_df['pci_co2'] = edges_df['base_co2_avg'] * (1+0.07*0.03*(100-edges_df['pci_current']))
 
     ### Output
-    edges_df[['edge_id_igraph', 'hour_flow', 't_avg', 'perceived_hour_flow', 'carryover_flow']].to_csv(absolute_path+'/output/edges_df_abm/edges_df_b{}_y{}_DY{}_HR{}_r{}_p{}.csv'.format(budget, year, day, hour, random_seed, probe_ratio), index=False)
+    edges_df[['edge_id_igraph', 'hour_flow', 't_avg', 'perceived_hour_flow', 'carryover_flow']].to_csv(absolute_path+'/output/edges_df_abm/edges_df_b{}_y{}_DY{}_HR{}_r{}_p{}_e{}.csv'.format(budget, year, day, hour, random_seed, probe_ratio, eco_route_ratio), index=False)
 
-def sta(year, day=4, random_seed=0, probe_ratio=1, budget=100):
+def sta(year, day=4, random_seed=0, probe_ratio=1, budget=100, eco_route_ratio=0.1):
 
     logging.basicConfig(filename=absolute_path+'/logs/sta.log', level=logging.INFO)
     logger = logging.getLogger('sta')
     logger.info('{}'.format(datetime.datetime.now()))
-    logger.info('maintenance, {} network, year {}, random_seed {}, probe_ratio {}'.format(folder, year, random_seed, probe_ratio))
+    logger.info('maintenance, {} network, year {}, random_seed {}, probe_ratio {}, eco_route_ratio {}'.format(folder, year, random_seed, probe_ratio, eco_route_ratio))
 
     t_main_0 = time.time()
     ### Fix random seed
     np.random.seed(random_seed)
     ### Define global variables to be shared with subprocesses
-    global g ### weighted graph
+    global g_time ### graph weighted by travel time
+    global g_eco ### graph weighted by co2 per link per vehicle
     global OD_ss ### substep demand
 
     ### Read in the initial network (free flow travel time)
-    g = interface.readgraph(bytes(absolute_path+'/output/network/network_sparse_b{}_y{}.mtx'.format(budget, year), encoding='utf-8'))
+    g_time = interface.readgraph(bytes(absolute_path+'/../0_network/data/{}/{}/network_sparse.mtx'.format(folder, scenario), encoding='utf-8'))
+    g_eco = interface.readgraph(bytes(absolute_path+'/output/network/network_sparse_b{}_y{}_e{}.mtx'.format(budget, year, eco_route_ratio), encoding='utf-8'))
 
     ### Read in the edge attribute for volume delay calculation later
-    edges_df = pd.read_csv(absolute_path+'/output/edge_df/edges_b{}_y{}.csv'.format(budget, year))
+    edges_df = pd.read_csv(absolute_path+'/output/edge_df/edges_b{}_y{}_e{}.csv'.format(budget, year, eco_route_ratio))
     ### Set edge variables that will be updated at the end of each time step
     edges_df['carryover_flow'] = 0 ### The same value for a whole time step, equals to the unperceived flow (newly added, not including the carry over from the previous time step) at the end of the previous time step
+    edges_df['previous_t'] = edges_df['fft']
     edges_df['previous_co2'] = edges_df['eco_wgh']
 
     ### Define substep parameters
@@ -219,7 +240,7 @@ def sta(year, day=4, random_seed=0, probe_ratio=1, budget=100):
             t_hour_0 = time.time()
 
             ### Read OD
-            OD = read_OD(day, hour, probe_ratio)
+            OD = read_OD(day, hour, probe_ratio, eco_route_ratio)
             ### Total OD, assigned OD
             hour_demand = OD.shape[0]
             assigned_demand = 0
@@ -254,7 +275,7 @@ def sta(year, day=4, random_seed=0, probe_ratio=1, budget=100):
                 t_substep_1 = time.time()
                 logger.debug('DY{}_HR{} SS {}: {} sec, {} OD pairs'.format(day, hour, ss_id, t_substep_1-t_substep_0, OD_ss.shape[0], ))
 
-            output_edges_df(edges_df, year, day, hour, random_seed, probe_ratio, budget)
+            output_edges_df(edges_df, year, day, hour, random_seed, probe_ratio, budget, eco_route_ratio)
 
             ### Update carry over flow
             edges_df['carryover_flow'] = np.where(edges_df['perceived_hour_flow']==0,
