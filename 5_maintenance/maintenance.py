@@ -94,7 +94,7 @@ def eco(budget, case):
         aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df) ### aad_df[['edge_id_igraph', 'length', 'aad_vol', 'aad_vmt', 'aad_base_emi']]
 
     edges_df = pd.merge(edges_df, aad_df, on='edge_id_igraph', how='left')
-    vmt_total = np.sum(edges_df['aad_vmt'])/1609.34
+    vmlt_total = np.sum(edges_df['aad_vmt'])/1609.34
 
     ### Fix road sbased on PCI RELATED EMISSION
     for year in range(2):
@@ -115,7 +115,7 @@ def eco(budget, case):
         #print(year, '\n', edges_df[['age_current', 'aad_vol', 'aad_pci_emi']].describe())
         #print(year, np.mean(edges_df['pci_current']), np.mean(edges_df['aad_pci_emi']))
         #print('aad emission total {}'.format(np.sum(edges_df['aad_pci_emi'])))
-        print('average emission pmlpv {}, total {}'.format(np.sum(edges_df['aad_pci_emi'])/vmt_total, np.sum(edges_df['aad_pci_emi'])))
+        print('average emission pmlpv {}, total {}, vmlt'.format(np.sum(edges_df['aad_pci_emi'])/vmlt_total, np.sum(edges_df['aad_pci_emi']), vmlt_total))
 
 def eco_incentivize(budget):
 
@@ -132,7 +132,7 @@ def eco_incentivize(budget):
     g_0 = sio.mmread(absolute_path+'/../0_network/data/{}/{}/network_sparse.mtx'.format(folder, scenario))
     g_0_shape = g_0.shape
 
-    for year in range(1,4):
+    for year in range(10):
 
         ### Calculate the current pci based on the coefficients and current age
         edges_df['pci_current'] = edges_df['alpha']+edges_df['xi'] + (edges_df['beta']+edges_df['uv'])*edges_df['age_current']/365
@@ -145,23 +145,23 @@ def eco_incentivize(budget):
         row = edges_df['start_sp']-1
         col = edges_df['end_sp']-1
         g_coo = scipy.sparse.coo_matrix((wgh, (row, col)), shape=g_0_shape)
-        sio.mmwrite(absolute_path+'/output/network/network_sparse_y{}.mtx'.format(year), g_coo)
+        sio.mmwrite(absolute_path+'/output/network/network_sparse_b{}_y{}.mtx'.format(budget, year), g_coo)
         # g_coo = sio.mmread(absolute_path+'/../data/{}/network_sparse.mtx'.format(folder))
 
         ### Output edge attributes for ABM simulation
-        edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']].to_csv(absolute_path+'/output/edge_df/edges_y{}.csv'.format(year), index=False)
+        edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']].to_csv(absolute_path+'/output/edge_df/edges_b{}_y{}.csv'.format(budget, year), index=False)
 
         day = 4
         random_seed = 0
         probe_ratio = 0.01
         ### Run ABM
-        sf_abm.sta(year, day=day, random_seed=random_seed, probe_ratio=probe_ratio)
+        sf_abm.sta(year, day=day, random_seed=random_seed, probe_ratio=probe_ratio, budget=budget)
         aad_df = edges_df[['edge_id_igraph', 'length', 'pci_current']].copy()
         aad_df['aad_vol'] = 0
         aad_df['aad_vmt'] = 0
         aad_df['aad_base_emi'] = 0
         for hour in range(3, 27):
-            hour_volume_df = pd.read_csv(absolute_path+'/output/edges_df_abm/edges_df_y{}_DY{}_HR{}_r{}_p{}.csv'.format(year, day, hour, random_seed, probe_ratio))
+            hour_volume_df = pd.read_csv(absolute_path+'/output/edges_df_abm/edges_df_b{}_y{}_DY{}_HR{}_r{}_p{}.csv'.format(budget, year, day, hour, random_seed, probe_ratio))
             aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df)
 
         aad_df = pd.merge(aad_df, edges_df[['edge_id_igraph', 'pci_current', 'alpha', 'xi']], on='edge_id_igraph', how='left')
@@ -179,7 +179,7 @@ def eco_incentivize(budget):
         print('average emission pmlpv {}, total {}, vmlt {}'.format(np.sum(aad_df['aad_pci_emi'])/vmlt_total, np.sum(aad_df['aad_pci_emi']), vmlt_total))
 
 if __name__ == '__main__':
-    budget = 500
+    budget = int(os.environ['BUDGET'])
     #eco(budget, 'eco')
     eco_incentivize(budget)
 
