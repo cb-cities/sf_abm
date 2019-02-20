@@ -23,8 +23,9 @@
 #SBATCH --cpus-per-task=32
 #! Bingyu added this part for specifying different random seeds
 #SBATCH --export=BUDGET=500
+#SBATCH --export=ECO_ROUTE_RATIO=0.5
 #! How much wallclock time will be required?
-#SBATCH --time=01:00:00
+#SBATCH --time=01:20:00
 #! What types of email messages do you wish to receive?
 #SBATCH --mail-type=ALL
 #! Uncomment this to prevent the job from being requeued (e.g. if
