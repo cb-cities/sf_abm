@@ -107,7 +107,7 @@ def map_reduce_edge_flow(day, hour, ss_id):
 
     return edge_volume, agent_info_routes
 
-def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_demand, probed_link_list):
+def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_demand, probed_link_list, iri_impact):
     ### Update graph
 
     logger = logging.getLogger('update')
@@ -135,7 +135,7 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
         b2*edges_df['perceived_v']**2 + 
         b3*edges_df['perceived_v']**3 + 
         b4*edges_df['perceived_v']**4) * (
-        1+0.07*0.03*(100-edges_df['pci_current'])) / 1609.34*edges_df['length']
+        1+0.0714*iri_impact*(100-edges_df['pci_current'])) / 1609.34*edges_df['length']
 
     ### Update time weights
     time_update_df = edges_df.loc[edges_df['perceived_t'] != edges_df['previous_t']].copy().reset_index()
@@ -185,7 +185,7 @@ def read_OD(day, hour, probe_ratio, eco_route_ratio):
 
     return OD
 
-def output_edges_df(edges_df, year, day, hour, random_seed, probe_ratio, budget, eco_route_ratio):
+def output_edges_df(edges_df, year, day, hour, random_seed, probe_ratio, budget, eco_route_ratio, iri_impact):
 
     ### Aggregate and calculate link-level variables after all increments
     
@@ -195,17 +195,17 @@ def output_edges_df(edges_df, year, day, hour, random_seed, probe_ratio, budget,
     #edges_df['vht'] = edges_df['t_avg']*edges_df['hour_flow']/3600
     #edges_df['vkmt'] = edges_df['length']*edges_df['hour_flow']/1000
     #edges_df['base_co2'] = np.exp(b0 + b1*edges_df['v_avg'] + b2*edges_df['v_avg']**2 + b3*edges_df['v_avg']**3 + b4*edges_df['v_avg']**4)
-    #edges_df['pci_co2'] = edges_df['base_co2_avg'] * (1+0.07*0.03*(100-edges_df['pci_current']))
+    #edges_df['pci_co2'] = edges_df['base_co2_avg'] * (1+0.0714*iri_impact*(100-edges_df['pci_current']))
 
     ### Output
-    edges_df[['edge_id_igraph', 'hour_flow', 't_avg', 'perceived_hour_flow', 'carryover_flow']].to_csv(absolute_path+'/output/edges_df_abm/edges_df_b{}_y{}_DY{}_HR{}_r{}_p{}_e{}.csv'.format(budget, year, day, hour, random_seed, probe_ratio, eco_route_ratio), index=False)
+    edges_df[['edge_id_igraph', 'hour_flow', 't_avg', 'perceived_hour_flow', 'carryover_flow']].to_csv(absolute_path+'/output/edges_df_abm/edges_df_b{}_e{}_i{}_y{}_HR{}.csv'.format(budget, eco_route_ratio, iri_impact, year, hour), index=False)
 
-def sta(year, day=4, random_seed=0, probe_ratio=1, budget=100, eco_route_ratio=0.1):
+def sta(year, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route_ratio=0.1, iri_impact=0.03):
 
-    logging.basicConfig(filename=absolute_path+'/logs/sta.log', level=logging.INFO)
+    logging.basicConfig(filename=absolute_path+'/logs/sta.log', level=logging.CRITICAL)
     logger = logging.getLogger('sta')
     logger.info('{}'.format(datetime.datetime.now()))
-    logger.info('maintenance, {} network, year {}, random_seed {}, probe_ratio {}, eco_route_ratio {}'.format(folder, year, random_seed, probe_ratio, eco_route_ratio))
+    logger.info('maintenance, {} network, year {}, random_seed {}, probe_ratio {}, eco_route_ratio {}, iri_impact {}'.format(folder, year, random_seed, probe_ratio, eco_route_ratio, iri_impact))
 
     t_main_0 = time.time()
     ### Fix random seed
@@ -217,10 +217,10 @@ def sta(year, day=4, random_seed=0, probe_ratio=1, budget=100, eco_route_ratio=0
 
     ### Read in the initial network (free flow travel time)
     g_time = interface.readgraph(bytes(absolute_path+'/../0_network/data/{}/{}/network_sparse.mtx'.format(folder, scenario), encoding='utf-8'))
-    g_eco = interface.readgraph(bytes(absolute_path+'/output/network/network_sparse_b{}_y{}_e{}.mtx'.format(budget, year, eco_route_ratio), encoding='utf-8'))
+    g_eco = interface.readgraph(bytes(absolute_path+'/output/network/network_sparse_b{}_e{}_i{}_y{}.mtx'.format(budget, eco_route_ratio, iri_impact, year), encoding='utf-8'))
 
     ### Read in the edge attribute for volume delay calculation later
-    edges_df = pd.read_csv(absolute_path+'/output/edge_df/edges_b{}_y{}_e{}.csv'.format(budget, year, eco_route_ratio))
+    edges_df = pd.read_csv(absolute_path+'/output/edge_df/edges_b{}_e{}_i{}_y{}.mtx'.format(budget, eco_route_ratio, iri_impact, year))
     ### Set edge variables that will be updated at the end of each time step
     edges_df['carryover_flow'] = 0 ### The same value for a whole time step, equals to the unperceived flow (newly added, not including the carry over from the previous time step) at the end of the previous time step
     edges_df['previous_t'] = edges_df['fft']
@@ -233,7 +233,7 @@ def sta(year, day=4, random_seed=0, probe_ratio=1, budget=100, eco_route_ratio=0
     logger.debug('{} substeps'.format(substep_counts))
 
     ### Loop through days and hours
-    for day in [4]:
+    for day in [day]:
         for hour in range(3, 5):
 
             #logger.info('*************** DY{} HR{} ***************'.format(day, hour))
@@ -270,12 +270,12 @@ def sta(year, day=4, random_seed=0, probe_ratio=1, budget=100, eco_route_ratio=0
                 #agents_list += agent_info_routes
 
                 ### Updating
-                edges_df, probed_link_list = update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_demand, probed_link_list)
+                edges_df, probed_link_list = update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_demand, probed_link_list, iri_impact)
 
                 t_substep_1 = time.time()
                 logger.debug('DY{}_HR{} SS {}: {} sec, {} OD pairs'.format(day, hour, ss_id, t_substep_1-t_substep_0, OD_ss.shape[0], ))
 
-            output_edges_df(edges_df, year, day, hour, random_seed, probe_ratio, budget, eco_route_ratio)
+            output_edges_df(edges_df, year, day, hour, random_seed, probe_ratio, budget, eco_route_ratio, iri_impact)
 
             ### Update carry over flow
             edges_df['carryover_flow'] = np.where(edges_df['perceived_hour_flow']==0,
