@@ -196,7 +196,8 @@ def sta(random_seed=0, probe_ratio=1):
     logger.debug('{} substeps'.format(substep_counts))
 
     ### Loop through days and hours
-    for day in [4]:
+    for day in [0,1,2,3,4,5,6]:
+        hour_OD = 0
         for hour in range(3, 27):
 
             #logger.info('*************** DY{} HR{} ***************'.format(day, hour))
@@ -204,6 +205,8 @@ def sta(random_seed=0, probe_ratio=1):
 
             ### Read OD
             OD = read_OD(day, hour, probe_ratio)
+            hour_OD += OD.shape[0]
+            continue
             ### Total OD, assigned OD
             hour_demand = OD.shape[0]
             assigned_demand = 0
@@ -249,7 +252,9 @@ def sta(random_seed=0, probe_ratio=1):
             t_hour_1 = time.time()
             ### log hour results before resetting the flow for the next time step
             logger.info('DY{}_HR{}: {} sec, OD {}, VHT {}, l probed {}, unq l probed {}, carry over min/max {}/{}'.format(day, hour, round(t_hour_1-t_hour_0, 3), hour_demand, sum(edges_df['hour_flow']*edges_df['t_avg']/3600), len(probed_link_list), len(set(probed_link_list)), min(edges_df['carryover_flow']), max(edges_df['carryover_flow'])))
-
+        print(day, hour_OD)
+        continue 
+    
     t_main_1 = time.time()
     logger.info('total run time: {} sec \n\n\n\n\n'.format(t_main_1 - t_main_0))
     #return probe_veh_counts, links_probed_norepe, links_probed_repe, VHT, VKMT, max10
