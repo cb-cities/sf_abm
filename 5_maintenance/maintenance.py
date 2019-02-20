@@ -122,7 +122,7 @@ def eco(budget, iri_impact, case):
         repaired_df = edges_df.loc[edges_df['age_current']==0].copy()
         
         print('Year {}'.format(year))
-        print('emi pmlpv {}, total CO2 {} t, vkmt {}, vht {}'.format(np.sum(aad_df['aad_pci_emi'])/vmlt_total, np.sum(aad_df['aad_pci_emi'])/10e6, vkmt_total, np.sum(aad_df['aad_vht'])))
+        print('emi pmlpv {}, total CO2 {} t, vkmt {}, vht {}'.format(np.sum(aad_df['aad_pci_emi'])/vmlt_total, np.sum(aad_df['aad_pci_emi'])/1e6, vkmt_total, np.sum(aad_df['aad_vht'])))
         print('average PCI {}'.format(np.mean(edges_df['pci_current'])))
 
 def eco_incentivize(budget, eco_route_ratio, iri_impact):
@@ -188,13 +188,13 @@ def eco_incentivize(budget, eco_route_ratio, iri_impact):
         edges_df.loc[edges_df['cnn_expand'].isin(edges_repair), 'age_current'] = 0
 
         print('Year {}'.format(year))
-        print('emi pmlpv {}, total CO2 {} t, vkmt {}, vht {}'.format(np.sum(aad_df['aad_pci_emi'])/vmlt_total, np.sum(aad_df['aad_pci_emi'])/10e6, vkmt_total, np.sum(aad_df['aad_vht'])))
+        print('emi pmlpv {}, total CO2 {} t, vkmt {}, vht {}'.format(np.sum(aad_df['aad_pci_emi'])/vmlt_total, np.sum(aad_df['aad_pci_emi'])/1e6, vkmt_total, np.sum(aad_df['aad_vht'])))
         print('average PCI {}'.format(np.mean(edges_df['pci_current'])))
 
 if __name__ == '__main__':
     budget = 1500#int(os.environ['BUDGET']) ### 400 or 1500
-    eco_route_ratio = 0.5#fload(os.environ['ECO_ROUTE_RATIO']) ### 0.1, 0.5 or 1
-    iri_impact = 0.1#float(os.environ['IRI_IMPACT']) ### 0.01 or 0.03
+    eco_route_ratio = 0.5#float(os.environ['ECO_ROUTE_RATIO']) ### 0.1, 0.5 or 1
+    iri_impact = 0.03#float(os.environ['IRI_IMPACT']) ### 0.01 or 0.03
     print('budget {}, eco_route_ratio {}, iri_impact {}'.format(budget, eco_route_ratio, iri_impact))
 
     #eco(budget, 'normal')
