@@ -100,10 +100,10 @@ def eco(budget, iri_impact, case):
         aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df) ### aad_df[['edge_id_igraph', 'length', 'aad_vol', 'aad_vmt', 'aad_base_emi']]
 
     edges_df = pd.merge(edges_df, aad_df, on=['edge_id_igraph', 'length'], how='left')
-    vmlt_total = np.sum(edges_df['aad_vmt'])/1609.34
 
+    step_results_list = []
     ### Fix road sbased on PCI RELATED EMISSION
-    for year in range(50):
+    for year in range(10):
 
         ### Calculate the current pci based on the coefficients and current age
         edges_df['pci_current'] = edges_df['alpha']+edges_df['xi'] + (edges_df['beta']+edges_df['uv'])*edges_df['age_current']/365
@@ -119,11 +119,14 @@ def eco(budget, iri_impact, case):
         #print(len(np.unique(edges_repair)))
         edges_df['age_current'] = edges_df['age_current']+365
         edges_df.loc[edges_df['cnn_expand'].isin(edges_repair), 'age_current'] = 0
-        repaired_df = edges_df.loc[edges_df['age_current']==0].copy()
-        
-        print('Year {}'.format(year))
-        print('emi pmlpv {}, total CO2 {} t, vkmt {}, vht {}'.format(np.sum(aad_df['aad_pci_emi'])/vmlt_total, np.sum(aad_df['aad_pci_emi'])/1e6, vkmt_total, np.sum(aad_df['aad_vht'])))
-        print('average PCI {}'.format(np.mean(edges_df['pci_current'])))
+
+        vkmt_total = np.sum(edges_df['aad_vmt'])/1000 ### vehicle kilometers travelled
+        vht_total = np.sum(edges_df['aad_vht']) ### vehicle hours travelled
+        emi_total = np.sum(edges_df['aad_pci_emi'])/1e6 ### co2 emission in t
+        pci_average = np.mean(edges_df['pci_current'])
+        step_results_list.append([case, budget, iri_impact, year, emi_total, vkmt_total, vht_total, pci_average])
+
+    return step_results_list
 
 def eco_incentivize(budget, eco_route_ratio, iri_impact):
 
@@ -157,7 +160,7 @@ def eco_incentivize(budget, eco_route_ratio, iri_impact):
         # g_coo = sio.mmread(absolute_path+'/../data/{}/network_sparse.mtx'.format(folder))
 
         ### Output edge attributes for ABM simulation
-        edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']].to_csv(absolute_path+'/output/edge_df/edges_b{}_e{}_i{}_y{}.mtx'.format(budget, eco_route_ratio, iri_impact, year), index=False)
+        edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']].to_csv(absolute_path+'/output/edge_df/edges_b{}_e{}_i{}_y{}.csv'.format(budget, eco_route_ratio, iri_impact, year), index=False)
 
         day = 2
         random_seed = 0
@@ -192,11 +195,22 @@ def eco_incentivize(budget, eco_route_ratio, iri_impact):
         print('average PCI {}'.format(np.mean(edges_df['pci_current'])))
 
 if __name__ == '__main__':
+
+    scen12_results_list = []
+    for case in ['normal', 'eco']:
+        for budget in [400, 1500]:
+            for iri_impact in [0.01, 0.03]:
+                step_results_list = eco(budget, iri_impact, case)
+                scen12_results_list += step_results_list
+
+    results_df = pd.DataFrame(scen12_results_list, columns=['case', 'budget', 'iri_impact', 'year', 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'])
+    results_df.to_csv('scen12_results.csv', index=False)
+    sys.exit(0)
+
     budget = 1500#int(os.environ['BUDGET']) ### 400 or 1500
     eco_route_ratio = 0.5#float(os.environ['ECO_ROUTE_RATIO']) ### 0.1, 0.5 or 1
     iri_impact = 0.03#float(os.environ['IRI_IMPACT']) ### 0.01 or 0.03
     print('budget {}, eco_route_ratio {}, iri_impact {}'.format(budget, eco_route_ratio, iri_impact))
 
-    #eco(budget, 'normal')
     eco_incentivize(budget, eco_route_ratio, iri_impact)
 
