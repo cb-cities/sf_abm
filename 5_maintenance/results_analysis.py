@@ -17,6 +17,7 @@ import matplotlib.ticker as ticker
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch 
 
+plt.rcParams.update({'font.size': 15, 'font.weight': "normal", 'font.family':'serif', 'axes.linewidth': 0.1})
 pd.set_option('display.max_columns', 10)
 
 absolute_path = os.path.dirname(os.path.abspath(__file__))
@@ -86,84 +87,108 @@ def eco_incentivize_analysis():
     results_df = pd.DataFrame(results_list, columns=['budget', 'eco_route_ratio', 'iri_impact', 'year', 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'])
     results_df.to_csv('results.csv', index=False)
 
-def plot_scen12_results(variable):
-    results_df = pd.read_csv('scen12_results.csv')
+
+def plot_scen_results(data, variable, ylim=[0,100], ylabel='None', scen_no=0, title = '', base_color=[0, 0, 1]):
 
     fig, ax = plt.subplots()
-    fig.set_size_inches(7, 6)
+    fig.set_size_inches(9, 5)
 
-    color_dict = {0.01: np.array([0, 0.135112, 0.304751, 1]), 0.03: np.array([0.795737, 0.709344, 0.217772, 1])}
-    marker_dict = {'normal': '$N$', 'eco': '$E$'}
+    main_color = base_color+[1]
+    second_color = base_color+[0.2]
+    color_dict = {0.01: np.array(main_color), 0.03: np.array(second_color)}
+    lw_dict = {0.01: 1, 0.03: 6}
+    linestyle_dict = {400: ':', 1500: 'solid'}
     legend_elements_dict = {} ### custom legend
 
-    results_df_grp = results_df.loc[results_df['budget']==400].groupby(['iri_impact', 'case'])
-    for (iri_impact, case), grp in results_df_grp:
-        ax.plot(grp['year'], grp[variable], c=color_dict[iri_impact], lw=1, linestyle='dashed', marker=marker_dict[case], ms=7)
+    for budget in [400, 1500]:
+        for iri_impact in [0.03, 0.01]:
+            data_slice = data.loc[(data['budget']==budget)&(data['iri_impact']==iri_impact)]
+            ax.plot(data_slice['year'], data_slice[variable], c=color_dict[iri_impact], lw=lw_dict[iri_impact], linestyle=linestyle_dict[budget], marker='.', ms=1)
+            legend_elements_dict['{}_{}'.format(budget, iri_impact)] = Line2D([], [], lw=lw_dict[iri_impact], linestyle = linestyle_dict[budget], c=color_dict[iri_impact], label='Budget: {},\nIRI_impact: {}'.format(budget, iri_impact))
 
-    results_df_grp = results_df.loc[results_df['budget']==1500].groupby(['iri_impact', 'case'])
-    for (iri_impact, case), grp in results_df_grp:
-        ax.plot(grp['year'], grp[variable], c=color_dict[iri_impact], lw=1, marker=marker_dict[case], ms=7)
-        ### Legend
-        legend_elements_dict[(iri_impact, case)]=Line2D([], [], marker=marker_dict[case], ms=7, ls='', mec=None, c=color_dict[iri_impact], label='{} maintenance, IRI impact {}'.format(case, iri_impact))
-
-    legend_elements_dict['budget_400']=Line2D([], [], lw=2, linestyle='dashed', c='black', label='Bugdet: 400 blocks per year')
-    legend_elements_dict['budget_1500']=Line2D([], [], lw=2, c='black', label='Bugdet: 1500 blocks per year')
-    legend_elements_list = [legend_elements_dict['budget_400'], legend_elements_dict[(0.01, 'normal')], legend_elements_dict[(0.01, 'eco')], legend_elements_dict['budget_1500'], legend_elements_dict[(0.03, 'normal')], legend_elements_dict[(0.03, 'eco')]]
+    legend_elements_list = [legend_elements_dict[('400_0.03')], legend_elements_dict['1500_0.03'], legend_elements_dict['400_0.01'], legend_elements_dict['1500_0.01']]
 
     ### Shrink current axis's height
     box = ax.get_position()
-    ax.set_position([box.x0, box.y0+box.height*0.2, box.width, box.height*0.9])
-    plt.legend(handles=legend_elements_list, bbox_to_anchor=(0.5, -0.35), loc='lower center', fancybox=True, ncol=2)
-    plt.xlabel('Year')
-    plt.ylim([3400, 3750])
+    #ax.set_position([box.x0, box.y0+box.height*0.2, box.width, box.height*0.9])
+    ax.set_position([box.x0+box.width*0.03, box.y0, box.width*0.7, box.height])
+    legend = plt.legend(title = title, handles=legend_elements_list, bbox_to_anchor=(1.27, 0.08), loc='lower center', frameon=False, ncol=1, labelspacing=1.5)
+    #plt.setp(legend.get_title(), fontsize=14)
+    plt.setp(legend.get_title(), weight='bold')
+    plt.xlabel('Year', fontdict={'size': '16'}, labelpad=10)
     ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
-    plt.ylabel('Annual Average Daily CO\u2082 (t)')
+    ax.xaxis.set_label_coords(1.08, -0.02)
+    plt.ylim(ylim)
+    plt.ylabel(ylabel, fontdict={'size': '16'}, labelpad=10)
+    if variable != 'pci_average': plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
     #plt.show()
-    plt.savefig('Figs/{}_scen12.png'.format(variable))
+    plt.savefig('Figs/{}_scen{}.png'.format(variable, scen_no), dpi=300, transparent=True)
 
-
-def plot_scen345_results(variable):
-    results_df = pd.read_csv('scen345_results.csv')
-    #print(results_df.head())
+def plot_scen345_results(data, variable, ylim=[0,100], ylabel='None'):
 
     fig, ax = plt.subplots()
-    fig.set_size_inches(7, 6)
+    fig.set_size_inches(15, 5)
 
-    # color = iter(cm.rainbow(np.linspace(0, 1, 6)))
-    # color_dict = {}
-    color_dict = {0.01: np.array([0.1, 0.58778525, 0.95105652, 1]), 0.03: np.array([1, 1.2246468e-16, 6.1232340e-17, 1])}
-    marker_dict = {0.1: '$10$', 0.5: '$50$', 1.0: '$100$'}
-    legend_elements_dict = {} ### custom legend
+    base_color_map = {0.1: [0, 0.6, 1], 0.5: [0, 0, 1], 1.0: [0.6, 0, 1]}
+    lw_dict = {0.01: 1, 0.03: 6}
+    linestyle_dict = {400: ':', 1500: 'solid'}
+    all_legends_dict = {}
 
-    results_df_grp = results_df.loc[results_df['budget']==400].groupby(['iri_impact', 'eco_route_ratio'])
-    for (iri_impact, eco_route_ratio), grp in results_df_grp:
-        ax.plot(grp['year'], grp[variable], c=color_dict[iri_impact], lw=1, linestyle='dashed', marker=marker_dict[eco_route_ratio], ms=10)
-
-    results_df_grp = results_df.loc[results_df['budget']==1500].groupby(['iri_impact', 'eco_route_ratio'])
-    for (iri_impact, eco_route_ratio), grp in results_df_grp:
-        ax.plot(grp['year'], grp[variable], c=color_dict[iri_impact], lw=1, marker=marker_dict[eco_route_ratio], ms=10)
-        ### Legend
-        legend_elements_dict[(iri_impact, eco_route_ratio)]=Line2D([], [], marker=marker_dict[eco_route_ratio], ms=10, ls='', mec=None, c=color_dict[iri_impact], label='{}% eco-routing, IRI impact {}'.format(int(eco_route_ratio*100), iri_impact))
-
-    legend_elements_dict['budget_400']=Line2D([], [], lw=2, linestyle='dashed', c='black', label='Bugdet: 400 blocks per year')
-    legend_elements_dict['budget_1500']=Line2D([], [], lw=2, c='black', label='Bugdet: 1500 blocks per year')
-    legend_elements_list = [legend_elements_dict['budget_400'], legend_elements_dict[(0.01, 0.1)], legend_elements_dict[(0.01, 0.5)], legend_elements_dict[(0.01, 1.0)], legend_elements_dict['budget_1500'], legend_elements_dict[(0.03, 0.1)], legend_elements_dict[(0.03, 0.5)], legend_elements_dict[(0.03, 1.0)]]
+    for eco_route_ratio in [0.1, 0.5, 1.0]:
+        base_color = base_color_map[eco_route_ratio]
+        main_color = base_color+[1]
+        second_color = base_color+[0.2]
+        color_dict = {0.01: np.array(main_color), 0.03: np.array(second_color)}
+        single_legend_dict = {} ### custom legend
+        for budget in [400, 1500]:
+            for iri_impact in [0.03, 0.01]:
+                data_slice = data.loc[(data['eco_route_ratio']==eco_route_ratio)&(data['budget']==budget)&(data['iri_impact']==iri_impact)]
+                ax.plot(data_slice['year'], data_slice[variable], c=color_dict[iri_impact], lw=lw_dict[iri_impact], linestyle=linestyle_dict[budget], marker='.', ms=1)
+                single_legend_dict['{}_{}'.format(budget, iri_impact)] = Line2D([], [], lw=lw_dict[iri_impact], linestyle = linestyle_dict[budget], c=color_dict[iri_impact], label='Budget: {},\nIRI_impact: {}'.format(budget, iri_impact))
+        all_legends_dict[eco_route_ratio] = [single_legend_dict[('400_0.03')], single_legend_dict['1500_0.03'], single_legend_dict['400_0.01'], single_legend_dict['1500_0.01']]
 
     ### Shrink current axis's height
     box = ax.get_position()
-    ax.set_position([box.x0, box.y0+box.height*0.2, box.width, box.height*0.9])
-    #plt.legend()
-    plt.legend(handles=legend_elements_list, bbox_to_anchor=(0.5, -0.35), loc='lower center', fancybox=True, ncol=2)
-    plt.xlabel('Year')
+    #ax.set_position([box.x0, box.y0+box.height*0.2, box.width, box.height*0.9])
+    ax.set_position([box.x0, box.y0, box.width*0.45, box.height])
+    ### legend 1
+    legend1 = plt.legend(title = 'Eco-maintenance+\n10% eco-routing', handles=all_legends_dict[0.1], bbox_to_anchor=(1.27, 0.08), loc='lower center', frameon=False, ncol=1, labelspacing=1.5)
+    #plt.setp(legend.get_title(), fontsize=14)
+    plt.setp(legend1.get_title(), weight='bold')
+    ### legend 2
+    legend2 = plt.legend(title = 'Eco-maintenance+\n50% eco-routing', handles=all_legends_dict[0.5], bbox_to_anchor=(1.75, 0.08), loc='lower center', frameon=False, ncol=1, labelspacing=1.5)
+    #plt.setp(legend.get_title(), fontsize=14)
+    plt.setp(legend2.get_title(), weight='bold')
+    ### legend 4
+    legend3 = plt.legend(title = 'Eco-maintenance+\n100% eco-routing', handles=all_legends_dict[1.0], bbox_to_anchor=(2.25, 0.08), loc='lower center', frameon=False, ncol=1, labelspacing=1.5)
+    #plt.setp(legend.get_title(), fontsize=14)
+    plt.setp(legend3.get_title(), weight='bold')
+    plt.gca().add_artist(legend1)
+    plt.gca().add_artist(legend2)
+    plt.gca().add_artist(legend3)
+
+    plt.xlabel('Year', fontdict={'size': '16'}, labelpad=10)
     ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
-    plt.ylabel('Annual Average Daily CO\u2082 (t)')
-    plt.ylim([3400, 3750])
+    ax.xaxis.set_label_coords(1.08, -0.02)
+    plt.ylim(ylim)
+    plt.ylabel(ylabel, fontdict={'size': '16'}, labelpad=10)
+    if variable != 'pci_average': plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
     #plt.show()
-    plt.savefig('Figs/{}_scen345.png'.format(variable))
+    plt.savefig('Figs/{}_scen345.png'.format(variable), dpi=300, transparent=True)
+
 
 if __name__ == '__main__':
     #eco_incentivize_analysis()
-    variable = 'emi_total' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
-    plot_scen12_results(variable)
-    #plot_scen345_results(variable)
+    variable = 'pci_average' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
+    ylim_dict = {'emi_total': [3400, 3750], 'vkmt_total': [1.5e7, 1.6e7], 'vht_total': [6e5, 1.4e6], 'pci_average': [20, 90]}
+    ylabel_dict = {'emi_total': 'Annual Average Daily CO\u2082 (t)', 'vkmt_total': 'Annual Average Daily Vehicle \n Kilometers Travelled (AAD-VKMT)', 'vht_total': 'Annual Average Daily Vehicle \n Hours Travelled (AAD-VHT)', 'pci_average': 'Network-wide Average Pavement\nCondition Index (PCI)'}
+
+    results_df = pd.read_csv('scen12_results.csv')
+    data = results_df[results_df['case']=='normal']
+    plot_scen_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=1, title = 'Normal maintenance', base_color=[0, 0, 0])
+    data = results_df[results_df['case']=='eco']
+    plot_scen_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=2, title = 'Eco maintenance', base_color=[1, 0, 0])
+
+    results_df = pd.read_csv('scen345_results.csv')
+    plot_scen345_results(results_df, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable])
 
