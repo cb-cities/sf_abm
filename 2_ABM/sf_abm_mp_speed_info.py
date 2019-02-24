@@ -196,7 +196,8 @@ def sta(random_seed=0, probe_ratio=1):
     logger.debug('{} substeps'.format(substep_counts))
 
     ### Loop through days and hours
-    for day in [0,1,2,3,4,5,6]:
+    #for day in [0,1,2,3,4,5,6]:
+    for day in [2]:
         hour_OD = 0
         for hour in range(3, 27):
 
@@ -206,7 +207,7 @@ def sta(random_seed=0, probe_ratio=1):
             ### Read OD
             OD = read_OD(day, hour, probe_ratio)
             hour_OD += OD.shape[0]
-            continue
+            # continue
             ### Total OD, assigned OD
             hour_demand = OD.shape[0]
             assigned_demand = 0
@@ -253,7 +254,7 @@ def sta(random_seed=0, probe_ratio=1):
             ### log hour results before resetting the flow for the next time step
             logger.info('DY{}_HR{}: {} sec, OD {}, VHT {}, l probed {}, unq l probed {}, carry over min/max {}/{}'.format(day, hour, round(t_hour_1-t_hour_0, 3), hour_demand, sum(edges_df['hour_flow']*edges_df['t_avg']/3600), len(probed_link_list), len(set(probed_link_list)), min(edges_df['carryover_flow']), max(edges_df['carryover_flow'])))
         print(day, hour_OD)
-        continue 
+        #continue 
     
     t_main_1 = time.time()
     logger.info('total run time: {} sec \n\n\n\n\n'.format(t_main_1 - t_main_0))
@@ -266,12 +267,12 @@ def main():
     logger.info('carry over volume expire in one time step')
     logger.info('{}'.format(datetime.datetime.now()))
 
-    random_seed = int(os.environ['RANDOM_SEED'])
-    #random_seed = 0
+    #random_seed = int(os.environ['RANDOM_SEED'])
+    random_seed = 0
 
     results_collect = []
-    #for probe_ratio in [0, 0.001]:
-    for probe_ratio in [1, 0.1, 0.01, 0.005, 0.001, 0]:
+    for probe_ratio in [0.01]:
+    #for probe_ratio in [1, 0.1, 0.01, 0.005, 0.001, 0]:
         results_main = sta(random_seed, probe_ratio)
         #results_main = [sigma, probe_ratio] + results_main
         #results_collect.append(results_main)
