@@ -14,7 +14,8 @@ import datetime
 import warnings
 import pandas as pd 
 import sf_abm
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm 
 
 pd.set_option('display.max_columns', 10)
 
@@ -95,15 +96,15 @@ def eco(budget, iri_impact, case):
     aad_df['aad_vht'] = 0 ### daily vehicle hours travelled
     aad_df['aad_vmt'] = 0 ### vehicle meters traveled
     aad_df['aad_base_emi'] = 0 ### daily emission (in grams) if not considering pavement degradation
-    for hour in range(3, 27):
-        hour_volume_df = pd.read_csv(absolute_path+'/output/edges_df_singleyear/edges_df_DY{}_HR{}_r{}_p{}.csv'.format(day, hour, random_seed, probe_ratio))
-        aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df) ### aad_df[['edge_id_igraph', 'length', 'aad_vol', 'aad_vmt', 'aad_base_emi']]
+    # for hour in range(3, 27):
+    #     hour_volume_df = pd.read_csv(absolute_path+'/output/edges_df_singleyear/edges_df_DY{}_HR{}_r{}_p{}.csv'.format(day, hour, random_seed, probe_ratio))
+    #     aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df) ### aad_df[['edge_id_igraph', 'length', 'aad_vol', 'aad_vmt', 'aad_base_emi']]
 
     edges_df = pd.merge(edges_df, aad_df, on=['edge_id_igraph', 'length'], how='left')
 
     step_results_list = []
     ### Fix road sbased on PCI RELATED EMISSION
-    for year in range(10):
+    for year in range(50):
 
         ### Calculate the current pci based on the coefficients and current age
         edges_df['pci_current'] = edges_df['alpha']+edges_df['xi'] + (edges_df['beta']+edges_df['uv'])*edges_df['age_current']/365
@@ -194,7 +195,34 @@ def eco_incentivize(budget, eco_route_ratio, iri_impact):
         print('emi pmlpv {}, total CO2 {} t, vkmt {}, vht {}'.format(np.sum(aad_df['aad_pci_emi'])/vmlt_total, np.sum(aad_df['aad_pci_emi'])/1e6, vkmt_total, np.sum(aad_df['aad_vht'])))
         print('average PCI {}'.format(np.mean(edges_df['pci_current'])))
 
+def exploratory_budget():
+
+    plt.rcParams.update({'font.size': 12, 'font.weight': "normal", 'font.family':'serif', 'axes.linewidth': 0.1})
+
+    results_list = []
+    for budget in [400, 800, 1200, 1500, 1800]:
+        step_results_list = eco(budget, 0, 'normal')
+        results_list += step_results_list
+    results_df = pd.DataFrame(results_list, columns=['case', 'budget', 'iri_impact', 'year', 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'])
+    print(results_df.head())
+    
+    results_df_grp = results_df.groupby('budget')
+    color=iter(cm.magma(np.linspace(0,1,5)))
+    fig, ax = plt.subplots()
+    for budget, grp in results_df_grp:
+        c=next(color)
+        ax.plot('year', 'pci_average', data=grp, c=c, label=budget)
+    plt.axhline(y=79.13, linestyle=':')
+    plt.legend(title='Budget')
+    plt.xlabel('Year')
+    plt.ylabel('Network-wide average PCI')
+    plt.ylim(20, 100)
+    plt.show()
+
 if __name__ == '__main__':
+
+    exploratory_budget()
+    sys.exit(0)
 
     scen12_results_list = []
     for case in ['normal', 'eco']:
