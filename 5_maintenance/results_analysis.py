@@ -10,6 +10,7 @@ import scipy.io as sio
 import time 
 import os
 import pandas as pd 
+import itertools 
 import gc
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -56,35 +57,38 @@ def eco_incentivize_analysis():
     probe_ratio = 0.01
     results_list = []
 
-    for budget in [400, 1500]:
-        for eco_route_ratio in [0.1, 0.5, 1]:
-            for iri_impact in [0.01, 0.03]:
-                for year in range(10):
-                    ### ['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']
-                    edges_df = pd.read_csv(absolute_path+'/output/edge_df/edges_b{}_e{}_i{}_y{}.mtx'.format(budget, eco_route_ratio, iri_impact, year))
-                    aad_df = edges_df[['edge_id_igraph', 'length', 'pci_current']].copy()
-                    aad_df['aad_vol'] = 0
-                    aad_df['aad_vht'] = 0 ### daily vehicle hours travelled
-                    aad_df['aad_vmt'] = 0
-                    aad_df['aad_base_emi'] = 0
+    budget_list = [400, 1500]
+    eco_route_ratio_list = [0.1, 0.5, 1]
+    iri_impact_list = [0.01, 0.03]
+    case_list = ['ee', 'er']
 
-                    for hour in range(3, 27):
-                        hour_volume_df = pd.read_csv(absolute_path+'/output/edges_df_abm/edges_df_b{}_e{}_i{}_y{}_HR{}.csv'.format(budget, eco_route_ratio, iri_impact, year, hour))
-                        ### ['edge_id_igraph', 'length', 'aad_vol', 'aad_vht', 'aad_vmt', 'aad_base_emi']
-                        aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df)
-                        gc.collect()
+    for (budget, eco_route_ratio, iri_impact, case_list) in list(itertools.product(budget_list, eco_route_ratio_list, iri_impact_list, case_list))
+        for year in range(10):
+            ### ['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']
+            edges_df = pd.read_csv(absolute_path+'/output/edge_df/edges_b{}_e{}_i{}_c{}_y{}.mtx'.format(budget, eco_route_ratio, iri_impact, case, year))
+            aad_df = edges_df[['edge_id_igraph', 'length', 'pci_current']].copy()
+            aad_df['aad_vol'] = 0
+            aad_df['aad_vht'] = 0 ### daily vehicle hours travelled
+            aad_df['aad_vmt'] = 0
+            aad_df['aad_base_emi'] = 0
 
-                    aad_df = pd.merge(aad_df, edges_df[['edge_id_igraph', 'pci_current']], on='edge_id_igraph', how='left')
-                    ### Adjust emission by considering the impact of pavement degradation
-                    aad_df['aad_pci_emi'] = aad_df['aad_base_emi']*(1+0.0714*iri_impact*(100-aad_df['pci_current'])) ### daily emission (aad) in gram
+            for hour in range(3, 27):
+                hour_volume_df = pd.read_csv(absolute_path+'/output/edges_df_abm/edges_df_b{}_e{}_i{}_y{}_HR{}.csv'.format(budget, eco_route_ratio, iri_impact, year, hour))
+                ### ['edge_id_igraph', 'length', 'aad_vol', 'aad_vht', 'aad_vmt', 'aad_base_emi']
+                aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df)
+                gc.collect()
 
-                    vkmt_total = np.sum(aad_df['aad_vmt'])/1000 ### vehicle kilometers travelled
-                    vht_total = np.sum(aad_df['aad_vht']) ### vehicle hours travelled
-                    emi_total = np.sum(aad_df['aad_pci_emi'])/1e6 ### co2 emission in t
-                    pci_average = np.mean(aad_df['pci_current'])
-                    results_list.append([budget, eco_route_ratio, iri_impact, year, emi_total, vkmt_total, vht_total, pci_average])
+            aad_df = pd.merge(aad_df, edges_df[['edge_id_igraph', 'pci_current']], on='edge_id_igraph', how='left')
+            ### Adjust emission by considering the impact of pavement degradation
+            aad_df['aad_pci_emi'] = aad_df['aad_base_emi']*(1+0.0714*iri_impact*(100-aad_df['pci_current'])) ### daily emission (aad) in gram
 
-    results_df = pd.DataFrame(results_list, columns=['budget', 'eco_route_ratio', 'iri_impact', 'year', 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'])
+            vkmt_total = np.sum(aad_df['aad_vmt'])/1000 ### vehicle kilometers travelled
+            vht_total = np.sum(aad_df['aad_vht']) ### vehicle hours travelled
+            emi_total = np.sum(aad_df['aad_pci_emi'])/1e6 ### co2 emission in t
+            pci_average = np.mean(aad_df['pci_current'])
+            results_list.append([budget, eco_route_ratio, iri_impact, year, emi_total, vkmt_total, vht_total, pci_average])
+
+    results_df = pd.DataFrame(results_list, columns=['case', 'budget', 'eco_route_ratio', 'iri_impact', 'year', 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'])
     results_df.to_csv('results.csv', index=False)
 
 
