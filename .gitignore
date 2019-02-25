@@ -28,6 +28,7 @@ figures/private/
 4_validation/mtc_travelmodelone/*.csv
 5_maintenance/**/*.csv
 5_maintenance/**/*.mtx
+5_maintenance/**/*.png
 6_sensor/**/*.png
 6_sensor/**/*.csv
 nash/**/*.csv
