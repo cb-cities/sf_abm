@@ -174,13 +174,13 @@ def plot_scen345_results(data, variable, ylim=[0,100], ylabel='None'):
     plt.ylabel(ylabel, fontdict={'size': '16'}, labelpad=10)
     if variable != 'pci_average': plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
     #plt.show()
-    plt.savefig('Figs/{}_scen345.png'.format(variable), dpi=300, transparent=True)
+    plt.savefig('Figs/{}_scen345.png'.format(variable), dpi=300, transparent=True)  
 
 
 if __name__ == '__main__':
     #eco_incentivize_analysis()
-    variable = 'pci_average' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
-    ylim_dict = {'emi_total': [3400, 3750], 'vkmt_total': [1.5e7, 1.6e7], 'vht_total': [6e5, 1.4e6], 'pci_average': [20, 90]}
+    variable = 'emi_total' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
+    ylim_dict = {'emi_total': [3400, 3750], 'vkmt_total': [1.48e7, 1.6e7], 'vht_total': [6e5, 0.9e6], 'pci_average': [20, 90]}
     ylabel_dict = {'emi_total': 'Annual Average Daily CO\u2082 (t)', 'vkmt_total': 'Annual Average Daily Vehicle \n Kilometers Travelled (AAD-VKMT)', 'vht_total': 'Annual Average Daily Vehicle \n Hours Travelled (AAD-VHT)', 'pci_average': 'Network-wide Average Pavement\nCondition Index (PCI)'}
 
     results_df = pd.read_csv('scen12_results.csv')
@@ -188,6 +188,7 @@ if __name__ == '__main__':
     plot_scen_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=1, title = 'Normal maintenance', base_color=[0, 0, 0])
     data = results_df[results_df['case']=='eco']
     plot_scen_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=2, title = 'Eco maintenance', base_color=[1, 0, 0])
+    sys.exit(0)
 
     results_df = pd.read_csv('scen345_results.csv')
     plot_scen345_results(results_df, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable])

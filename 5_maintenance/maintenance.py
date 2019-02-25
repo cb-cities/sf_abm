@@ -17,6 +17,8 @@ import sf_abm
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm 
 
+plt.rcParams.update({'font.size': 15, 'font.weight': "normal", 'font.family':'serif', 'axes.linewidth': 0.1})
+
 pd.set_option('display.max_columns', 10)
 
 absolute_path = os.path.dirname(os.path.abspath(__file__))
@@ -53,7 +55,7 @@ def aad_vol_vmt_baseemi(aad_df, hour_volume_df):
 def preprocessing():
     ### Read the edge attributes. 
     edges_df = pd.read_csv(absolute_path+'/../0_network/data/{}/{}/edges.csv'.format(folder, scenario))
-    edges_df = edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft']]
+    edges_df = edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft', 'type', 'geometry']]
 
     ### PCI RELATED EMISSION
     ### Read pavement age on Jan 01, 2017, and degradation model coefficients
@@ -68,11 +70,12 @@ def preprocessing():
     edges_df['cnn_expand'] = np.where(pd.isna(edges_df['cnn']), edges_df['edge_id_igraph'], edges_df['cnn'])
     edges_df = pd.merge(edges_df, sf_pavement[['CNN', 'alpha', 'beta', 'xi', 'uv', 'initial_age']], left_on='cnn_expand', right_on='CNN', how='left')
     ### Keep relevant colum_ns
-    edges_df = edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft', 'cnn_expand', 'alpha', 'beta', 'xi', 'uv', 'initial_age']]
+    edges_df = edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft', 'cnn_expand', 'alpha', 'beta', 'xi', 'uv', 'initial_age', 'type', 'geometry']]
     ### Remove duplicates
     edges_df = edges_df.drop_duplicates(subset='edge_id_igraph', keep='first').reset_index()
     ### Some igraphids have empty coefficients and age, set to average
-    edges_df['initial_age'] = edges_df['initial_age'].fillna(edges_df['initial_age'].mean())
+    #edges_df['initial_age'] = edges_df['initial_age'].fillna(edges_df['initial_age'].mean())
+    edges_df['initial_age'] = edges_df['initial_age'].fillna(0)
     edges_df['alpha'] = edges_df['alpha'].fillna(edges_df['alpha'].mean())
     edges_df['beta'] = edges_df['beta'].fillna(edges_df['beta'].mean())
     edges_df['xi'] = edges_df['xi'].fillna(0)
@@ -80,6 +83,7 @@ def preprocessing():
     ### Set initial age as the current age
     edges_df['age_current'] = edges_df['initial_age'] ### age in days
     print(len(np.unique(edges_df['cnn_expand'])))
+    edges_df.to_csv('output/preprocessing.csv', index=False)
 
     return edges_df
 
@@ -96,30 +100,77 @@ def eco(budget, iri_impact, case):
     aad_df['aad_vht'] = 0 ### daily vehicle hours travelled
     aad_df['aad_vmt'] = 0 ### vehicle meters traveled
     aad_df['aad_base_emi'] = 0 ### daily emission (in grams) if not considering pavement degradation
-    # for hour in range(3, 27):
-    #     hour_volume_df = pd.read_csv(absolute_path+'/output/edges_df_singleyear/edges_df_DY{}_HR{}_r{}_p{}.csv'.format(day, hour, random_seed, probe_ratio))
-    #     aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df) ### aad_df[['edge_id_igraph', 'length', 'aad_vol', 'aad_vmt', 'aad_base_emi']]
+    for hour in range(3, 27):
+        hour_volume_df = pd.read_csv(absolute_path+'/output/edges_df_singleyear/edges_df_DY{}_HR{}_r{}_p{}.csv'.format(day, hour, random_seed, probe_ratio))
+        aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df) ### aad_df[['edge_id_igraph', 'length', 'aad_vol', 'aad_vmt', 'aad_base_emi']]
 
     edges_df = pd.merge(edges_df, aad_df, on=['edge_id_igraph', 'length'], how='left')
 
     step_results_list = []
     ### Fix road sbased on PCI RELATED EMISSION
-    for year in range(50):
+    for year in range(10):
 
-        ### Calculate the current pci based on the coefficients and current age
-        edges_df['pci_current'] = edges_df['alpha']+edges_df['xi'] + (edges_df['beta']+edges_df['uv'])*edges_df['age_current']/365
-        ### Adjust emission by considering the impact of pavement degradation
-        edges_df['aad_pci_emi'] = edges_df['aad_base_emi']*(1+0.0714*iri_impact*(100-edges_df['pci_current'])) ### daily emission (aad) in gram
-        ### Maintenance scheduling
-        if case=='normal': ### repair worst roads
-            edges_repair = edges_df.groupby(['cnn_expand']).agg({'pci_current': np.mean}).reset_index().nsmallest(budget, 'pci_current')['cnn_expand'].tolist()
-        if case=='eco': ### repair roads that have the biggest potential on reducing emission
+        def pci_emi(df, iri_impact):
+            ### Calculate the current pci based on the coefficients and current age
+            df['pci_current'] = df['alpha']+df['xi'] + (df['beta']+df['uv'])*df['age_current']/365
+            df['pci_current'] = np.where(df['pci_current']>100, 100, df['pci_current'])
+            df['pci_current'] = np.where(df['pci_current']<0, 0, df['pci_current'])
+            ### Adjust emission by considering the impact of pavement degradation
+            df['aad_pci_emi'] = df['aad_base_emi']*(1+0.0714*iri_impact*(100-df['pci_current'])) ### daily emission (aad) in gram
+            return df.copy()
+        edges_df = pci_emi(edges_df, iri_impact)
+
+        ### ploting emission reduction potential
+        def filtering(edges_df, iri_impact):
             edges_df['aad_emi_potential'] = edges_df['aad_base_emi']*0.0714*iri_impact * (edges_df['alpha'] + edges_df['xi'] - edges_df['pci_current'])
-            edges_repair = edges_df.groupby(['cnn_expand']).agg({'aad_emi_potential': np.sum}).reset_index().nlargest(budget, 'aad_emi_potential')['cnn_expand'].tolist()
+            #edges_df.to_csv('output/before_filtering.csv', index=False)
+            fig, ax = plt.subplots()
+            #fig.set_size_inches(8, 6)
+            ax.hist(edges_df['aad_emi_potential']/1e3, bins=50)
+            plt.xlabel('Potential of CO\u2082 reduction by link (kg)')
+            plt.ylabel('Number of road links')
+            plt.yscale('log')
+            #plt.savefig('aad_emi_potential_hist.png', dpi=300)
+            plt.show()
+            #sys.exit(0)
+        #filtering(edges_df, iri_impact)
+        
+        ### Maintenance scheduling
+        edges_df['aad_emi_potential'] = edges_df['aad_base_emi']*0.0714*iri_impact * (edges_df['alpha'] + edges_df['xi'] - edges_df['pci_current'])
+        def pci_improvement(df, year, case, budget, iri_impact): ### repair worst roads
+            repair_df = df.groupby(['cnn_expand']).agg({'pci_current': np.mean}).reset_index().nsmallest(budget, 'pci_current')
+            repair_list = repair_df['cnn_expand'].tolist()
+            extract_df = df.loc[df['cnn_expand'].isin(repair_list)]
+            extract_df[['edge_id_igraph', 'aad_emi_potential']].to_csv('repair_df/repair_df_y{}_c{}_b{}_i{}.csv'.format(year, case, budget, iri_impact))
+            return repair_list
+
+        def eco_maintenance(df, year, case, budget, iri_impact):
+            repair_df = df.groupby(['cnn_expand']).agg({'aad_emi_potential': np.sum}).reset_index().nlargest(budget, 'aad_emi_potential')
+            repair_list = repair_df['cnn_expand'].tolist()
+            extract_df = df.loc[df['cnn_expand'].isin(repair_list)]
+            extract_df[['edge_id_igraph', 'aad_emi_potential']].to_csv('repair_df/repair_df_y{}_c{}_b{}_i{}.csv'.format(year, case, budget, iri_impact))
+            return repair_list
+
+        ### A free year
+        # if (case=='normal') and (year==0): 
+        #     repair_list = eco_maintenance(edges_df, iri_impact, year, case)
+        # elif (case=='normal') and (year>0): 
+        #     repair_list = pci_improvement(edges_df, year, case)
+        # elif case=='eco':
+        #     repair_list = eco_maintenance(edges_df, iri_impact, year, case)
+        # else:
+        #     print('no matching maintenance strategy')
+        ### No free year
+        if case=='normal': 
+            repair_list = pci_improvement(edges_df, year, case, budget, iri_impact)
+        elif case=='eco':
+            repair_list = eco_maintenance(edges_df, year, case, budget, iri_impact)
+        else:
+            print('no matching maintenance strategy')
+
         ### Repairing
-        #print(len(np.unique(edges_repair)))
         edges_df['age_current'] = edges_df['age_current']+365
-        edges_df.loc[edges_df['cnn_expand'].isin(edges_repair), 'age_current'] = 0
+        edges_df.loc[edges_df['cnn_expand'].isin(repair_list), 'age_current'] = 0
 
         vkmt_total = np.sum(edges_df['aad_vmt'])/1000 ### vehicle kilometers travelled
         vht_total = np.sum(edges_df['aad_vht']) ### vehicle hours travelled
@@ -129,7 +180,7 @@ def eco(budget, iri_impact, case):
 
     return step_results_list
 
-def eco_incentivize(budget, eco_route_ratio, iri_impact):
+def eco_incentivize(budget, eco_route_ratio, iri_impact, case):
 
     ### Read in the edge attribute. 
     edges_df = preprocessing()
@@ -157,24 +208,24 @@ def eco_incentivize(budget, eco_route_ratio, iri_impact):
         row = edges_df['start_sp']-1
         col = edges_df['end_sp']-1
         g_eco = scipy.sparse.coo_matrix((wgh, (row, col)), shape=g_time_shape)
-        sio.mmwrite(absolute_path+'/output/network/network_sparse_b{}_e{}_i{}_y{}.mtx'.format(budget, eco_route_ratio, iri_impact, year), g_eco)
+        sio.mmwrite(absolute_path+'/output/network/network_sparse_b{}_e{}_i{}_c{}_y{}.mtx'.format(budget, eco_route_ratio, iri_impact, case, year), g_eco)
         # g_coo = sio.mmread(absolute_path+'/../data/{}/network_sparse.mtx'.format(folder))
 
         ### Output edge attributes for ABM simulation
-        edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']].to_csv(absolute_path+'/output/edge_df/edges_b{}_e{}_i{}_y{}.csv'.format(budget, eco_route_ratio, iri_impact, year), index=False)
+        edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']].to_csv(absolute_path+'/output/edge_df/edges_b{}_e{}_i{}_c{}_y{}.csv'.format(budget, eco_route_ratio, iri_impact, case, year), index=False)
 
         day = 2
         random_seed = 0
         probe_ratio = 0.01
         ### Run ABM
-        sf_abm.sta(year, day=day, random_seed=random_seed, probe_ratio=probe_ratio, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact)
+        sf_abm.sta(year, day=day, random_seed=random_seed, probe_ratio=probe_ratio, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case)
         aad_df = edges_df[['edge_id_igraph', 'length', 'pci_current']].copy()
         aad_df['aad_vol'] = 0
         aad_df['aad_vht'] = 0 ### daily vehicle hours travelled
         aad_df['aad_vmt'] = 0
         aad_df['aad_base_emi'] = 0
         for hour in range(3, 5):
-            hour_volume_df = pd.read_csv(absolute_path+'/output/edges_df_abm/edges_df_b{}_e{}_i{}_y{}_HR{}.csv'.format(budget, eco_route_ratio, iri_impact, year, hour))
+            hour_volume_df = pd.read_csv(absolute_path+'/output/edges_df_abm/edges_df_b{}_e{}_i{}_c{}_y{}_HR{}.csv'.format(budget, eco_route_ratio, iri_impact, case, year, hour))
             aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df)
 
         aad_df = pd.merge(aad_df, edges_df[['edge_id_igraph', 'cnn_expand', 'pci_current', 'alpha', 'xi']], on='edge_id_igraph', how='left')
@@ -186,10 +237,31 @@ def eco_incentivize(budget, eco_route_ratio, iri_impact):
 
         ### Maintenance scheduling
         aad_df['aad_emi_potential'] = aad_df['aad_base_emi']*0.0714*iri_impact * (aad_df['alpha'] + aad_df['xi'] - aad_df['pci_current'])
-        edges_repair = aad_df.groupby(['cnn_expand']).agg({'aad_emi_potential': np.sum}).reset_index().nlargest(budget, 'aad_emi_potential')['cnn_expand'].tolist()
+
+        def pci_improvement(df, year, case, budget, eco_route_ratio, iri_impact): ### repair worst roads
+            repair_df = df.groupby(['cnn_expand']).agg({'pci_current': np.mean}).reset_index().nsmallest(budget, 'pci_current')
+            repair_list = repair_df['cnn_expand'].tolist()
+            extract_df = df.loc[df['cnn_expand'].isin(repair_list)]
+            extract_df[['edge_id_igraph', 'aad_emi_potential']].to_csv('repair_df/repair_df_y{}_c{}_b{}_e{}_i{}.csv'.format(year, case, budget, eco_route_ratio, iri_impact))
+            return repair_list
+
+        def eco_maintenance(df, year, case, budget, eco_route_ratio, iri_impact):
+            repair_df = df.groupby(['cnn_expand']).agg({'aad_emi_potential': np.sum}).reset_index().nlargest(budget, 'aad_emi_potential')
+            repair_list = repair_df['cnn_expand'].tolist()
+            extract_df = df.loc[df['cnn_expand'].isin(repair_list)]
+            extract_df[['edge_id_igraph', 'aad_emi_potential']].to_csv('repair_df/repair_df_y{}_c{}_b{}_e{}_i{}.csv'.format(year, case, budget, eco_route_ratio, iri_impact))
+            return repair_list
+
+        if case=='er': 
+            repair_list = pci_improvement(aad_df, year, case, budget, eco_route_ratio, iri_impact)
+        elif case=='ee':
+            repair_list = eco_maintenance(aad_df, year, case, budget, eco_route_ratio, iri_impact)
+        else:
+            print('no matching maintenance strategy')
+
         ### Repair
         edges_df['age_current'] = edges_df['age_current']+365
-        edges_df.loc[edges_df['cnn_expand'].isin(edges_repair), 'age_current'] = 0
+        edges_df.loc[edges_df['cnn_expand'].isin(repair_list), 'age_current'] = 0
 
         print('Year {}'.format(year))
         print('emi pmlpv {}, total CO2 {} t, vkmt {}, vht {}'.format(np.sum(aad_df['aad_pci_emi'])/vmlt_total, np.sum(aad_df['aad_pci_emi'])/1e6, vkmt_total, np.sum(aad_df['aad_vht'])))
@@ -221,24 +293,34 @@ def exploratory_budget():
 
 if __name__ == '__main__':
 
-    exploratory_budget()
-    sys.exit(0)
+    # preprocessing()
+    # sys.exit(0)
 
-    scen12_results_list = []
-    for case in ['normal', 'eco']:
-        for budget in [400, 1500]:
-            for iri_impact in [0.01, 0.03]:
-                step_results_list = eco(budget, iri_impact, case)
-                scen12_results_list += step_results_list
+    # exploratory_budget()
+    # sys.exit(0)
 
-    results_df = pd.DataFrame(scen12_results_list, columns=['case', 'budget', 'iri_impact', 'year', 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'])
-    results_df.to_csv('scen12_results.csv', index=False)
-    sys.exit(0)
+    # eco(1500, 0.03, 'eco')
+    # sys.exit(0)
 
+    ### Scne 12
+    # scen12_results_list = []
+    # for case in ['normal', 'eco']:
+    #     for budget in [400, 1500]:
+    #         for iri_impact in [0.01, 0.03]:
+    #             step_results_list = eco(budget, iri_impact, case)
+    #             scen12_results_list += step_results_list
+
+    # results_df = pd.DataFrame(scen12_results_list, columns=['case', 'budget', 'iri_impact', 'year', 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'])
+    # results_df['eco_route_ratio'] = 0
+    # results_df.to_csv('scen12_results.csv', index=False)
+    # sys.exit(0)
+
+    ### Scen 34
     budget = 1500#int(os.environ['BUDGET']) ### 400 or 1500
     eco_route_ratio = 0.5#float(os.environ['ECO_ROUTE_RATIO']) ### 0.1, 0.5 or 1
     iri_impact = 0.03#float(os.environ['IRI_IMPACT']) ### 0.01 or 0.03
-    print('budget {}, eco_route_ratio {}, iri_impact {}'.format(budget, eco_route_ratio, iri_impact))
+    case = 'ee'#float(os.environ['CASE']) ### 'er' for 'routing_only', 'ee' for 'both'
+    print('budget {}, eco_route_ratio {}, iri_impact {}, case {}'.format(budget, eco_route_ratio, iri_impact, case))
 
-    eco_incentivize(budget, eco_route_ratio, iri_impact)
+    eco_incentivize(budget, eco_route_ratio, iri_impact, case)
 
