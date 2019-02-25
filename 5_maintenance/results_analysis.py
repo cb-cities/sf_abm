@@ -56,9 +56,12 @@ def eco_incentivize_analysis():
     probe_ratio = 0.01
     results_list = []
 
-    for budget in [400, 1500]:
-        for eco_route_ratio in [0.1, 0.5, 1.0]:
-            for iri_impact in [0.01, 0.03]:
+    for budget in [1500]:
+    #for budget in [400, 1500]:
+        for eco_route_ratio in [0.5]:
+        #for eco_route_ratio in [0.1, 0.5, 1.0]:
+            for iri_impact in [0.03]:
+            #for iri_impact in [0.01, 0.03]:
                 for year in range(10):
                     print(budget, eco_route_ratio, iri_impact, year)
                     ### ['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']
@@ -87,7 +90,7 @@ def eco_incentivize_analysis():
                     results_list.append([budget, eco_route_ratio, iri_impact, year, emi_total, vkmt_total, vht_total, pci_average])
 
     results_df = pd.DataFrame(results_list, columns=['budget', 'eco_route_ratio', 'iri_impact', 'year', 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'])
-    results_df.to_csv('scen345_results.csv', index=False)
+    results_df.to_csv('scen345_results_test.csv', index=False)
 
 
 def plot_scen_results(data, variable, ylim=[0,100], ylabel='None', scen_no=0, title = '', base_color=[0, 0, 1]):
@@ -176,13 +179,14 @@ def plot_scen345_results(data, variable, ylim=[0,100], ylabel='None'):
     plt.ylabel(ylabel, fontdict={'size': '16'}, labelpad=10)
     if variable != 'pci_average': plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
     #plt.show()
-    plt.savefig('Figs/{}_scen345.png'.format(variable), dpi=300, transparent=True)
+    plt.savefig('Figs/{}_scen345.png'.format(variable), dpi=300, transparent=True)  
 
 if __name__ == '__main__':
+
     eco_incentivize_analysis()
     sys.exit(0)
-    variable = 'pci_average' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
-    ylim_dict = {'emi_total': [3400, 3750], 'vkmt_total': [1.5e7, 1.6e7], 'vht_total': [6e5, 1.4e6], 'pci_average': [20, 90]}
+    variable = 'emi_total' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
+    ylim_dict = {'emi_total': [3400, 3750], 'vkmt_total': [1.48e7, 1.6e7], 'vht_total': [6e5, 0.9e6], 'pci_average': [20, 90]}
     ylabel_dict = {'emi_total': 'Annual Average Daily CO\u2082 (t)', 'vkmt_total': 'Annual Average Daily Vehicle \n Kilometers Travelled (AAD-VKMT)', 'vht_total': 'Annual Average Daily Vehicle \n Hours Travelled (AAD-VHT)', 'pci_average': 'Network-wide Average Pavement\nCondition Index (PCI)'}
 
     results_df = pd.read_csv('scen12_results.csv')
@@ -190,6 +194,7 @@ if __name__ == '__main__':
     plot_scen_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=1, title = 'Normal maintenance', base_color=[0, 0, 0])
     data = results_df[results_df['case']=='eco']
     plot_scen_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=2, title = 'Eco maintenance', base_color=[1, 0, 0])
+    sys.exit(0)
 
     results_df = pd.read_csv('scen345_results.csv')
     plot_scen345_results(results_df, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable])

@@ -22,7 +22,7 @@
 #! Bingyu added this part for python multiprocessing
 #SBATCH --cpus-per-task=32
 #! Bingyu added this part for specifying environment variables
-#SBATCH --export=BUDGET=400,ECO_ROUTE_RATIO=1,IRI_IMPACT=0.03
+#SBATCH --export=BUDGET=1500,ECO_ROUTE_RATIO=0.5,IRI_IMPACT=0.03,CASE='er'
 #! How much wallclock time will be required?
 #SBATCH --time=01:30:00
 #! What types of email messages do you wish to receive?
