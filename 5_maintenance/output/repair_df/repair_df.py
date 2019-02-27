@@ -71,8 +71,8 @@ def grid_plot():
     vmax = min(a_eco.max(), a_normal.max())
     df_eco['c'] = np.log(df_eco['aad_emi_potential'])
 
-    #fig, ax = plt.subplots()
-    #fig.set_size_inches(20, 10)
+    fig, ax = plt.subplots()
+    fig.set_size_inches(10, 5)
     # #ax.imshow(a_normal[:, 0:100], cmap='hot', interpolation='nearest')
     # data = df_eco[df_eco['edge_id_igraph']<1000]
     # ax.scatter(data['edge_id_igraph'], data['year'], c=data['aad_emi_potential'], cmap='gray')
@@ -90,13 +90,14 @@ def grid_plot():
     plt.gca().set_xlabel("Road ID", fontsize=15)
     plt.gca().set_ylabel("Year", fontsize=15)
 
-    plt.subplots_adjust(bottom=0.1, right=0.8, left=0.05, top=0.9)
-    cax = plt.axes([0.85, 0.1, 0.035, 0.8])
+    plt.subplots_adjust(bottom=0.2, right=0.8, left=0.05, top=0.75)
+    cax = plt.axes([0.85, 0.2, 0.035, 0.55])
     cbar = plt.colorbar(cax=cax)
     cbar.ax.tick_params(labelsize=12) 
     ax = cbar.ax
-    ax.text(-0.7,0.9,'AAD-CO\u2082 reduction on each link', rotation=90)
-    plt.show()
+    ax.text(-0.7,0.95,'AAD-CO\u2082 reduction on link', rotation=90)
+    #plt.show()
+    plt.savefig('maintenance_pattern_imshow.png', dpi=300, transparent=True)
 
 if __name__ == '__main__':
     #maintenance_spatial_plot()
