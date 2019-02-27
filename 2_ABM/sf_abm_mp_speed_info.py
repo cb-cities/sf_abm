@@ -1,7 +1,6 @@
 ### Based on https://mikecvet.wordpress.com/2010/07/02/parallel-mapreduce-in-python/
 import json
 import sys
-import igraph
 import numpy as np
 import scipy.sparse as scipy_sparse
 import scipy.io as sio
@@ -288,7 +287,7 @@ def main():
     logger.info('carry over volume expire in one time step')
     logger.info('{}'.format(datetime.datetime.now()))
 
-    #random_seed = os.environ['RANDOM_SEED']
+    #random_seed = int(os.environ['RANDOM_SEED'])
     random_seed = 0
 
     results_collect = []
