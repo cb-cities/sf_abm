@@ -22,9 +22,9 @@
 #! Bingyu added this part for python multiprocessing
 #SBATCH --cpus-per-task=32
 #! Bingyu added this part for specifying environment variables
-#SBATCH --export=BUDGET=400,ECO_ROUTE_RATIO=1.0,IRI_IMPACT=0.01,CASE='er'
+#!SBATCH --export=BUDGET=400,ECO_ROUTE_RATIO=1.0,IRI_IMPACT=0.01,CASE='er'
 #! How much wallclock time will be required?
-#SBATCH --time=01:30:00
+#SBATCH --time=00:50:00
 #! What types of email messages do you wish to receive?
 #SBATCH --mail-type=ALL
 #! Uncomment this to prevent the job from being requeued (e.g. if
@@ -62,7 +62,7 @@ module load rhel7/default-peta4            # REQUIRED - loads the basic environm
 #! Insert additional module load commands after this line if needed:
 
 #! Full path to application executable: 
-application="/home/bz247/sf_abm/run_maintenance.sh"
+application="/home/bz247/sf_abm/run.sh"
 
 #! Run options for the application:
 options=""
