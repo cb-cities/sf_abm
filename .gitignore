@@ -19,7 +19,9 @@ figures/private/
 2_ABM/output
 2_ABM/output_incre
 2_ABM/output_time
-3_visualization
+3_visualization/2017lines
+3_visualization/**/*.geojson
+3_visualization/**/*.csv
 4_validation/uber_movement
 4_validation/input
 4_validation/output
