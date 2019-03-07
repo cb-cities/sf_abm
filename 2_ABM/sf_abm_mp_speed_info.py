@@ -262,7 +262,7 @@ def sta(random_seed=0, probe_ratio=1):
             sta_stats.append([
                 random_seed, probe_ratio,
                 day, hour, hour_demand, probe_veh_counts, 
-                len(set(probed_link_list)), len(probed_link_list)/len(set(probed_link_list)),
+                len(set(probed_link_list)), len(probed_link_list),
                 np.sum(edges_df['t_avg']*edges_df['true_flow']),
                 np.sum(edges_df['length']*edges_df['true_flow']),
                 np.mean(edges_df.nlargest(10, 'true_flow')['true_flow'])
@@ -293,7 +293,7 @@ def main():
         sta_stats = sta(random_seed, probe_ratio)
         results_collect += sta_stats
 
-    results_collect_df = pd.DataFrame(results_collect, columns = ['random_seed', 'probe_ratio', 'day', 'hour', 'hour_demand', 'probe_veh_counts', 'links_probed_norepe', 'links_probed_times', 'VHT', 'VKMT', 'max10'])
+    results_collect_df = pd.DataFrame(results_collect, columns = ['random_seed', 'probe_ratio', 'day', 'hour', 'hour_demand', 'probe_veh_counts', 'links_probed_norep', 'links_probed_rep', 'VHT', 'VKMT', 'max10'])
     results_collect_df.to_csv(absolute_path+'/output/sensor/summary_df/summary_r{}_p{}.csv'.format(random_seed, probe_ratio), index=False)
 
 if __name__ == '__main__':
