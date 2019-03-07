@@ -259,7 +259,7 @@ def sta(random_seed=0, probe_ratio=1):
 
             ### Update carry over flow
             sta_stats.append([
-                random_seed, probe_ratio,
+                probe_ratio, random_seed, 
                 day, hour, hour_demand, probe_veh_counts, 
                 len(set(probed_link_list)), len(probed_link_list),
                 np.sum(edges_df['t_avg']*edges_df['true_flow']),
@@ -283,17 +283,15 @@ def main():
     logger.info('no carry over volume')
     logger.info('{}'.format(datetime.datetime.now()))
 
-    #random_seed = int(os.environ['RANDOM_SEED'])
-    random_seed = 0
+    probe_ratio = float(os.environ['PROBE_RATIO'])
 
     results_collect = []
-    for probe_ratio in [0.001]:
-    #for probe_ratio in [1, 0.1, 0.01, 0.005, 0.001, 0]:
+    for random_seed in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
         sta_stats = sta(random_seed, probe_ratio)
         results_collect += sta_stats
 
-    results_collect_df = pd.DataFrame(results_collect, columns = ['random_seed', 'probe_ratio', 'day', 'hour', 'hour_demand', 'probe_veh_counts', 'links_probed_norep', 'links_probed_rep', 'VHT', 'VKMT', 'max10'])
-    results_collect_df.to_csv(absolute_path+'/output/sensor/summary_df/summary_r{}_p{}.csv'.format(random_seed, probe_ratio), index=False)
+    results_collect_df = pd.DataFrame(results_collect, columns = ['probe_ratio', 'random_seed', 'day', 'hour', 'hour_demand', 'probe_veh_counts', 'links_probed_norep', 'links_probed_rep', 'VHT', 'VKMT', 'max10'])
+    results_collect_df.to_csv(absolute_path+'/output/sensor/summary_df/summary_p{}.csv'.format(probe_ratio), index=False)
 
 if __name__ == '__main__':
     main()
