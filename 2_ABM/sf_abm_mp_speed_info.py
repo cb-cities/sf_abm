@@ -205,7 +205,7 @@ def sta(random_seed=0, probe_ratio=1):
     sta_stats = []
 
     ### Loop through days and hours
-    for day in [0, 1, 2, 3, 4]:
+    for day in [5, 6]:
 
         ### Read in the initial network (free flow travel time)
         g = interface.readgraph(bytes(absolute_path+'/output/network/network_sparse_{}.mtx'.format(0), encoding='utf-8'))
