@@ -137,7 +137,7 @@ def convert_to_graph(edges_df, identifier):
     col = edges_df['end_sp'] - 1
     vcount = edges_df[['start_sp', 'end_sp']].values.max()
     g_coo = scipy_sparse.coo_matrix((wgh, (row, col)), shape=(vcount, vcount))
-    sio.mmwrite(absolute_path+'/output/network/network_sparse_{}.mtx'.format(identifier), g_coo)
+    sio.mmwrite(absolute_path+'/output/sensor/network_mtx/network_sparse_{}.mtx'.format(identifier), g_coo)
 
 def read_OD(day, hour, probe_ratio):
     ### Read the OD table of this time step
@@ -170,14 +170,13 @@ def output_edges_df(edges_df, day, hour, random_seed, probe_ratio):
     ### Aggregate and calculate link-level variables after all increments
     
     edges_df['true_flow'] = edges_df['true_vol'] ### True hourly flow rate, used to calculate t_avg
-    edges_df['net_true_flow'] = edges_df['true_flow'] - edges_df['carryover_vol'] ### used to calculate VHT and VKMT
     edges_df['t_avg'] = edges_df['fft']*(1 + 0.6*(edges_df['true_flow']/edges_df['capacity'])**4) ### True travel time
     #edges_df['v_avg'] = edges_df['length']/edges_df['t_avg']
     #edges_df['vht'] = edges_df['t_avg']*edges_df['hour_flow']/3600
     #edges_df['vkmt'] = edges_df['length']*edges_df['hour_flow']/1000
 
     ### Output
-    edges_df[['edge_id_igraph', 'true_flow', 'net_true_flow', 'perceived_flow', 't_avg']].to_csv(absolute_path+'/output/edges_df/edges_df_DY{}_HR{}_r{}_p{}.csv'.format(day, hour, random_seed, probe_ratio), index=False)
+    edges_df[['edge_id_igraph', 'true_flow', 't_avg']].to_csv(absolute_path+'/output/sensor/edges_df/edges_df_DY{}_HR{}_r{}_p{}.csv'.format(day, hour, random_seed, probe_ratio), index=False)
 
 def sta(random_seed=0, probe_ratio=1):
 
@@ -205,16 +204,17 @@ def sta(random_seed=0, probe_ratio=1):
     sta_stats = []
 
     ### Loop through days and hours
-    for day in [5, 6]:
+    for day in [4]:
 
         ### Read in the initial network (free flow travel time)
-        g = interface.readgraph(bytes(absolute_path+'/output/network/network_sparse_{}.mtx'.format(0), encoding='utf-8'))
+        ### network_sparse_0.mtx is used for stand alone traffic simulation.
+        ### Other mtx files are used when fft or capacity is modified through coupling with other models.
+        g = interface.readgraph(bytes(absolute_path+'/output/sensor/network_mtx/network_sparse_{}.mtx'.format(0), encoding='utf-8'))
         ### Variables reset at each 3 AM
         edges_df = edges_df0 ### length, capacity and fft that should never change in one simulation
-        edges_df['carryover_vol'] = 0 ### The same value for a whole time step, equals to the unperceived flow (newly added, not including the carry over from the previous time step) at the end of the previous time step. Resets after each day.
-        edges_df['previous_t'] = edges_df['fft']
+        edges_df['previous_t'] = edges_df['fft'] ### Used to find which edge to update. At the beginning of each day, previous_t is the free flow time.
 
-        for hour in range(3, 27):
+        for hour in range(3, 5):
 
             #logger.info('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()
@@ -233,7 +233,7 @@ def sta(random_seed=0, probe_ratio=1):
             probe_veh_counts = np.sum(OD['probe'])
 
             ### Reset some variables at the beginning of each time step
-            edges_df['true_vol'] = edges_df['carryover_vol'] ### total hourly vol = carry over vol at the beginning of each time step
+            edges_df['true_vol'] = 0
             edges_df['perceived_vol'] = 0
             #agents_list = []
 
@@ -259,17 +259,13 @@ def sta(random_seed=0, probe_ratio=1):
             output_edges_df(edges_df, day, hour, random_seed, probe_ratio)
 
             ### Update carry over flow
-            edges_df['carryover_vol'] = np.where(edges_df['perceived_vol']==0,
-                edges_df['net_true_flow'], ### net increase in vol/flow of the hourly time step, so that previous carry over flow will not be carried over again.
-                edges_df['true_flow'] - edges_df['perceived_flow']
-                )
             sta_stats.append([
                 random_seed, probe_ratio,
                 day, hour, hour_demand, probe_veh_counts, 
                 len(set(probed_link_list)), len(probed_link_list)/len(set(probed_link_list)),
-                np.sum(edges_df['t_avg']*edges_df['net_true_flow']),
-                np.sum(edges_df['length']*edges_df['net_true_flow']),
-                np.mean(edges_df.nlargest(10, 'net_true_flow')['net_true_flow'])
+                np.sum(edges_df['t_avg']*edges_df['true_flow']),
+                np.sum(edges_df['length']*edges_df['true_flow']),
+                np.mean(edges_df.nlargest(10, 'true_flow')['true_flow'])
                 ])
 
             t_hour_1 = time.time()
@@ -285,20 +281,20 @@ def main():
 
     logging.basicConfig(filename=absolute_path+'/sf_abm_mp_speed_info.log', level=logging.INFO)
     logger = logging.getLogger('main')
-    logger.info('carry over volume expire in one time step')
+    logger.info('no carry over volume')
     logger.info('{}'.format(datetime.datetime.now()))
 
     #random_seed = int(os.environ['RANDOM_SEED'])
     random_seed = 0
 
     results_collect = []
-    for probe_ratio in [1]:
-    #for probe_ratio in [1, 0.1, 0.01, 0.005, 0.001, 0]:
+    #for probe_ratio in [0.001]:
+    for probe_ratio in [1, 0.1, 0.01, 0.005, 0.001, 0]:
         sta_stats = sta(random_seed, probe_ratio)
         results_collect += sta_stats
 
-    results_collect_df = pd.DataFrame(results_collect, columns = ['random_seed', 'probe_ratio', 'day', 'hour', 'hour_demand', 'probe_veh_counts', 'links_probed_norepe', 'links_probed_repe', 'VHT', 'VKMT', 'max10'])
-    results_collect_df.to_csv(absolute_path+'/output/summary_r{}_p{}.csv'.format(random_seed, probe_ratio), index=False)
+    results_collect_df = pd.DataFrame(results_collect, columns = ['random_seed', 'probe_ratio', 'day', 'hour', 'hour_demand', 'probe_veh_counts', 'links_probed_norepe', 'links_probed_times', 'VHT', 'VKMT', 'max10'])
+    results_collect_df.to_csv(absolute_path+'/output/sensor/summary_df/summary_r{}_p{}.csv'.format(random_seed, probe_ratio), index=False)
 
 if __name__ == '__main__':
     main()

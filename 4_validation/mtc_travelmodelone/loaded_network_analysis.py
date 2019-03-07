@@ -24,19 +24,19 @@ def main():
     ### Clip by convex hull
     osm_convex_hull = osm_network.unary_union.convex_hull
     sf_loaded_network['geometry'] = sf_loaded_network.apply(lambda row: row['geometry'].intersection(osm_convex_hull), axis=1)
-    sf_loaded_network = sf_loaded_network[sf_loaded_network['geometry'].notnull()]
-    print(sf_loaded_network.shape)
+    sf_loaded_network = sf_loaded_network[sf_loaded_network['geometry'].notnull()].reset_index()
 
     ### Vehicle class https://github.com/BayAreaMetro/modeling-website/wiki/LoadedHighway
     vehicle_class = ['DA', 'DAT', 'S2', 'S2T', 'S3', 'S3T', 'SM', 'SMT', 'HV', 'HVT']
 
     ### Keep two overlapping directions as it is
     sf_loaded_network['daily_traffic'] = 0
+    print(sf_loaded_network.shape)
     for vc in vehicle_class:
         sf_loaded_network['daily_traffic'] += sf_loaded_network['VOL24HR_{}'.format(vc)]
     sf_loaded_network['fiveday_traffic'] = sf_loaded_network['daily_traffic']*5
-    sf_loaded_network[['A', 'B', 'CAP', 'fiveday_traffic', 'geometry']].to_csv('mtcone_5day_traffic_20190102.csv', index=False)
-    sys.exit(0)
+    print(sf_loaded_network.shape)
+    #sf_loaded_network[['A', 'B', 'CAP', 'fiveday_traffic', 'geometry']].to_csv('directed_mtcone_5day_traffic.csv', index=False)
 
     ### Merge results from two directions
     sf_loaded_network['undir_AB'] = pd.DataFrame(np.sort(sf_loaded_network[['A', 'B']].values, axis=1), columns=['small_nodeid', 'large_nodeid']).apply(lambda x:'%s_%s' % (x['small_nodeid'],x['large_nodeid']),axis=1)
@@ -44,12 +44,13 @@ def main():
             'fiveday_traffic': np.sum, 
             'CAP': np.sum,
             'geometry': 'first'}).reset_index()
+    tmp = sf_loaded_network.groupby('undir_AB').size()
     sf_loaded_network_grp = sf_loaded_network_grp.rename(columns={'fiveday_traffic': 'undirected_fiveday_traffic'})
 
     sf_loaded_network_grp[['undir_AB', 'CAP', 'undirected_fiveday_traffic', 'geometry']].to_csv('undirected_mtcone_5day_traffic.csv', index=False)
 
 def plot_validation():
-    mtc_df = pd.read_csv('mtcone_5day_traffic_20190102.csv')
+    mtc_df = pd.read_csv('directed_mtcone_5day_traffic_20190102.csv')
     mtc_gdf = gpd.GeoDataFrame(mtc_df, 
         crs={'init': 'epsg:4326'},
         geometry = mtc_df['geometry'].apply(shapely.wkt.loads))
@@ -67,7 +68,7 @@ def plot_validation():
     mtc_gdf['scaled_length'] = mtc_gdf['haversine_length']*300000
     mtc_gdf['length_cumsum_length'] = mtc_gdf.sort_values(by='scaled_length', ascending=False)['haversine_length'].cumsum()
 
-    osm_df = pd.read_csv('../../3_visualization/weekly_traffic_20190102.csv')
+    osm_df = pd.read_csv('../../3_visualization/directed_weekly_traffic_20190227.csv')
     osm_gdf = gpd.GeoDataFrame(osm_df, 
         crs={'init': 'epsg:4326'},
         geometry = osm_df['geometry'].apply(shapely.wkt.loads))
@@ -109,6 +110,7 @@ def plot_validation():
     sys.exit(0)
 
     ###
+    matplotlib.rcParams.update({'font.size': 20})
     plt.plot('cumsum_length', 'cumsum_length_traffic', 'r.', data=mtc_gdf, label='MTC Travel Model One')
     plt.plot('cumsum_length', 'cumsum_length_traffic', 'g.', data=osm_gdf, label='SF ABM')
     plt.xlabel('Cumulative road length "mileage" (km)')
