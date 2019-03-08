@@ -125,10 +125,13 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
         gamma_shape = 1/(cov**2)
         ### Reported/broadcasted travel time
         edges_df['unit_delay_sample_mean'] = edges_df['unit_delay_avg']
-        for row in edges_df.itertuples():
-            if getattr(row, 'ss_probe')>0:
-                sample_size = getattr(row, 'ss_probe')
-                edges_df.at[row.Index, 'unit_delay_sample_mean'] = np.mean(gamma.rvs(gamma_shape*sample_size, scale=getattr(row, 'unit_delay_avg')/(gamma_shape*sample_size), size=1))
+        edges_df['ss_probe_0'] = min(1, edges_df['ss_probe'])
+        edges_df['unit_delay_sample_mean'] = gamma.rvs(gamma_shape*edges_df['ss_probe_0'], scale=edges_df['unit_delay_avg']/(gamma_shape*edges_df['ss_probe_0']), size=1)
+        edges_df['unit_delay_sample_mean'] = np.where(edges_df['ss_probe']==0, edges_df['unit_delay_avg'], edges_df['unit_delay_sample_mean'])
+        # for row in edges_df.itertuples():
+        #     if getattr(row, 'ss_probe')>0:
+        #         sample_size = getattr(row, 'ss_probe')
+        #         edges_df.at[row.Index, 'unit_delay_sample_mean'] = gamma.rvs(gamma_shape*sample_size, scale=getattr(row, 'unit_delay_avg')/(gamma_shape*sample_size), size=1)
         # edges_df['unit_delay_sample_mean'] = edges_df.apply(lambda x: x['unit_delay_avg'] if x['ss_probe'] == 0 
         #     else np.mean(gamma.rvs(gamma_shape, scale=x['unit_delay_avg']/gamma_shape, size=int(x['ss_probe']))), 
         #     axis=1)
@@ -138,7 +141,7 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
         #print_df = edges_df[edges_df['ss_probe']>0].copy()
         #print(day, hour, ss_id, np.mean(np.abs(print_df['unit_delay_avg']-print_df['unit_delay_sample_mean'])/(print_df['unit_delay_avg']+print_df['fft']/print_df['length'])))
         edges_df['perceived_t'] = edges_df['unit_delay_sample_mean']*edges_df['length'] + edges_df['fft']
-        edges_df = edges_df.drop(columns=['unit_delay_avg', 'unit_delay_sample_mean'])
+        edges_df = edges_df.drop(columns=['ss_probe_0', 'unit_delay_avg', 'unit_delay_sample_mean'])
         t_delay_1 = time.time()
         print('time to calculate delay is ', t_delay_1 - t_delay_0)
 
