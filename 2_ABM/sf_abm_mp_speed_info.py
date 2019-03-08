@@ -123,8 +123,8 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
         edges_df['ss_probe_0'] = np.minimum(1, edges_df['ss_probe'])
         edges_df['gamma_k'] = edges_df['ss_probe_0']/(cov**2)
         edges_df['gamma_theta'] = edges_df['unit_delay_avg']*(cov**2)/(edges_df['ss_probe_0'])
-        edges_df['unit_delay_sample_mean'] = gamma.rvs(edges_df['gamma_k'], scale=edges_df['gamma_theta'])
-        edges_df['unit_delay_sample_mean'] = np.where(edges_df['ss_probe']==0, edges_df['unit_delay_avg'], edges_df['unit_delay_sample_mean'])
+        edges_df['unit_delay_sample_mean'] = np.where(edges_df['ss_probe']==0, edges_df['unit_delay_avg'], 
+            gamma.rvs(edges_df['gamma_k'], scale=edges_df['gamma_theta']))
         # for row in edges_df.itertuples():
         #     if getattr(row, 'ss_probe')>0:
         #         sample_size = getattr(row, 'ss_probe')
