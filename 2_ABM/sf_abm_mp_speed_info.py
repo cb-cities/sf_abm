@@ -124,9 +124,13 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
         edges_df['unit_delay_avg'] = (edges_df['perceived_t'] - edges_df['fft'])/edges_df['length']
         gamma_shape = 1/(cov**2)
         ### Reported/broadcasted travel time
-        edges_df['unit_delay_sample_mean'] = edges_df.apply(lambda x: x['unit_delay_avg'] if x['ss_probe'] == 0 
-            else np.mean(gamma.rvs(gamma_shape, scale=x['unit_delay_avg']/gamma_shape, size=int(x['ss_probe']))), 
-            axis=1)
+        edges_df['unit_delay_sample_mean'] = edges_df['unit_delay_avg']
+        for row in edges_df.itertuples():
+            if getattr(row, 'ss_probe')>0:
+                row['unit_delay_sample_mean'] = np.mean(gamma.rvs(gamma_shape, scale=x['unit_delay_avg']/gamma_shape, size=int(x['ss_probe'])))
+        # edges_df['unit_delay_sample_mean'] = edges_df.apply(lambda x: x['unit_delay_avg'] if x['ss_probe'] == 0 
+        #     else np.mean(gamma.rvs(gamma_shape, scale=x['unit_delay_avg']/gamma_shape, size=int(x['ss_probe']))), 
+        #     axis=1)
             ### if there is no probe, then no change in unit delay
             ### if for any edge ss_probe > 0, then the unit delay is a gamma variable with mean == unit_delay_avg
             ### in scipy, shape = k and scale = theta in wikipedia
