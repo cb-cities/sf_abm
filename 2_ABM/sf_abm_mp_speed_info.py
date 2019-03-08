@@ -117,6 +117,7 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
     ### if no variability presents (no probe, probe with cov==0)
     edges_df['perceived_t'] = edges_df['fft']*(1 + 0.6*(edges_df['perceived_flow']/edges_df['capacity'])**4)
     if cov>0: ### if modelling probe time dispersion (cov>0)
+        t_delay_0 = time.time()
         edges_df['unit_delay_avg'] = (edges_df['perceived_t'] - edges_df['fft'])/edges_df['length']
         gamma_shape = 1/(cov**2)
         ### Reported/broadcasted travel time
@@ -126,10 +127,12 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
             ### if there is no probe, then no change in unit delay
             ### if for any edge ss_probe > 0, then the unit delay is a gamma variable with mean == unit_delay_avg
             ### in scipy, shape = k and scale = theta in wikipedia
-        print_df = edges_df[edges_df['ss_probe']>0].copy()
-        print(day, hour, ss_id, np.mean(np.abs(print_df['unit_delay_avg']-print_df['unit_delay_sample_mean'])/(print_df['unit_delay_avg']+print_df['fft']/print_df['length'])))
+        #print_df = edges_df[edges_df['ss_probe']>0].copy()
+        #print(day, hour, ss_id, np.mean(np.abs(print_df['unit_delay_avg']-print_df['unit_delay_sample_mean'])/(print_df['unit_delay_avg']+print_df['fft']/print_df['length'])))
         edges_df['perceived_t'] = edges_df['unit_delay_sample_mean']*edges_df['length'] + edges_df['fft']
         edges_df = edges_df.drop(columns=['unit_delay_avg', 'unit_delay_sample_mean'])
+        t_delay_1 = time.time()
+        print('time to calculate delay is ', t_delay_1 - t_delay_0)
 
     update_df = edges_df.loc[edges_df['perceived_t'] != edges_df['previous_t']].copy().reset_index()
     #logger.info('links to be updated {}'.format(edge_probe_df.shape[0]))
@@ -179,7 +182,7 @@ def read_OD(day, hour, probe_ratio):
 
     return OD
 
-def output_edges_df(edges_df, day, hour, random_seed, probe_ratio):
+def output_edges_df(edges_df, day, hour, random_seed, probe_ratio, cov):
 
     ### Aggregate and calculate link-level variables after all increments
     
