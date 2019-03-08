@@ -92,7 +92,7 @@ def plot_pcp(var, hour, random_seed):
     # add new legend
     topHandle = Line2D([],[], color='red', ls="-", label=">99.9%")
     midHandleOne = Line2D([],[], color='blue', ls="-", label="99~99.9%")
-    lowHandle = Line2D([],[], color='black', ls="-", label="90~99%")
+    lowHandle = Line2D([],[], color='c', ls="-", label="90~99%")
     negHandle = Line2D([],[], color='black', ls="-", label="0~90%")
     plt.legend(handles=[topHandle, midHandleOne,lowHandle, negHandle], title='Percentile, stdev of link volume across probe ratios', bbox_to_anchor=(0.5, -0.3), loc='lower center', ncol=4, columnspacing=1.5, labelspacing=0.8)
     plt.savefig(absolute_path+'/Figs/pcp_{}_HR{}.png'.format(var, hour))

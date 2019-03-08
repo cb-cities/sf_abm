@@ -4,6 +4,7 @@ import sys
 import numpy as np
 import scipy.sparse as scipy_sparse
 import scipy.io as sio
+from scipy.stats import gamma
 from multiprocessing import Pool 
 import time 
 import os
@@ -94,7 +95,7 @@ def map_reduce_edge_flow(day, hour, ss_id):
 
     return edge_volume, agent_info_routes
 
-def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_demand, probed_link_list):
+def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_demand, probed_link_list, cov):
     ### Update graph
 
     logger = logging.getLogger('update')
@@ -111,9 +112,24 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
     ### True flux
     #edges_df['true_flow'] = edges_df['hour_vol']*hour_demand/assigned_demand
 
-    ## Perceived flux
+    ### Perceived flux
     edges_df['perceived_flow'] = edges_df['perceived_vol']*hour_demand/assigned_demand
+    ### if no variability presents (no probe, probe with cov==0)
     edges_df['perceived_t'] = edges_df['fft']*(1 + 0.6*(edges_df['perceived_flow']/edges_df['capacity'])**4)
+    if cov>0: ### if modelling probe time dispersion (cov>0)
+        edges_df['unit_delay_avg'] = (edges_df['perceived_t'] - edges_df['fft'])/edges_df['length']
+        gamma_shape = 1/(cov**2)
+        ### Reported/broadcasted travel time
+        edges_df['unit_delay_sample_mean'] = edges_df.apply(lambda x: x['unit_delay_avg'] if x['ss_probe'] == 0 
+            else np.mean(gamma.rvs(gamma_shape, scale=x['unit_delay_avg']/gamma_shape, size=int(x['ss_probe']))), 
+            axis=1)
+            ### if there is no probe, then no change in unit delay
+            ### if for any edge ss_probe > 0, then the unit delay is a gamma variable with mean == unit_delay_avg
+            ### in scipy, shape = k and scale = theta in wikipedia
+        print_df = edges_df[edges_df['ss_probe']>0].copy()
+        print(day, hour, ss_id, np.mean(np.abs(print_df['unit_delay_avg']-print_df['unit_delay_sample_mean'])/(print_df['unit_delay_avg']+print_df['fft']/print_df['length'])))
+        edges_df['perceived_t'] = edges_df['unit_delay_sample_mean']*edges_df['length'] + edges_df['fft']
+        edges_df = edges_df.drop(columns=['unit_delay_avg', 'unit_delay_sample_mean'])
 
     update_df = edges_df.loc[edges_df['perceived_t'] != edges_df['previous_t']].copy().reset_index()
     #logger.info('links to be updated {}'.format(edge_probe_df.shape[0]))
@@ -174,9 +190,9 @@ def output_edges_df(edges_df, day, hour, random_seed, probe_ratio):
     #edges_df['vkmt'] = edges_df['length']*edges_df['hour_flow']/1000
 
     ### Output
-    edges_df[['edge_id_igraph', 'true_flow', 't_avg']].to_csv(absolute_path+'/output/sensor/edges_df/edges_df_DY{}_HR{}_r{}_p{}.csv'.format(day, hour, random_seed, probe_ratio), index=False)
+    edges_df[['edge_id_igraph', 'true_flow', 't_avg']].to_csv(absolute_path+'/output/sensor_cov/edges_df/edges_df_DY{}_HR{}_r{}_p{}_cov{}.csv'.format(day, hour, random_seed, probe_ratio, cov), index=False)
 
-def sta(random_seed=0, probe_ratio=1):
+def sta(random_seed=0, probe_ratio=1, cov=0):
 
     logger = logging.getLogger('main')
     logger.info('{} network, random_seed {}, probe_ratio {}'.format(folder, random_seed, probe_ratio))
@@ -207,12 +223,12 @@ def sta(random_seed=0, probe_ratio=1):
         ### Read in the initial network (free flow travel time)
         ### network_sparse_0.mtx is used for stand alone traffic simulation.
         ### Other mtx files are used when fft or capacity is modified through coupling with other models.
-        g = interface.readgraph(bytes(absolute_path+'/output/sensor/network_mtx/network_sparse_{}.mtx'.format(0), encoding='utf-8'))
+        g = interface.readgraph(bytes(absolute_path+'/output/sensor_cov/network_mtx/network_sparse_{}.mtx'.format(0), encoding='utf-8'))
         ### Variables reset at each 3 AM
         edges_df = edges_df0 ### length, capacity and fft that should never change in one simulation
         edges_df['previous_t'] = edges_df['fft'] ### Used to find which edge to update. At the beginning of each day, previous_t is the free flow time.
 
-        for hour in range(3, 5):
+        for hour in range(18, 19):
 
             #logger.info('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()
@@ -250,16 +266,16 @@ def sta(random_seed=0, probe_ratio=1):
                 #agents_list += agent_info_routes
 
                 ### Updating
-                edges_df, probed_link_list = update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_demand, probed_link_list)
+                edges_df, probed_link_list = update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_demand, probed_link_list, cov)
 
                 t_substep_1 = time.time()
                 logger.debug('DY{}_HR{} SS {}: {} sec, {} OD pairs'.format(day, hour, ss_id, t_substep_1-t_substep_0, OD_ss.shape[0], ))
 
-            output_edges_df(edges_df, day, hour, random_seed, probe_ratio)
+            output_edges_df(edges_df, day, hour, random_seed, probe_ratio, cov)
 
             ### Update carry over flow
             sta_stats.append([
-                probe_ratio, random_seed, 
+                probe_ratio, cov, random_seed, 
                 day, hour, hour_demand, probe_veh_counts, 
                 len(set(probed_link_list)), len(probed_link_list),
                 np.sum(edges_df['t_avg']*edges_df['true_flow']),
@@ -283,15 +299,18 @@ def main():
     logger.info('no carry over volume')
     logger.info('{}'.format(datetime.datetime.now()))
 
-    probe_ratio = float(os.environ['PROBE_RATIO'])
+    probe_ratio = 1
+    #probe_ratio = float(os.environ['PROBE_RATIO'])
+    cov = 0.5 ### 0.5 or 1.0 based on (Mahmassani, Hou & Doung, 2012, "Characterizing")
 
     results_collect = []
-    for random_seed in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
-        sta_stats = sta(random_seed, probe_ratio)
+    for random_seed in [0]:
+    #for random_seed in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
+        sta_stats = sta(random_seed, probe_ratio, cov)
         results_collect += sta_stats
 
-    results_collect_df = pd.DataFrame(results_collect, columns = ['probe_ratio', 'random_seed', 'day', 'hour', 'hour_demand', 'probe_veh_counts', 'links_probed_norep', 'links_probed_rep', 'VHT', 'VKMT', 'max10'])
-    results_collect_df.to_csv(absolute_path+'/output/sensor/summary_df/summary_p{}.csv'.format(probe_ratio), index=False)
+    results_collect_df = pd.DataFrame(results_collect, columns = ['probe_ratio', 'cov', 'random_seed', 'day', 'hour', 'hour_demand', 'probe_veh_counts', 'links_probed_norep', 'links_probed_rep', 'VHT', 'VKMT', 'max10'])
+    results_collect_df.to_csv(absolute_path+'/output/sensor_cov/summary_df/summary_p{}_cov{}.csv'.format(probe_ratio, cov), index=False)
 
 if __name__ == '__main__':
     main()
