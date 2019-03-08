@@ -122,11 +122,11 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
     if cov>0: ### if modelling probe time dispersion (cov>0)
         t_delay_0 = time.time()
         edges_df['unit_delay_avg'] = (edges_df['perceived_t'] - edges_df['fft'])/edges_df['length']
-        gamma_shape = 1/(cov**2)
         ### Reported/broadcasted travel time
-        edges_df['unit_delay_sample_mean'] = edges_df['unit_delay_avg']
         edges_df['ss_probe_0'] = np.minimum(1, edges_df['ss_probe'])
-        edges_df['unit_delay_sample_mean'] = gamma.rvs(gamma_shape*edges_df['ss_probe_0'], scale=edges_df['unit_delay_avg']/(gamma_shape*edges_df['ss_probe_0']), size=1)
+        edges_df['gamma_k'] = edges_df['ss_probe_0']/(cov**2)
+        edges_df['gamma_theta'] = edges_df['unit_delay_avg']*(cov**2)/(edges_df['ss_probe_0'])
+        edges_df['unit_delay_sample_mean'] = gamma.rvs(edges_df['gamma_k'], scale=edges_df['gamma_theta'])
         edges_df['unit_delay_sample_mean'] = np.where(edges_df['ss_probe']==0, edges_df['unit_delay_avg'], edges_df['unit_delay_sample_mean'])
         # for row in edges_df.itertuples():
         #     if getattr(row, 'ss_probe')>0:
@@ -141,7 +141,7 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
         #print_df = edges_df[edges_df['ss_probe']>0].copy()
         #print(day, hour, ss_id, np.mean(np.abs(print_df['unit_delay_avg']-print_df['unit_delay_sample_mean'])/(print_df['unit_delay_avg']+print_df['fft']/print_df['length'])))
         edges_df['perceived_t'] = edges_df['unit_delay_sample_mean']*edges_df['length'] + edges_df['fft']
-        edges_df = edges_df.drop(columns=['ss_probe_0', 'unit_delay_avg', 'unit_delay_sample_mean'])
+        edges_df = edges_df.drop(columns=['ss_probe_0', 'gamma_k', 'gamma_theta' 'unit_delay_avg', 'unit_delay_sample_mean'])
         t_delay_1 = time.time()
         print('time to calculate delay is ', t_delay_1 - t_delay_0)
 
