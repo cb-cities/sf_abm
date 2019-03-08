@@ -141,7 +141,7 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
         #print_df = edges_df[edges_df['ss_probe']>0].copy()
         #print(day, hour, ss_id, np.mean(np.abs(print_df['unit_delay_avg']-print_df['unit_delay_sample_mean'])/(print_df['unit_delay_avg']+print_df['fft']/print_df['length'])))
         edges_df['perceived_t'] = edges_df['unit_delay_sample_mean']*edges_df['length'] + edges_df['fft']
-        edges_df = edges_df.drop(columns=['ss_probe_0', 'gamma_k', 'gamma_theta' 'unit_delay_avg', 'unit_delay_sample_mean'])
+        edges_df = edges_df.drop(columns=['ss_probe_0', 'gamma_k', 'gamma_theta', 'unit_delay_avg', 'unit_delay_sample_mean'])
         t_delay_1 = time.time()
         print('time to calculate delay is ', t_delay_1 - t_delay_0)
 
