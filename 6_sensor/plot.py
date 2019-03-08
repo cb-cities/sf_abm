@@ -2,6 +2,8 @@ import os
 import sys
 import pandas as pd 
 import numpy as np 
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt 
 import matplotlib.cm as cm
 from matplotlib.lines import Line2D
@@ -55,7 +57,7 @@ def plot_pcp(var, hour, random_seed):
     pcp_df = pd.read_csv(absolute_path+'/../0_network/data/{}/{}/edges_elevation.csv'.format(folder, scenario))
     pcp_df = pcp_df[['edge_id_igraph']]
 
-    probe_ratio_list = [1, 0.01, 0.001] # [1.0, 0.1, 0.01, 0.005, 0.001, 0.0]
+    probe_ratio_list = [1.0, 0.1, 0.01, 0.005, 0.001, 0.0]
     for probe_ratio in probe_ratio_list:
         edges_df = pd.read_csv(absolute_path+'/../2_ABM/output/sensor/edges_df/edges_df_DY4_HR{}_r{}_p{}.csv'.format(hour, random_seed, probe_ratio))
         edges_df['{}_{}'.format(var, probe_ratio)] = edges_df['{}'.format(var)]
@@ -63,7 +65,8 @@ def plot_pcp(var, hour, random_seed):
 
     pcp_df['std'] = pcp_df.set_index('edge_id_igraph').std(axis=1)
     pcp_df = pcp_df.loc[pcp_df['std']>1].copy()
-    pcp_df['highlight'] = pd.qcut(pcp_df['std'], [0, 0.9, 0.99, 0.999, 1], labels=['neglect', 'low', 'mid', 'top'])
+    #pcp_df['highlight'] = pd.qcut(pcp_df['std'], [0, 0.9, 0.99, 0.999, 1], labels=['neglect', 'low', 'mid', 'top'])
+    pcp_df['highlight'] = pd.qcut(pcp_df['{}_1.0'.format(var)], [0, 0.9, 0.99, 0.999, 1], labels=['neglect', 'low', 'mid', 'top'])
 
     fig, ax = plt.subplots()
     fig.set_size_inches(18, 8)
@@ -73,9 +76,9 @@ def plot_pcp(var, hour, random_seed):
 
     #parallel_coordinates(pcp_df[var_cols], 'highlight', color=[[1,0,0,0.05], [0,1,0,0.05], [0,0,1,0.05], [1,0,1, 1]])
     parallel_coordinates(pcp_df.loc[pcp_df['highlight']=='neglect', var_cols], 'highlight', color='k', alpha=0.01)
-    parallel_coordinates(pcp_df.loc[pcp_df['highlight']=='low', var_cols], 'highlight', color='c', alpha=0.1)
-    parallel_coordinates(pcp_df.loc[pcp_df['highlight']=='mid', var_cols], 'highlight', color='b', alpha=0.4)
-    parallel_coordinates(pcp_df.loc[pcp_df['highlight']=='top', var_cols], 'highlight', color='r', alpha=1)
+    parallel_coordinates(pcp_df.loc[pcp_df['highlight']=='low', var_cols], 'highlight', color='c', alpha=0)
+    parallel_coordinates(pcp_df.loc[pcp_df['highlight']=='mid', var_cols], 'highlight', color='b', alpha=0)
+    parallel_coordinates(pcp_df.loc[pcp_df['highlight']=='top', var_cols], 'highlight', color='r', alpha=0)
 
     ### Shrink current axis's height
     box = ax.get_position()
@@ -85,19 +88,19 @@ def plot_pcp(var, hour, random_seed):
     ax.set_xticklabels(probe_ratio_list)
     plt.ylabel("Hourly link volume (log)")
     plt.yscale('log')
-    plt.title("Change in road link usage by probe ratio, Friday {} o'clock".format(hour))
+    plt.title("Change in road link usage by probe ratio (0-90%), Friday {} o'clock".format(hour))
 
     # remove the pandas legend
     plt.gca().legend_.remove()
     # add new legend
     topHandle = Line2D([],[], color='red', ls="-", label=">99.9%")
     midHandleOne = Line2D([],[], color='blue', ls="-", label="99~99.9%")
-    lowHandle = Line2D([],[], color='black', ls="-", label="90~99%")
+    lowHandle = Line2D([],[], color='c', ls="-", label="90~99%")
     negHandle = Line2D([],[], color='black', ls="-", label="0~90%")
-    plt.legend(handles=[topHandle, midHandleOne,lowHandle, negHandle], title='Percentile, stdev of link volume across probe ratios', bbox_to_anchor=(0.5, -0.3), loc='lower center', ncol=4, columnspacing=1.5, labelspacing=0.8)
-    plt.savefig(absolute_path+'/Figs/pcp_{}_HR{}.png'.format(var, hour))
+    plt.legend(handles=[topHandle, midHandleOne,lowHandle, negHandle], title='Percentile, hourly link volume in the perfect information case', bbox_to_anchor=(0.5, -0.3), loc='lower center', ncol=4, columnspacing=1.5, labelspacing=0.8)
+    plt.savefig(absolute_path+'/Figs/pcp_{}_HR{}_3.png'.format(var, hour))
 
 
 if __name__ == '__main__':
     #plot_hourly_trend('max10')
-    plot_pcp('true_flow', 3, 0) ### max flow hour is 18
+    plot_pcp('true_flow', 18, 0) ### max flow hour is 18
