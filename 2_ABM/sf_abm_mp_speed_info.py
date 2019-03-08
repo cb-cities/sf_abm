@@ -125,7 +125,7 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
         gamma_shape = 1/(cov**2)
         ### Reported/broadcasted travel time
         edges_df['unit_delay_sample_mean'] = edges_df['unit_delay_avg']
-        edges_df['ss_probe_0'] = min(1, edges_df['ss_probe'])
+        edges_df['ss_probe_0'] = np.minimum(1, edges_df['ss_probe'])
         edges_df['unit_delay_sample_mean'] = gamma.rvs(gamma_shape*edges_df['ss_probe_0'], scale=edges_df['unit_delay_avg']/(gamma_shape*edges_df['ss_probe_0']), size=1)
         edges_df['unit_delay_sample_mean'] = np.where(edges_df['ss_probe']==0, edges_df['unit_delay_avg'], edges_df['unit_delay_sample_mean'])
         # for row in edges_df.itertuples():
