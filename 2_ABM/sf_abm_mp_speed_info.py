@@ -123,7 +123,7 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
         t_delay_0 = time.time()
         edges_df['unit_delay_avg'] = (edges_df['perceived_t'] - edges_df['fft'])/edges_df['length']
         ### Reported/broadcasted travel time
-        edges_df['ss_probe_0'] = np.minimum(1, edges_df['ss_probe'])
+        edges_df['ss_probe_0'] = np.maximum(1, edges_df['ss_probe'])
         edges_df['gamma_k'] = edges_df['ss_probe_0']/(cov**2)
         edges_df['gamma_theta'] = edges_df['unit_delay_avg']*(cov**2)/(edges_df['ss_probe_0'])
         edges_df['unit_delay_sample_mean'] = np.where(edges_df['ss_probe']==0, edges_df['unit_delay_avg'], 
