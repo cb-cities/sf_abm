@@ -91,7 +91,7 @@ def map_reduce_edge_flow(day, hour, ss_id):
     agent_info_routes, destination_counts = zip(*res)
 
     logger.debug('DY{}_HR{} SS {}: {} O --> {} D found, dijkstra pool {} sec on {} processes'.format(day, hour, ss_id, unique_origin, sum(destination_counts), t_odsp_1 - t_odsp_0, process_count))
-    print('substep time is ', t_odsp_1 - t_odsp_0)
+    #print('substep time is ', t_odsp_1 - t_odsp_0)
 
     #edge_volume = reduce_edge_flow(edge_flow_tuples, day, hour)
     edge_volume = reduce_edge_flow_pd(agent_info_routes, day, hour, ss_id)
@@ -143,7 +143,7 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
         edges_df['perceived_t'] = edges_df['unit_delay_sample_mean']*edges_df['length'] + edges_df['fft']
         edges_df = edges_df.drop(columns=['ss_probe_0', 'gamma_k', 'gamma_theta', 'unit_delay_avg', 'unit_delay_sample_mean'])
         t_delay_1 = time.time()
-        print('time to calculate delay is ', t_delay_1 - t_delay_0)
+        #print('time to calculate delay is ', t_delay_1 - t_delay_0)
 
     update_df = edges_df.loc[edges_df['perceived_t'] != edges_df['previous_t']].copy().reset_index()
     #logger.info('links to be updated {}'.format(edge_probe_df.shape[0]))
@@ -242,7 +242,7 @@ def sta(random_seed=0, probe_ratio=1, cov=0):
         edges_df = edges_df0 ### length, capacity and fft that should never change in one simulation
         edges_df['previous_t'] = edges_df['fft'] ### Used to find which edge to update. At the beginning of each day, previous_t is the free flow time.
 
-        for hour in range(18, 19):
+        for hour in range(3, 27):
 
             #logger.info('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()
@@ -312,14 +312,14 @@ def main():
     logger.info('no carry over volume')
     logger.info('{}'.format(datetime.datetime.now()))
 
-    probe_ratio = 1
-    #probe_ratio = float(os.environ['PROBE_RATIO'])
-    cov = 0.5 ### 0.5 or 1.0 based on (Mahmassani, Hou & Doung, 2012, "Characterizing")
-    #cov = float(os.environ['COV'])
+    #probe_ratio = 1
+    probe_ratio = float(os.environ['PROBE_RATIO'])
+    #cov = 0.5 ### 0.5 or 1.0 based on (Mahmassani, Hou & Doung, 2012, "Characterizing")
+    cov = float(os.environ['COV'])
 
     results_collect = []
-    for random_seed in [0]:
-    #for random_seed in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
+    #for random_seed in [0]:
+    for random_seed in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
         sta_stats = sta(random_seed, probe_ratio, cov)
         results_collect += sta_stats
 

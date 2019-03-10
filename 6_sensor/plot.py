@@ -52,14 +52,14 @@ def plot_hourly_trend(var):
     plt.savefig(absolute_path+'/Figs/hourly_{}.png'.format(var))
     #plt.show()
 
-def plot_pcp(var, hour, random_seed):
+def plot_pcp(var, hour, random_seed, cov):
 
     pcp_df = pd.read_csv(absolute_path+'/../0_network/data/{}/{}/edges_elevation.csv'.format(folder, scenario))
     pcp_df = pcp_df[['edge_id_igraph']]
 
     probe_ratio_list = [1.0, 0.1, 0.01, 0.005, 0.001, 0.0]
     for probe_ratio in probe_ratio_list:
-        edges_df = pd.read_csv(absolute_path+'/../2_ABM/output/sensor/edges_df/edges_df_DY4_HR{}_r{}_p{}.csv'.format(hour, random_seed, probe_ratio))
+        edges_df = pd.read_csv(absolute_path+'/../2_ABM/output/sensor_cov/edges_df/edges_df_DY4_HR{}_r{}_p{}_cov{}.csv'.format(hour, random_seed, probe_ratio, cov))
         edges_df['{}_{}'.format(var, probe_ratio)] = edges_df['{}'.format(var)]
         pcp_df = pd.merge(pcp_df, edges_df[['edge_id_igraph', '{}_{}'.format(var, probe_ratio)]], on='edge_id_igraph', how='left')
 
@@ -76,9 +76,9 @@ def plot_pcp(var, hour, random_seed):
 
     #parallel_coordinates(pcp_df[var_cols], 'highlight', color=[[1,0,0,0.05], [0,1,0,0.05], [0,0,1,0.05], [1,0,1, 1]])
     parallel_coordinates(pcp_df.loc[pcp_df['highlight']=='neglect', var_cols], 'highlight', color='k', alpha=0.01)
-    parallel_coordinates(pcp_df.loc[pcp_df['highlight']=='low', var_cols], 'highlight', color='c', alpha=0)
-    parallel_coordinates(pcp_df.loc[pcp_df['highlight']=='mid', var_cols], 'highlight', color='b', alpha=0)
-    parallel_coordinates(pcp_df.loc[pcp_df['highlight']=='top', var_cols], 'highlight', color='r', alpha=0)
+    parallel_coordinates(pcp_df.loc[pcp_df['highlight']=='low', var_cols], 'highlight', color='c', alpha=0.1)
+    parallel_coordinates(pcp_df.loc[pcp_df['highlight']=='mid', var_cols], 'highlight', color='b', alpha=0.4)
+    parallel_coordinates(pcp_df.loc[pcp_df['highlight']=='top', var_cols], 'highlight', color='r', alpha=0.8)
 
     ### Shrink current axis's height
     box = ax.get_position()
@@ -88,7 +88,7 @@ def plot_pcp(var, hour, random_seed):
     ax.set_xticklabels(probe_ratio_list)
     plt.ylabel("Hourly link volume (log)")
     plt.yscale('log')
-    plt.title("Change in road link usage by probe ratio (0-90%), Friday {} o'clock".format(hour))
+    plt.title("Change in road link usage by probe ratio (0-90%), Friday {} o'clock, COV {}".format(hour, cov))
 
     # remove the pandas legend
     plt.gca().legend_.remove()
@@ -98,9 +98,9 @@ def plot_pcp(var, hour, random_seed):
     lowHandle = Line2D([],[], color='c', ls="-", label="90~99%")
     negHandle = Line2D([],[], color='black', ls="-", label="0~90%")
     plt.legend(handles=[topHandle, midHandleOne,lowHandle, negHandle], title='Percentile, hourly link volume in the perfect information case', bbox_to_anchor=(0.5, -0.3), loc='lower center', ncol=4, columnspacing=1.5, labelspacing=0.8)
-    plt.savefig(absolute_path+'/Figs/pcp_{}_HR{}_3.png'.format(var, hour))
+    plt.savefig(absolute_path+'/Figs/pcp_{}_HR{}_cov{}_full.png'.format(var, hour, cov))
 
 
 if __name__ == '__main__':
     #plot_hourly_trend('max10')
-    plot_pcp('true_flow', 18, 0) ### max flow hour is 18
+    plot_pcp('true_flow', 18, 0, 2.0) ### max flow hour is 18
