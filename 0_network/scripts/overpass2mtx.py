@@ -34,7 +34,7 @@ Next step:
 '''
 
 absolute_path = os.path.dirname(os.path.abspath(__file__))
-folder='sf_overpass'
+folder='berkeley' ### sf_overpass
 
 def populate_attributes(w):
 
@@ -234,7 +234,7 @@ def osm_to_json(output_csv=False, folder = 'sf'):
     ### Clean the OSM data by removing curve nodes, separate into nodes and ways, output .json (for further processing) and .geosjon (for visualisation).
 
     # Load OSM data as downloaded from overpass
-    osm_data = json.load(open(absolute_path+'/../data/{}/target.osm'.format(folder)))
+    osm_data = json.load(open(absolute_path+'/../data/{}/target_berkeley.osm'.format(folder)))
     osm_data = osm_data['elements']
     print('length of the OSM data: ', len(osm_data))
 
