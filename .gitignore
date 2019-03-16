@@ -1,5 +1,8 @@
 sf_abm_mp_profile.txt
 sp/
+mpi_test/**/*.err
+mpi_test/**/*.out
+mpi_test/**/*.mtx
 figures/private/
 0_network/data/sf_overpass
 0_network/data/sf_osmnx
