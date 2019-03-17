@@ -116,9 +116,9 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
     ### first update the cumulative flow in the current time step
     edges_df = pd.merge(edges_df, edge_volume, how='left', on=['start_sp', 'end_sp'])
     edges_df = edges_df.fillna(value={'ss_flow': 0, 'ss_probe': 0}) ### fill flow for unused edges as 0
-    edges_df['hour_flow'] += edges_df['ss_flow'] ### update the total flow (newly assigned + carry over)
+    edges_df['hour_flow'] += edges_df['ss_flow'] ### update the total flow
  
-    edges_df['perceived_hour_flow'] = np.where(edges_df['ss_probe']==0, edges_df['perceived_hour_flow'], edges_df['hour_flow']) ### If there is a probe, then we can perceive the true flow (net + carry over); otherwise, we don't update the perceived flow.
+    edges_df['perceived_hour_flow'] = np.where(edges_df['ss_probe']==0, edges_df['perceived_hour_flow'], edges_df['hour_flow']) ### If there is a probe, then we can perceive the true flow; otherwise, we don't update the perceived flow.
     probed_link_list += edges_df[edges_df['ss_probe']>0]['edge_id_igraph'].tolist()
 
     ### True flux
@@ -135,7 +135,7 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
         b2*edges_df['perceived_v']**2 + 
         b3*edges_df['perceived_v']**3 + 
         b4*edges_df['perceived_v']**4) * (
-        1+0.0714*iri_impact*(100-edges_df['pci_current'])) / 1609.34*edges_df['length']
+        1+0.0714*iri_impact*(100-edges_df['pci_current'])) / 1609.34*edges_df['length']*edges_df['slope_factor']
 
     ### Update time weights
     time_update_df = edges_df.loc[edges_df['perceived_t'] != edges_df['previous_t']].copy().reset_index()
@@ -189,11 +189,11 @@ def output_edges_df(edges_df, year, day, hour, random_seed, probe_ratio, budget,
 
     ### Aggregate and calculate link-level variables after all increments
     
-    edges_df['hour_flux'] = edges_df['hour_flow']
-    edges_df['t_avg'] = edges_df['fft']*(1 + 0.6*(edges_df['hour_flux']/edges_df['capacity'])**4)
+    edges_df['true_flow'] = edges_df['hour_flow']
+    edges_df['t_avg'] = edges_df['fft']*(1 + 0.6*(edges_df['true_flow']/edges_df['capacity'])**4)
 
     ### Output
-    edges_df[['edge_id_igraph', 'hour_flow', 't_avg', 'perceived_hour_flow', 'carryover_flow']].to_csv(absolute_path+'/output/edges_df_abm/edges_df_b{}_e{}_i{}_c{}_y{}_HR{}.csv'.format(budget, eco_route_ratio, iri_impact, case, year, hour), index=False)
+    edges_df[['edge_id_igraph', 'true_flow', 't_avg']].to_csv(absolute_path+'/output_march/edges_df_abm/edges_df_b{}_e{}_i{}_c{}_y{}_HR{}.csv'.format(budget, eco_route_ratio, iri_impact, case, year, hour), index=False)
 
 def sta(year, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route_ratio=0.1, iri_impact=0.03, case='er'):
 
@@ -212,12 +212,11 @@ def sta(year, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route_ratio=0
 
     ### Read in the initial network (free flow travel time)
     g_time = interface.readgraph(bytes(absolute_path+'/../0_network/data/{}/{}/network_sparse.mtx'.format(folder, scenario), encoding='utf-8'))
-    g_eco = interface.readgraph(bytes(absolute_path+'/output/network/network_sparse_b{}_e{}_i{}_c{}_y{}.mtx'.format(budget, eco_route_ratio, iri_impact, case, year), encoding='utf-8'))
+    g_eco = interface.readgraph(bytes(absolute_path+'/output_march/network/network_sparse_b{}_e{}_i{}_c{}_y{}.mtx'.format(budget, eco_route_ratio, iri_impact, case, year), encoding='utf-8'))
 
     ### Read in the edge attribute for volume delay calculation later
-    edges_df = pd.read_csv(absolute_path+'/output/edge_df/edges_b{}_e{}_i{}_c{}_y{}.csv'.format(budget, eco_route_ratio, iri_impact, case, year))
+    edges_df = pd.read_csv(absolute_path+'/output_march/edge_df/edges_b{}_e{}_i{}_c{}_y{}.csv'.format(budget, eco_route_ratio, iri_impact, case, year))
     ### Set edge variables that will be updated at the end of each time step
-    edges_df['carryover_flow'] = 0 ### The same value for a whole time step, equals to the unperceived flow (newly added, not including the carry over from the previous time step) at the end of the previous time step
     edges_df['previous_t'] = edges_df['fft']
     edges_df['previous_co2'] = edges_df['eco_wgh']
 
@@ -247,7 +246,7 @@ def sta(year, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route_ratio=0
             probed_link_list = [] ### probed links
 
             ### Reset some variables at the beginning of each time step
-            edges_df['hour_flow'] = edges_df['carryover_flow'] ### total hourly flow = carry over flow at the beginning of each time step
+            edges_df['hour_flow'] = 0
             edges_df['perceived_hour_flow'] = 0
             #agents_list = []
 
@@ -272,15 +271,9 @@ def sta(year, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route_ratio=0
 
             output_edges_df(edges_df, year, day, hour, random_seed, probe_ratio, budget, eco_route_ratio, iri_impact, case)
 
-            ### Update carry over flow
-            edges_df['carryover_flow'] = np.where(edges_df['perceived_hour_flow']==0,
-                edges_df['hour_flow'] - edges_df['carryover_flow'],
-                edges_df['hour_flow'] - edges_df['perceived_hour_flow']
-                )
-
             t_hour_1 = time.time()
             ### log hour results before resetting the flow for the next time step
-            logger.info('DY{}_HR{}: {} sec, OD {}, VHT {}, l probed {}, unq l probed {}, carry over min/max {}/{}'.format(day, hour, round(t_hour_1-t_hour_0, 3), hour_demand, sum(edges_df['hour_flow']*edges_df['t_avg']/3600), len(probed_link_list), len(set(probed_link_list)), min(edges_df['carryover_flow']), max(edges_df['carryover_flow'])))
+            logger.info('DY{}_HR{}: {} sec, OD {}, VHT {}, l probed {}, unq l probed {}'.format(day, hour, round(t_hour_1-t_hour_0, 3), hour_demand, sum(edges_df['hour_flow']*edges_df['t_avg']/3600), len(probed_link_list), len(set(probed_link_list))))
 
     t_main_1 = time.time()
     logger.info('total run time: {} sec \n\n\n\n\n'.format(t_main_1 - t_main_0))
