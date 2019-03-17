@@ -229,6 +229,7 @@ def sta(year, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route_ratio=0
     ### Loop through days and hours
     for day in [day]:
         for hour in range(3, 27):
+            print(hour)
 
             #logger.info('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()

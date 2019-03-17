@@ -235,7 +235,7 @@ def eco_incentivize(budget, eco_route_ratio, iri_impact, case):
         aad_df['aad_vht'] = 0 ### daily vehicle hours travelled
         aad_df['aad_vmt'] = 0
         aad_df['aad_base_emi'] = 0
-        for hour in range(3, 5):
+        for hour in range(3, 27):
             hour_volume_df = pd.read_csv(absolute_path+'/output_march/edges_df_abm/edges_df_b{}_e{}_i{}_c{}_y{}_HR{}.csv'.format(budget, eco_route_ratio, iri_impact, case, year, hour))
             aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df)
 
