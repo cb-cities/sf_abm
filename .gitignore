@@ -8,6 +8,7 @@ figures/private/
 0_network/data/sf_osmnx
 0_network/data/London_Directed/
 0_network/data/**/target.osm
+0_network/data/**/target*.osm
 0_network/data/**/*.json
 0_network/data/**/*.geojson
 0_network/data/**/*.pkl

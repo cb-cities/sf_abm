@@ -104,8 +104,13 @@ def main():
         edges_array = edges_df[['start_sp', 'end_sp', 't_avg']].values
         
         OD = read_OD(4, 18, 1)
+<<<<<<< HEAD
         #OD = OD.iloc[0:200]
         OD['randNumCol'] = np.tile(range(size), reps=int(np.ceil(OD.shape[0]/size)))[0:OD.shape[0]]
+=======
+        OD = OD.iloc[0:200]
+        OD['randNumCol'] = np.random.randint(0, size, OD.shape[0])
+>>>>>>> e89c1e8d9d5f618747abccc542bfe9426754e376
         OD_list = [od for _, od in OD.groupby('randNumCol')]
         #OD_list = [OD.iloc[i*100: i*100+99] for i in range(size)]
         counts = [int(0)]*size
@@ -120,13 +125,18 @@ def main():
     OD_item = comm.scatter(OD_list, root=0)
  
     # Map
+<<<<<<< HEAD
     #print(rank, edges_array.shape)
+=======
+    print(rank, edges_array.shape)
+>>>>>>> e89c1e8d9d5f618747abccc542bfe9426754e376
     count_item = local_func(g, edges_array,  OD_item)
     counts = comm.gather(count_item, root=0)
     #comm.Barrier()
 
     if rank == 0:
         sum_counts = sum(counts)
+<<<<<<< HEAD
         print('rank size{}, total paths {}'.format(size, sum_counts))
         #print('end')
 
@@ -136,6 +146,14 @@ if __name__ == '__main__':
     main()
     #time_1 = time.time()
     #print('total time {}'.format(time_1-time_0))
+=======
+        print(sum_counts)
+        print('end')
+
+
+if __name__ == '__main__':
+    main()
+>>>>>>> e89c1e8d9d5f618747abccc542bfe9426754e376
 
 
 
