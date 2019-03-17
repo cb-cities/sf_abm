@@ -82,12 +82,12 @@ def preprocessing():
     edges_df['xi'] = edges_df['xi'].fillna(0)
     edges_df['uv'] = edges_df['uv'].fillna(0)
     ### Not considering highways
-    highway_type = ['motorway', 'motorway_link', 'trunk', 'trunk_link']
-    edges_df['initial_age'] = np.where(edges_df['type'].isin(highway_type), 0, edges_df['initial_age'])
-    edges_df['alpha'] = np.where(edges_df['type'].isin(highway_type), 100, edges_df['alpha'])
-    edges_df['beta'] = np.where(edges_df['type'].isin(highway_type), 0, edges_df['beta'])
-    edges_df['xi'] = np.where(edges_df['type'].isin(highway_type), 0, edges_df['xi'])
-    edges_df['uv'] = np.where(edges_df['type'].isin(highway_type), 0, edges_df['uv'])
+    # highway_type = ['motorway', 'motorway_link', 'trunk', 'trunk_link']
+    # edges_df['initial_age'] = np.where(edges_df['type'].isin(highway_type), 0, edges_df['initial_age'])
+    # edges_df['alpha'] = np.where(edges_df['type'].isin(highway_type), 100, edges_df['alpha'])
+    # edges_df['beta'] = np.where(edges_df['type'].isin(highway_type), 0, edges_df['beta'])
+    # edges_df['xi'] = np.where(edges_df['type'].isin(highway_type), 0, edges_df['xi'])
+    # edges_df['uv'] = np.where(edges_df['type'].isin(highway_type), 0, edges_df['uv'])
     ### Set initial age as the current age
     edges_df['age_current'] = edges_df['initial_age'] ### age in days
     print(len(np.unique(edges_df['cnn_expand'])))
@@ -108,7 +108,7 @@ def eco(budget, iri_impact, case):
     aad_df['aad_vht'] = 0 ### daily vehicle hours travelled
     aad_df['aad_vmt'] = 0 ### vehicle meters traveled
     aad_df['aad_base_emi'] = 0 ### daily emission (in grams) if not considering pavement degradation
-    for hour in range(3, 5):
+    for hour in range(3, 27):
         hour_volume_df = pd.read_csv(absolute_path+'/output_march/edges_df_singleyear/edges_df_DY{}_HR{}_r{}_p{}.csv'.format(day, hour, random_seed, probe_ratio))
         aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df) ### aad_df[['edge_id_igraph', 'length', 'aad_vol', 'aad_vmt', 'aad_base_emi']]
 
@@ -310,8 +310,8 @@ if __name__ == '__main__':
     # exploratory_budget()
     # sys.exit(0)
 
-    # eco(1500, 0.03, 'normal')
-    # sys.exit(0)
+    eco(1500, 0.03, 'eco')
+    sys.exit(0)
 
     ### Scne 12
     # scen12_results_list = []
