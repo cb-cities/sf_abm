@@ -56,6 +56,7 @@ def preprocessing():
     edges_df = pd.read_csv(absolute_path+'/../0_network/data/{}/{}/edges_elevation.csv'.format(folder, scenario))
     edges_df = edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'slope', 'capacity', 'fft', 'type', 'geometry']]
     edges_df['slope_factor'] = np.where(edges_df['slope']<-0.05, 0.2, np.where(edges_df['slope']>0.15, 3.4, 1+0.16*(edges_df['slope']*100)))
+    #edges_df['slope_factor'] = 1
 
     ### PCI RELATED EMISSION
     ### Read pavement age on Jan 01, 2017, and degradation model coefficients
@@ -102,16 +103,16 @@ def eco(budget, iri_impact, case):
     day = 2 ### Wednesday
     random_seed = 0
     probe_ratio = 1
-    aad_df = edges_df[['edge_id_igraph', 'length', 'slope']].copy()
+    aad_df = edges_df[['edge_id_igraph', 'length', 'slope_factor']].copy()
     aad_df['aad_vol'] = 0 ### daily volume
     aad_df['aad_vht'] = 0 ### daily vehicle hours travelled
     aad_df['aad_vmt'] = 0 ### vehicle meters traveled
     aad_df['aad_base_emi'] = 0 ### daily emission (in grams) if not considering pavement degradation
-    for hour in range(3, 27):
+    for hour in range(3, 5):
         hour_volume_df = pd.read_csv(absolute_path+'/output_march/edges_df_singleyear/edges_df_DY{}_HR{}_r{}_p{}.csv'.format(day, hour, random_seed, probe_ratio))
         aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df) ### aad_df[['edge_id_igraph', 'length', 'aad_vol', 'aad_vmt', 'aad_base_emi']]
 
-    edges_df = pd.merge(edges_df, aad_df, on=['edge_id_igraph', 'length', 'slope'], how='left')
+    edges_df = pd.merge(edges_df, aad_df, on=['edge_id_igraph', 'length', 'slope_factor'], how='left')
 
     step_results_list = []
     ### Fix road sbased on PCI RELATED EMISSION
@@ -309,7 +310,7 @@ if __name__ == '__main__':
     # exploratory_budget()
     # sys.exit(0)
 
-    # eco(1500, 0.03, 'eco')
+    # eco(1500, 0.03, 'normal')
     # sys.exit(0)
 
     ### Scne 12
@@ -327,7 +328,7 @@ if __name__ == '__main__':
 
     ### Scen 34
     budget = 1500#int(os.environ['BUDGET']) ### 400 or 1500
-    eco_route_ratio = 0.5#float(os.environ['ECO_ROUTE_RATIO']) ### 0.1, 0.5 or 1
+    eco_route_ratio = 0.1#float(os.environ['ECO_ROUTE_RATIO']) ### 0.1, 0.5 or 1
     iri_impact = 0.03#float(os.environ['IRI_IMPACT']) ### 0.01 or 0.03
     case = 'er'#float(os.environ['CASE']) ### 'er' for 'routing_only', 'ee' for 'both'
     print('budget {}, eco_route_ratio {}, iri_impact {}, case {}'.format(budget, eco_route_ratio, iri_impact, case))
