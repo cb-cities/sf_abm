@@ -91,7 +91,7 @@ def preprocessing():
     ### Set initial age as the current age
     edges_df['age_current'] = edges_df['initial_age'] ### age in days
     print(len(np.unique(edges_df['cnn_expand'])))
-    edges_df.to_csv('output_march/preprocessing.csv', index=False)
+    #edges_df.to_csv('output_march/preprocessing.csv', index=False)
 
     return edges_df
 
@@ -206,7 +206,7 @@ def eco_incentivize(budget, eco_route_ratio, iri_impact, case):
     g_time = sio.mmread(absolute_path+'/../0_network/data/{}/{}/network_sparse.mtx'.format(folder, scenario))
     g_time_shape = g_time.shape
 
-    for year in range(2):
+    for year in range(10):
 
         ### Calculate the current pci based on the coefficients and current age
         edges_df['pci_current'] = edges_df['alpha']+edges_df['xi'] + (edges_df['beta']+edges_df['uv'])*edges_df['age_current']/365
@@ -310,8 +310,8 @@ if __name__ == '__main__':
     # exploratory_budget()
     # sys.exit(0)
 
-    eco(1500, 0.03, 'eco')
-    sys.exit(0)
+    #eco(1500, 0.03, 'eco')
+    #sys.exit(0)
 
     ### Scne 12
     # scen12_results_list = []
@@ -327,9 +327,9 @@ if __name__ == '__main__':
     # sys.exit(0)
 
     ### Scen 34
-    budget = 1500#int(os.environ['BUDGET']) ### 400 or 1500
-    eco_route_ratio = 0.1#float(os.environ['ECO_ROUTE_RATIO']) ### 0.1, 0.5 or 1
-    iri_impact = 0.03#float(os.environ['IRI_IMPACT']) ### 0.01 or 0.03
+    budget = int(os.environ['BUDGET']) ### 400 or 1500
+    eco_route_ratio = float(os.environ['ECO_ROUTE_RATIO']) ### 0.1, 0.5 or 1
+    iri_impact = float(os.environ['IRI_IMPACT']) ### 0.01 or 0.03
     case = 'er'#float(os.environ['CASE']) ### 'er' for 'routing_only', 'ee' for 'both'
     print('budget {}, eco_route_ratio {}, iri_impact {}, case {}'.format(budget, eco_route_ratio, iri_impact, case))
 
