@@ -61,12 +61,17 @@ def preprocessing():
     ### PCI RELATED EMISSION
     ### Read pavement age on Jan 01, 2017, and degradation model coefficients
     sf_pavement = pd.read_csv(absolute_path+'/input/r_to_python.csv')
+    print(sf_pavement['initial_age'].isna().sum())
+    print(sf_pavement.shape)
     ### Key to merge cnn with igraphid
     sf_cnn_igraphid = pd.read_csv(absolute_path+'/input/3_cnn_igraphid.csv')
     sf_cnn_igraphid = sf_cnn_igraphid[sf_cnn_igraphid['edge_id_igraph']!='None'].reset_index()
     sf_cnn_igraphid['edge_id_igraph'] = sf_cnn_igraphid['edge_id_igraph'].astype('int64')
     ### Get degradation related parameters, incuding the coefficients and initial age
     edges_df = pd.merge(edges_df, sf_cnn_igraphid, on='edge_id_igraph', how='left')
+    print(edges_df['cnn'].isna().sum())
+    print(edges_df.shape)
+    print(sf_pavement[sf_pavement['cnn'].isin(edges_df['cnn'].values)].shape)
     ### Fill cnn na with edge_id_igraph
     edges_df['cnn_expand'] = np.where(pd.isna(edges_df['cnn']), edges_df['edge_id_igraph'], edges_df['cnn'])
     edges_df = pd.merge(edges_df, sf_pavement[['cnn', 'alpha', 'beta', 'xi', 'uv', 'initial_age']], left_on='cnn_expand', right_on='cnn', how='left')
@@ -76,6 +81,8 @@ def preprocessing():
     edges_df = edges_df.drop_duplicates(subset='edge_id_igraph', keep='first').reset_index()
     ### Some igraphids have empty coefficients and age, set to average
     #edges_df['initial_age'] = edges_df['initial_age'].fillna(edges_df['initial_age'].mean())
+    print(edges_df['initial_age'].isna().sum())
+    print(edges_df.shape)
     edges_df['initial_age'] = edges_df['initial_age'].fillna(0)
     edges_df['alpha'] = edges_df['alpha'].fillna(edges_df['alpha'].mean())
     edges_df['beta'] = edges_df['beta'].fillna(edges_df['beta'].mean())
@@ -91,7 +98,7 @@ def preprocessing():
     ### Set initial age as the current age
     edges_df['age_current'] = edges_df['initial_age'] ### age in days
     print(len(np.unique(edges_df['cnn_expand'])))
-    edges_df.to_csv('output_march/preprocessing.csv', index=False)
+    #edges_df.to_csv('output_march/preprocessing.csv', index=False)
 
     return edges_df
 
@@ -185,9 +192,10 @@ def eco(budget, iri_impact, case):
         vht_total = np.sum(edges_df['aad_vht']) ### vehicle hours travelled
         emi_total = np.sum(edges_df['aad_pci_emi'])/1e6 ### co2 emission in t
         pci_average = np.mean(edges_df['pci_current'])
-        step_results_list.append([case, budget, iri_impact, year, emi_total, vkmt_total, vht_total, pci_average])
-    print(step_results_list[0])
-    print(step_results_list[9])
+        local_pci_average = np.mean(edges_df[~edges_df['type'].isin(['motorway', 'motorway_link', 'trunk', 'trunk_link'])]['pci_current'])
+        step_results_list.append([case, budget, iri_impact, year, emi_total, vkmt_total, vht_total, pci_average, local_pci_average])
+    print(step_results_list)
+    #print(step_results_list[9])
 
     return step_results_list
 
@@ -282,6 +290,7 @@ def exploratory_budget():
 
     plt.rcParams.update({'font.size': 12, 'font.weight': "normal", 'font.family':'serif', 'axes.linewidth': 0.1})
 
+    preprocessing()
     results_list = []
     for budget in [400, 800, 1200, 1500, 1800]:
         step_results_list = eco(budget, 0, 'normal')
@@ -310,7 +319,7 @@ if __name__ == '__main__':
     # exploratory_budget()
     # sys.exit(0)
 
-    eco(1500, 0.03, 'eco')
+    eco(1500, 0.03, 'normal')
     sys.exit(0)
 
     ### Scne 12
