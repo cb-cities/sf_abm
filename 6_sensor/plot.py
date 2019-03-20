@@ -15,6 +15,12 @@ plt.rcParams.update({'font.size': 18, 'font.weight': "normal", 'font.family':'se
 folder = 'sf_overpass'
 scenario = 'original'
 
+def percentile(n):
+    def percentile_(x):
+        return np.percentile(x, n)
+    percentile_.__name__ = 'percentile_%s' % n
+    return percentile_
+
 def plot_peak_hour(var, hour):
 
     plot_df = pd.DataFrame(columns=['probe_ratio', 'cov', 'random_seed', 'AMT'])
@@ -45,28 +51,27 @@ def plot_peak_hour(var, hour):
     for cov in [0.0, 0.5, 1.0, 2.0]:
         c=next(color)
         slice_df = plot_df.loc[plot_df['cov']==cov].copy()
-        slice_grp = slice_df.groupby('probe_ratio_str').agg({var: [np.mean, np.std]}).reset_index()
-        slice_grp.columns = ['_'.join(col).strip() for col in slice_grp.columns.values]
+        slice_pivot = slice_df.pivot(columns='probe_ratio_str', values=var)
+        slice_labels = slice_pivot.columns.values
+        slice_values = slice_pivot.values
 
-        ax.plot('probe_ratio_str_', '{}_mean'.format(var), data=slice_grp, label='{}'.format(cov), c=c)
-        ax.fill_between(slice_grp['probe_ratio_str_'], 
-            slice_grp['{}_mean'.format(var)] - slice_grp['{}_std'.format(var)],
-            slice_grp['{}_mean'.format(var)] + slice_grp['{}_std'.format(var)],
-            facecolor=c, alpha=0.5)
+        boxprops = dict(color=c, linewidth=1, alpha=0.5)
+        flierprops = dict(markerfacecolor=c, marker='s', markeredgecolor=c)
+        box = ax.boxplot(slice_values, labels=slice_labels, boxprops=boxprops, widths=0.1, patch_artist=True, flierprops=flierprops)
+        for patch in box['boxes']:
+            patch.set_facecolor(c)
 
-    ### Shrink current axis's height
-    box = ax.get_position()
-    #ax.set_position([box.x0, box.y0+box.height*0.2, box.width, box.height*0.9])
-    ax.set_position([box.x0, box.y0, box.width*0.9, box.height])
+        slice_grp = slice_df.groupby('probe_ratio_str', as_index=False).agg({var: percentile(50)}).reset_index()
+        ax.plot([1,2,3,4], 'AMT', data=slice_grp, label='{}'.format(cov), c=c)
 
     ax.set_title("Average agent travel time (Friday {} o'clock)".format(hour), y=1.05)
-    ax.legend(title='Probe info\nvariability\n(coef. of\nvariation)', bbox_to_anchor=(1, 0.8))
+    ax.legend(title='Probe info\nvariability\n(coef. of\nvariation)', bbox_to_anchor=(1, 1))
     ax.set_xlabel('Probe ratio')
     #plt.xscale('log')
     ax.set_ylabel('Average agent travel time (min)')
     #ax.set_ylim([30, 42])
     #plt.yscale('log')
-    plt.savefig(absolute_path+'/Figs/{}oc_{}.png'.format(hour, var))
+    plt.savefig(absolute_path+'/Figs/{}oc_{}_quantiles.png'.format(hour, var))
     #plt.show()
 
 
@@ -76,35 +81,34 @@ def plot_hourly_amt(var, probe_ratio):
     fig.set_size_inches(10.5, 5.5)
     color = iter(cm.viridis(np.linspace(0, 1, 4)))
 
-    ### COV 0 case
-    summary_df = pd.read_csv(absolute_path+'/../2_ABM/output/sensor/summary_df/summary_p{}.csv'.format(probe_ratio))
-    summary_df['VHT'] = summary_df['VHT']/3600
-    summary_df['VKMT'] = summary_df['VKMT']/1000
-    summary_df['AMT'] = summary_df['VHT']/summary_df['hour_demand']*60 ### Agent minutes travelled
-    summary_grp = summary_df.groupby('hour').agg({var: [np.mean, np.std]}).reset_index()
-    summary_grp.columns = ['_'.join(col).strip() for col in summary_grp.columns.values]
-
-    #summary_grp = summary_grp.loc[(summary_grp['hour_']>10) & (summary_grp['hour_']<24)].copy()
-    c = next(color)
-    ax.plot('hour_', '{}_mean'.format(var), data=summary_grp, label='0', c=c)
-
-    for cov in [0.5, 1.0, 2.0]:
+    for cov in [0, 0.5, 1.0, 2.0]:
 
         c = next(color)
-        summary_df = pd.read_csv(absolute_path+'/../2_ABM/output/sensor_cov/summary_df/summary_p{}_cov{}.csv'.format(probe_ratio, cov))
+        if cov == 0:
+            summary_df = pd.read_csv(absolute_path+'/../2_ABM/output/sensor/summary_df/summary_p{}.csv'.format(probe_ratio))
+        else:
+            summary_df = pd.read_csv(absolute_path+'/../2_ABM/output/sensor_cov/summary_df/summary_p{}_cov{}.csv'.format(probe_ratio, cov))
         summary_df['VHT'] = summary_df['VHT']/3600
         summary_df['VKMT'] = summary_df['VKMT']/1000
         summary_df['AMT'] = summary_df['VHT']/summary_df['hour_demand']*60 ### Agent minutes travelled
-        summary_grp = summary_df.groupby('hour').agg({var: [np.mean, np.std]}).reset_index()
-        summary_grp.columns = ['_'.join(col).strip() for col in summary_grp.columns.values]
 
-        #summary_grp = summary_grp.loc[(summary_grp['hour_']>10) & (summary_grp['hour_']<24)].copy()
-        ax.plot('hour_', '{}_mean'.format(var), data=summary_grp, label='{}'.format(cov), c=c)
-        ax.fill_between(summary_grp['hour_'], 
-            summary_grp['{}_mean'.format(var)] - summary_grp['{}_std'.format(var)],
-            summary_grp['{}_mean'.format(var)] + summary_grp['{}_std'.format(var)],
-            facecolor=c, alpha=0.5)
-        #plt.errorbar('hour_', '{}_mean'.format(var), '{}_std'.format(var), data=summary_grp, fmt='.-', lw=0.5, color=c, elinewidth=2, ecolor=c, capsize=10, capthick=1)
+        pivot_labels = []
+        pivot_positions = []
+        pivot_values = []
+        for nm, grp in summary_df.groupby('hour'):
+            pivot_labels.append(int(nm))
+            pivot_positions.append(int(nm))
+            pivot_values.append(grp[var].values)
+
+        boxprops = dict(color=c, linewidth=1, alpha=0.5)
+        flierprops = dict(markerfacecolor=c, marker='s', markeredgecolor=c)
+        box = ax.boxplot(pivot_values, labels=pivot_labels, boxprops=boxprops, widths=0.1, patch_artist=True, flierprops=flierprops, positions=pivot_positions)
+        for patch in box['boxes']:
+            patch.set_facecolor(c)
+
+        summary_grp = summary_df.groupby('hour').agg({var: [percentile(50)]}).reset_index()
+        ax.plot(pivot_positions, summary_grp['{}'.format(var)], label='{}'.format(cov), c=c)
+
     
     ### Shrink current axis's height
     box = ax.get_position()
@@ -115,8 +119,10 @@ def plot_hourly_amt(var, probe_ratio):
     ax.legend(title='Probe coef.\nof variation', bbox_to_anchor=(1, 0.7))
     ax.set_xlabel('Hour')
     ax.set_ylabel('Average agent travel time (min)')
-    ax.set_ylim([15, 42])
-    plt.savefig(absolute_path+'/Figs/hourly_{}_p{}_test.png'.format(var, probe_ratio))
+    ax.set_xticks(np.arange(3, 27, 3))
+    ax.set_xticklabels(np.arange(3, 27, 3))
+    ax.set_ylim([15, 45])
+    plt.savefig(absolute_path+'/Figs/hourly_{}_p{}_quantiles.png'.format(var, probe_ratio))
     #plt.show()
 
 def plot_hourly_trend(var, cov, ylabel, zoom=False):
@@ -124,42 +130,34 @@ def plot_hourly_trend(var, cov, ylabel, zoom=False):
     fig, ax = plt.subplots(1)
     fig.set_size_inches(10.5, 5.5)
     color = iter(cm.rainbow(np.linspace(0, 1, 6)))
-    if zoom == False: 
-        probe_ratio_list = [1.0, 0.1, 0.01, 0.005, 0.001, 0.0]
-    else: 
-        probe_ratio_list = [1.0, 0.1, 0.01, 0.005]
+    probe_ratio_list = [1.0, 0.1, 0.01, 0.005, 0.001, 0.0]
+
     for probe_ratio in probe_ratio_list:
 
         c = next(color)
-        # summary_df = pd.read_csv(absolute_path+'/../2_ABM/output/sensor_cov/summary_df/summary_p{}_cov{}.csv'.format(probe_ratio, cov))
-        # summary_df['VHT'] = summary_df['VHT']/3600
-        # summary_df['VKMT'] = summary_df['VKMT']/1000
-        # summary_df['AMT'] = summary_df['VHT']/summary_df['hour_demand']*60 ### Agent minutes travelled
-        # summary_grp = summary_df.groupby('hour').agg({var: [np.mean, np.std]}).reset_index()
-        # summary_grp.columns = ['_'.join(col).strip() for col in summary_grp.columns.values]
-
-        # #summary_grp = summary_grp.loc[(summary_grp['hour_']>10) & (summary_grp['hour_']<24)].copy()
-        # ax.plot('hour_', '{}_mean'.format(var), data=summary_grp, label='{}'.format(probe_ratio), c=c)
-        # ax.fill_between(summary_grp['hour_'], 
-        #     summary_grp['{}_mean'.format(var)] - summary_grp['{}_std'.format(var)],
-        #     summary_grp['{}_mean'.format(var)] + summary_grp['{}_std'.format(var)],
-        #     facecolor=c, alpha=0.5)
-        # #plt.errorbar('hour_', '{}_mean'.format(var), '{}_std'.format(var), data=summary_grp, fmt='.-', lw=0.5, color=c, elinewidth=2, ecolor=c, capsize=10, capthick=1)
 
         ### COV 0 case
         summary_df = pd.read_csv(absolute_path+'/../2_ABM/output/sensor/summary_df/summary_p{}.csv'.format(probe_ratio, cov))
         summary_df['VHT'] = summary_df['VHT']/3600
         summary_df['VKMT'] = summary_df['VKMT']/1000
         summary_df['AMT'] = summary_df['VHT']/summary_df['hour_demand']*60 ### Agent minutes travelled
-        summary_grp = summary_df.groupby('hour').agg({var: [np.mean, np.std]}).reset_index()
-        summary_grp.columns = ['_'.join(col).strip() for col in summary_grp.columns.values]
 
-        #summary_grp = summary_grp.loc[(summary_grp['hour_']>10) & (summary_grp['hour_']<24)].copy()
-        ax.plot('hour_', '{}_mean'.format(var), data=summary_grp, label='{}%'.format(probe_ratio*100), c=c, linestyle='-')
-        ax.fill_between(summary_grp['hour_'], 
-            summary_grp['{}_mean'.format(var)] - summary_grp['{}_std'.format(var)],
-            summary_grp['{}_mean'.format(var)] + summary_grp['{}_std'.format(var)],
-            facecolor=c, alpha=0.5)
+        pivot_labels = []
+        pivot_positions = []
+        pivot_values = []
+        for nm, grp in summary_df.groupby('hour'):
+            pivot_labels.append(int(nm))
+            pivot_positions.append(int(nm))
+            pivot_values.append(grp[var].values)
+
+        boxprops = dict(color=c, linewidth=1, alpha=0.5)
+        flierprops = dict(markerfacecolor=c, marker='s', markeredgecolor=c)
+        box = ax.boxplot(pivot_values, labels=pivot_labels, boxprops=boxprops, widths=0.3, patch_artist=True, flierprops=flierprops, positions=pivot_positions)
+        for patch in box['boxes']:
+            patch.set_facecolor(c)
+
+        summary_grp = summary_df.groupby('hour').agg({var: percentile(50)}).reset_index()
+        ax.plot(pivot_positions, summary_grp['{}'.format(var)], label='{}%'.format(probe_ratio*100), c=c, linestyle='-')
     
     ### Shrink current axis's height
     box = ax.get_position()
@@ -171,8 +169,10 @@ def plot_hourly_trend(var, cov, ylabel, zoom=False):
     l = ax.legend(title='Probe\npenetration\nrate', bbox_to_anchor=(1, 0.85))
     plt.setp(l.get_title(), multialignment='center')
     ax.set_xlabel('Hour')
+    ax.set_xticks(np.arange(3, 27, 3))
+    ax.set_xticklabels(np.arange(3, 27, 3))
     ax.set_ylabel('{}'.format(ylabel))
-    plt.savefig(absolute_path+'/Figs/hourly_{}_cov{}_zoom{}.png'.format(var, cov, zoom))
+    plt.savefig(absolute_path+'/Figs/hourly_{}_cov{}_zoom{}_quantiles.png'.format(var, cov, zoom))
     #plt.show()
 
 def plot_pcp(var, hour, random_seed):
@@ -225,6 +225,6 @@ def plot_pcp(var, hour, random_seed):
 
 if __name__ == '__main__':
     #plot_peak_hour('AMT', 18)
-    #plot_hourly_amt('AMT', 1.0)
-    plot_hourly_trend('AMT', 0.0, 'Average Agent Travel Time (min)', zoom=False)
+    #plot_hourly_amt('VHT', 0.005)
+    plot_hourly_trend('VHT', 0.0, 'Total Vehicle Hours Travelled', zoom=False) ### Can also plot AMT, average travel time per agent
     #plot_pcp('true_flow', 3, 0) ### max flow hour is 18

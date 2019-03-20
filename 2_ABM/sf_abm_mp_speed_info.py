@@ -229,7 +229,7 @@ def sta(random_seed=0, probe_ratio=1, cov=0):
     sta_stats = []
 
     ### Loop through days and hours
-    for day in [4]:
+    for day in [2]:
 
         ### Read in the initial network (free flow travel time)
         ### network_sparse_0.mtx is used for stand alone traffic simulation.
@@ -239,13 +239,16 @@ def sta(random_seed=0, probe_ratio=1, cov=0):
         edges_df = edges_df0 ### length, capacity and fft that should never change in one simulation
         edges_df['previous_t'] = edges_df['fft'] ### Used to find which edge to update. At the beginning of each day, previous_t is the free flow time.
 
-        for hour in range(18, 19):
+        OD_count = 0
+        for hour in range(3, 27):
 
             #logger.info('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()
 
             ### Read OD
             OD = read_OD(day, hour, probe_ratio)
+            OD_count += OD.shape[0]
+            continue
 
             ### Total OD, assigned OD
             hour_demand = OD.shape[0]
@@ -299,6 +302,7 @@ def sta(random_seed=0, probe_ratio=1, cov=0):
             logger.info('DY{}_HR{}: {} sec, OD {}'.format(day, hour, round(t_hour_1-t_hour_0, 3), hour_demand))
             gc.collect()
     
+    print(OD_count)
     t_main_1 = time.time()
     logger.info('total run time: {} sec \n\n\n\n\n'.format(t_main_1 - t_main_0))
     return sta_stats
@@ -318,6 +322,7 @@ def main():
     for random_seed in [0]:
     #for random_seed in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
         sta_stats = sta(random_seed, probe_ratio, cov)
+        sys.exit(0)
         results_collect += sta_stats
 
     results_collect_df = pd.DataFrame(results_collect, columns = ['probe_ratio', 'cov', 'random_seed', 'day', 'hour', 'hour_demand', 'probe_veh_counts', 'links_probed_norep', 'links_probed_rep', 'VHT', 'VKMT', 'max10'])

@@ -44,7 +44,7 @@ def aad_vol_vmt_baseemi(aad_df, hour_volume_df):
     aad_df['base_emi'] = aad_df['base_co2'] * aad_df['length'] /1609.34 * aad_df['true_flow'] ### speed related CO2 x length x flow. Final results unit is gram.
 
     aad_df['aad_vol'] += aad_df['true_flow']
-    aad_df['aad_vht'] += aad_df['net_vht']
+    aad_df['aad_vht'] += aad_df['vht']
     aad_df['aad_vmt'] += aad_df['true_flow']*aad_df['length']
     aad_df['aad_base_emi'] += aad_df['base_emi']
     aad_df = aad_df[['edge_id_igraph', 'length', 'slope_factor', 'aad_vol', 'aad_vht', 'aad_vmt', 'aad_base_emi']]
@@ -73,7 +73,7 @@ def eco_incentivize_analysis():
             aad_df['aad_base_emi'] = 0
 
             for hour in range(3, 27):
-                hour_volume_df = pd.read_csv(absolute_path+'/output_march/edges_df_abm/edges_df_b{}_e{}_i{}_y{}_HR{}.csv'.format(budget, eco_route_ratio, iri_impact, year, hour))
+                hour_volume_df = pd.read_csv(absolute_path+'/output_march/edges_df_abm/edges_df_b{}_e{}_i{}_c{}_y{}_HR{}.csv'.format(budget, eco_route_ratio, iri_impact, case, year, hour))
                 ### ['edge_id_igraph', 'length', 'aad_vol', 'aad_vht', 'aad_vmt', 'aad_base_emi']
                 aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df)
                 gc.collect()
@@ -89,7 +89,7 @@ def eco_incentivize_analysis():
             results_list.append([budget, eco_route_ratio, iri_impact, year, emi_total, vkmt_total, vht_total, pci_average])
 
     results_df = pd.DataFrame(results_list, columns=['case', 'budget', 'eco_route_ratio', 'iri_impact', 'year', 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'])
-    results_df.to_csv('output_march/results.csv', index=False)
+    results_df.to_csv('output_march/scen34_results.csv', index=False)
 
 
 def plot_scen12_results(data, variable, ylim=[0,100], ylabel='None', scen_no=0, title = '', base_color=[0, 0, 1]):
@@ -183,17 +183,18 @@ def plot_scen34_results(data, variable, ylim=[0,100], ylabel='None', scen_no=4, 
 if __name__ == '__main__':
     #eco_incentivize_analysis()
 
-    variable = 'pci_average' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
-    ylim_dict = {'emi_total': [3400, 3750], 'vkmt_total': [1.48e7, 1.6e7], 'vht_total': [6e5, 0.9e6], 'pci_average': [20, 90]}
+    variable = 'vht_total' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
+    ylim_dict = {'emi_total': [3600, 4000], 'vkmt_total': [1.45e7, 1.6e7], 'vht_total': [6e5, 0.9e6], 'pci_average': [20, 90]}
     ylabel_dict = {'emi_total': 'Annual Average Daily CO\u2082 (t)', 'vkmt_total': 'Annual Average Daily Vehicle \n Kilometers Travelled (AAD-VKMT)', 'vht_total': 'Annual Average Daily Vehicle \n Hours Travelled (AAD-VHT)', 'pci_average': 'Network-wide Average Pavement\nCondition Index (PCI)'}
 
-    results_df = pd.read_csv('scen12_results.csv')
+    results_df = pd.read_csv('output_march/scen12_results.csv')
     data = results_df[results_df['case']=='normal']
     plot_scen12_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=1, title = 'Normal maintenance', base_color=[0, 0, 0])
     data = results_df[results_df['case']=='eco']
     plot_scen12_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=2, title = 'Eco maintenance', base_color=[1, 0, 0])
+    # sys.exit(0)
 
-    results_df = pd.read_csv('scen34_results_test.csv')
+    results_df = pd.read_csv('output_march/scen34_results.csv')
     data = results_df[results_df['case']=='er']
     plot_scen34_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=3, half_title='', base_color_map={0.1: [1, 0.8, 0], 0.5: [0, 0.8, 0], 1.0: [0, 0.2, 0]})
     data = results_df[results_df['case']=='ee']

@@ -55,10 +55,27 @@ def main():
     summary_rel = relative_df.set_index(['case', 'budget', 'iri_impact', 'eco_route_ratio']).stack().unstack(['budget', 'iri_impact'])
     print(summary_rel)
 
+def group_results():
+
+    budget = 1500
+    iri_impact = 0.03
+    total_demand = 1602843
+
+    r12 = pd.read_csv(open('output_march/scen12_results.csv'))
+    r34 = pd.read_csv(open('output_march/scen34_results.csv'))
+    r12 = r12[r34.columns.tolist()].copy()
+    r1234 = pd.concat([r12, r34]).reset_index(drop=True)
+    r1234['agent_minite'] = r1234['vht_total']*60/total_demand
+    r1234['agent_meter'] = r1234['vkmt_total']*1000/total_demand
+
+    r1234_g = r1234[(r1234['budget']==budget) & (r1234['iri_impact']==iri_impact)].groupby(['case', 'eco_route_ratio'])
+    #print(r1234_g.agg({'emi_total': np.mean, 'vht_total': np.mean, 'vkmt_total': np.mean, 'pci_average': np.min}))
+    print(r1234_g.agg({'agent_minite': np.mean, 'agent_meter': np.mean}))
 
 if __name__ == '__main__':
 
-    main()
+    #main()
+    group_results()
 
 
 
