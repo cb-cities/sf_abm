@@ -1,5 +1,6 @@
 sf_abm_mp_profile.txt
 sp/
+*.out
 mpi_test/**/*.err
 mpi_test/**/*.out
 mpi_test/**/*.mtx

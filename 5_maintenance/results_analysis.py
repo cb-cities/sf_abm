@@ -37,24 +37,24 @@ def aad_vol_vmt_baseemi(aad_df, hour_volume_df):
     ### hour_volume_df[['edge_id_igraph', 'hour_flow', 'carryover_flow', 't_avg']]
 
     aad_df = pd.merge(aad_df, hour_volume_df, on='edge_id_igraph', how='left')
-    aad_df['net_vol'] = aad_df['hour_flow'] - aad_df['carryover_flow']
-    aad_df['net_vht'] = aad_df['net_vol'] * aad_df['t_avg']/3600
+    aad_df['vht'] = aad_df['true_flow'] * aad_df['t_avg']/3600
     aad_df['v_avg_mph'] = aad_df['length']/aad_df['t_avg'] * 2.23694 ### time step link speed in mph
     aad_df['base_co2'] = base_co2(aad_df['v_avg_mph']) ### link-level co2 eimission in gram per mile per vehicle
-    aad_df['base_emi'] = aad_df['base_co2'] * aad_df['length'] /1609.34 * aad_df['net_vol'] ### speed related CO2 x length x flow. Final results unit is gram.
+    aad_df['base_co2'] = aad_df['base_co2'] * aad_df['slope_factor']
+    aad_df['base_emi'] = aad_df['base_co2'] * aad_df['length'] /1609.34 * aad_df['true_flow'] ### speed related CO2 x length x flow. Final results unit is gram.
 
-    aad_df['aad_vol'] += aad_df['net_vol']
-    aad_df['aad_vht'] += aad_df['net_vht']
-    aad_df['aad_vmt'] += aad_df['net_vol']*aad_df['length']
+    aad_df['aad_vol'] += aad_df['true_flow']
+    aad_df['aad_vht'] += aad_df['vht']
+    aad_df['aad_vmt'] += aad_df['true_flow']*aad_df['length']
     aad_df['aad_base_emi'] += aad_df['base_emi']
-    aad_df = aad_df[['edge_id_igraph', 'length', 'aad_vol', 'aad_vht', 'aad_vmt', 'aad_base_emi']]
+    aad_df = aad_df[['edge_id_igraph', 'length', 'slope_factor', 'aad_vol', 'aad_vht', 'aad_vmt', 'aad_base_emi']]
     return aad_df
 
 def eco_incentivize_analysis():
 
     day = 2
     random_seed = 0
-    probe_ratio = 0.01
+    probe_ratio = 1
     results_list = []
 
     budget_list = [400, 1500]
@@ -70,19 +70,19 @@ def eco_incentivize_analysis():
             print(year)
             ### ['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']
             try:
-                edges_df = pd.read_csv(absolute_path+'/output/edge_df/edges_b{}_e{}_i{}_c{}_y{}.csv'.format(budget, eco_route_ratio, iri_impact, case, year))
+                edges_df = pd.read_csv(absolute_path+'/output_march/edge_df/edges_b{}_e{}_i{}_c{}_y{}.csv'.format(budget, eco_route_ratio, iri_impact, case, year))
             except FileNotFoundError:
                 print('no file')
                 continue
 
-            aad_df = edges_df[['edge_id_igraph', 'length', 'pci_current']].copy()
+            aad_df = edges_df[['edge_id_igraph', 'length', 'slope_factor', 'pci_current']].copy()
             aad_df['aad_vol'] = 0
             aad_df['aad_vht'] = 0 ### daily vehicle hours travelled
             aad_df['aad_vmt'] = 0
             aad_df['aad_base_emi'] = 0
 
             for hour in range(3, 27):
-                hour_volume_df = pd.read_csv(absolute_path+'/output/edges_df_abm/edges_df_b{}_e{}_i{}_c{}_y{}_HR{}.csv'.format(budget, eco_route_ratio, iri_impact, case, year, hour))
+                hour_volume_df = pd.read_csv(absolute_path+'/output_march/edges_df_abm/edges_df_b{}_e{}_i{}_c{}_y{}_HR{}.csv'.format(budget, eco_route_ratio, iri_impact, case, year, hour))
                 ### ['edge_id_igraph', 'length', 'aad_vol', 'aad_vht', 'aad_vmt', 'aad_base_emi']
                 aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df)
                 gc.collect()
@@ -98,7 +98,7 @@ def eco_incentivize_analysis():
             results_list.append([case, budget, eco_route_ratio, iri_impact, year, emi_total, vkmt_total, vht_total, pci_average])
 
     results_df = pd.DataFrame(results_list, columns=['case', 'budget', 'eco_route_ratio', 'iri_impact', 'year', 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'])
-    results_df.to_csv('scen345_results_test.csv', index=False)
+    results_df.to_csv('output_march/scen34_results.csv', index=False)
 
 
 def plot_scen12_results(data, variable, ylim=[0,100], ylabel='None', scen_no=0, title = '', base_color=[0, 0, 1]):
