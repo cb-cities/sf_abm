@@ -116,24 +116,31 @@ def plot_scen12_results(data, variable, ylim=[0,100], ylabel='None', scen_no=0, 
     for budget in [400, 1500]:
         for iri_impact in [0.03, 0.01]:
             data_slice = data.loc[(data['budget']==budget)&(data['iri_impact']==iri_impact)]
-            ax.plot(data_slice['year']+1, data_slice[variable], c=color_dict[iri_impact], lw=lw_dict[iri_impact], linestyle=linestyle_dict[budget], marker='.', ms=1)
+            ax.plot(data_slice['year'], data_slice[variable], c=color_dict[iri_impact], lw=lw_dict[iri_impact], linestyle=linestyle_dict[budget], marker='.', ms=1)
             legend_elements_dict['{}_{}'.format(budget, iri_impact)] = Line2D([], [], lw=lw_dict[iri_impact], linestyle = linestyle_dict[budget], c=color_dict[iri_impact], label='Budget: {},\nIRI_impact: {}'.format(budget, iri_impact))
 
     legend_elements_list = [legend_elements_dict[('400_0.03')], legend_elements_dict['1500_0.03'], legend_elements_dict['400_0.01'], legend_elements_dict['1500_0.01']]
+
+    ### Not considering PCI
+    ### 2152.737t CO2 per day on local roads
+    if variable == 'emi_local':
+        ax.axhline(y=2152.737, color='black', linestyle='-.', lw=1)
+        legend_elements_list.append(Line2D([], [], lw=1, linestyle='-.', c='black', label='No degradation'))
 
     ### Shrink current axis's height
     box = ax.get_position()
     #ax.set_position([box.x0, box.y0+box.height*0.2, box.width, box.height*0.9])
     ax.set_position([box.x0+box.width*0.03, box.y0, box.width*0.7, box.height])
-    legend = plt.legend(title = title, handles=legend_elements_list, bbox_to_anchor=(1.27, 0.08), loc='lower center', frameon=False, ncol=1, labelspacing=1.5)
+    legend = plt.legend(title = title, handles=legend_elements_list, bbox_to_anchor=(1.27, 0.0), loc='lower center', frameon=False, ncol=1, labelspacing=1.5)
     #plt.setp(legend.get_title(), fontsize=14)
     plt.setp(legend.get_title(), weight='bold')
     plt.xlabel('Year', fontdict={'size': '16'}, labelpad=10)
     ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
     ax.xaxis.set_label_coords(1.08, -0.02)
+    #plt.xlim([1,10])
     plt.ylim(ylim)
     plt.ylabel(ylabel, fontdict={'size': '16'}, labelpad=10)
-    if variable != 'pci_average': plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
+    if variable[0:3] != 'pci': plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
     #plt.show()
     plt.savefig('Figs/{}_scen{}.png'.format(variable, scen_no), dpi=300, transparent=True)
 
@@ -190,18 +197,22 @@ def plot_scen34_results(data, variable, ylim=[0,100], ylabel='None', scen_no=4, 
 
 if __name__ == '__main__':
 
-    eco_incentivize_analysis()
-    sys.exit(0)
-    variable = 'vht_total' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
-    ylim_dict = {'emi_total': [3600, 4000], 'vkmt_total': [1.45e7, 1.6e7], 'vht_total': [6e5, 0.9e6], 'pci_average': [20, 90]}
-    ylabel_dict = {'emi_total': 'Annual Average Daily CO\u2082 (t)', 'vkmt_total': 'Annual Average Daily Vehicle \n Kilometers Travelled (AAD-VKMT)', 'vht_total': 'Annual Average Daily Vehicle \n Hours Travelled (AAD-VHT)', 'pci_average': 'Network-wide Average Pavement\nCondition Index (PCI)'}
+    outdir = 'output_march19'
 
-    results_df = pd.read_csv('output_march/scen12_results.csv')
+    variable = 'pci_local' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
+    ylim_dict = {
+        'emi_total': [3600, 4000], 'emi_local': [2000, 2300],
+        'vkmt_total': [1.45e7, 1.6e7], 
+        'vht_total': [6e5, 0.9e6], 
+        'pci_average': [20, 90], 'pci_local': [20, 90]}
+    ylabel_dict = {'emi_total': 'Annual Average Daily CO\u2082 (t)', 'vkmt_total': 'Annual Average Daily Vehicle \n Kilometers Travelled (AAD-VKMT)', 'vht_total': 'Annual Average Daily Vehicle \n Hours Travelled (AAD-VHT)', 'pci_average': 'Network-wide Average Pavement\nCondition Index (PCI)', 'emi_local': 'Annual Averagy Daily CO\u2082 (t) on local roads', 'pci_local': 'Average Pavement Condition Index (PCI)\n of local roads'}
+
+    results_df = pd.read_csv('{}/results/scen12_results.csv'.format(outdir))
     data = results_df[results_df['case']=='normal']
     plot_scen12_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=1, title = 'Normal maintenance', base_color=[0, 0, 0])
     data = results_df[results_df['case']=='eco']
     plot_scen12_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=2, title = 'Eco maintenance', base_color=[1, 0, 0])
-    # sys.exit(0)
+    sys.exit(0)
 
     results_df = pd.read_csv('output_march/scen34_results.csv')
     data = results_df[results_df['case']=='er']
