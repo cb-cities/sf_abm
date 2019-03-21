@@ -192,17 +192,18 @@ if __name__ == '__main__':
 
     eco_incentivize_analysis()
     sys.exit(0)
-    variable = 'emi_total' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
-    ylim_dict = {'emi_total': [3400, 3750], 'vkmt_total': [1.48e7, 1.6e7], 'vht_total': [6e5, 0.9e6], 'pci_average': [20, 90]}
+    variable = 'vht_total' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
+    ylim_dict = {'emi_total': [3600, 4000], 'vkmt_total': [1.45e7, 1.6e7], 'vht_total': [6e5, 0.9e6], 'pci_average': [20, 90]}
     ylabel_dict = {'emi_total': 'Annual Average Daily CO\u2082 (t)', 'vkmt_total': 'Annual Average Daily Vehicle \n Kilometers Travelled (AAD-VKMT)', 'vht_total': 'Annual Average Daily Vehicle \n Hours Travelled (AAD-VHT)', 'pci_average': 'Network-wide Average Pavement\nCondition Index (PCI)'}
 
-    results_df = pd.read_csv('scen12_results.csv')
+    results_df = pd.read_csv('output_march/scen12_results.csv')
     data = results_df[results_df['case']=='normal']
     plot_scen12_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=1, title = 'Normal maintenance', base_color=[0, 0, 0])
     data = results_df[results_df['case']=='eco']
     plot_scen12_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=2, title = 'Eco maintenance', base_color=[1, 0, 0])
+    # sys.exit(0)
 
-    results_df = pd.read_csv('scen34_results_test.csv')
+    results_df = pd.read_csv('output_march/scen34_results.csv')
     data = results_df[results_df['case']=='er']
     plot_scen34_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=3, half_title='', base_color_map={0.1: [1, 0.8, 0], 0.5: [0, 0.8, 0], 1.0: [0, 0.2, 0]})
     data = results_df[results_df['case']=='ee']
