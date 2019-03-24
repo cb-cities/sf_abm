@@ -117,7 +117,7 @@ def preprocessing():
 
     return edges_df
 
-def eco_incentivize(edges_df, budget, eco_route_ratio, iri_impact, case, improv_pct=1, closure_list=[]):
+def eco_incentivize(edges_df, budget, eco_route_ratio, iri_impact, case, improv_pct=1, closure_list=[], closure_case=''):
 
     ### ABM parameters
     day = 2 ### Wednesday
@@ -173,7 +173,7 @@ def eco_incentivize(edges_df, budget, eco_route_ratio, iri_impact, case, improv_
             edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'slope_factor', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']].to_csv(absolute_path+'/{}/edge_df/edges_b{}_e{}_i{}_c{}_y{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case, year), index=False)
 
             ### Run ABM
-            sf_abm.sta(outdir, year, day=day, random_seed=random_seed, probe_ratio=probe_ratio, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, closure_list=closure_list)
+            sf_abm.sta(outdir, year, day=day, random_seed=random_seed, probe_ratio=probe_ratio, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, closure_list=closure_list, closure_case=closure_case)
 
             for hour in range(3, 27):
                 hour_volume_df = pd.read_csv(absolute_path+'/{}/edges_df_abm/edges_df_b{}_e{}_i{}_c{}_y{}_HR{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case, year, hour))
@@ -312,7 +312,7 @@ def degradation_model_sensitivity():
 def closure_analysis():
     
     ### edge_id_igraph of local roads with highest, mean and 25% bidirectional volumes on Friday
-    closure_dict = {'max': [6089, 26873], 'mean': [20049, 20053], 'low_quant': [6785, 8192]}
+    closure_dict = {'normal': [], 'max': [6089, 26873], 'mean': [20049, 20053], 'low_quant': [6785, 8192]}
 
     budget = 0
     eco_route_ratio = 0
@@ -321,8 +321,8 @@ def closure_analysis():
     improv_pct = 0
     edges_df = preprocessing()
     for key, value in closure_dict:
-        results_list = eco_incentivize(edges_df, budget, eco_route_ratio, iri_impact, case, improv_pct=improv_pct, closure_list = value)
-        results_df = pd.DataFrame(results_list, columns=['case', 'budget', 'iri_impact', 'eco_route_ratio', 'year', 'emi_total', 'emi_local', 'emi_highway', 'emi_localroads_base', 'pci_average', 'pci_local', 'pci_highway', 'vht_total', 'vht_local', 'vht_highway', 'vkmt_total', 'vkmt_local', 'vkmt_highway', 'improv_pct', 'slope_mlt'])
+        results_list = eco_incentivize(edges_df, budget, eco_route_ratio, iri_impact, case, improv_pct=improv_pct, closure_list = value, closure_case = key)
+        results_df = pd.DataFrame(results_list, columns=['case', 'budget', 'iri_impact', 'eco_route_ratio', 'year', 'emi_total', 'emi_local', 'emi_highway', 'emi_localroads_base', 'pci_average', 'pci_local', 'pci_highway', 'vht_total', 'vht_local', 'vht_highway', 'vkmt_total', 'vkmt_local', 'vkmt_highway'])
         results_df.to_csv(absolute_path+'/{}/results/closure_{}.csv'.format(outdir, key), index=False)
 
 
