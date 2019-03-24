@@ -177,14 +177,14 @@ def eco_incentivize(budget, eco_route_ratio, iri_impact, case):
             repair_df = df.groupby(['cnn_expand']).agg({'pci_current': np.mean}).reset_index().nsmallest(budget, 'pci_current')
             repair_list = repair_df['cnn_expand'].tolist()
             extract_df = df.loc[df['cnn_expand'].isin(repair_list)]
-            #extract_df[['edge_id_igraph', 'aad_emi_potential']].to_csv('repair_df/repair_df_y{}_c{}_b{}_e{}_i{}.csv'.format(year, case, budget, eco_route_ratio, iri_impact))
+            extract_df[['edge_id_igraph', 'aad_emi_potential']].to_csv(absolute_path + '/{}/repair_df/repair_df_y{}_c{}_b{}_e{}_i{}.csv'.format(outdir, year, case, budget, eco_route_ratio, iri_impact))
             return repair_list
 
         def eco_maintenance(df, year, case, budget, eco_route_ratio, iri_impact):
             repair_df = df.groupby(['cnn_expand']).agg({'aad_emi_potential': np.sum}).reset_index().nlargest(budget, 'aad_emi_potential')
             repair_list = repair_df['cnn_expand'].tolist()
             extract_df = df.loc[df['cnn_expand'].isin(repair_list)]
-            #extract_df[['edge_id_igraph', 'aad_emi_potential']].to_csv('repair_df/repair_df_y{}_c{}_b{}_e{}_i{}.csv'.format(year, case, budget, eco_route_ratio, iri_impact))
+            extract_df[['edge_id_igraph', 'aad_emi_potential']].to_csv(absolute_path+'/{}/repair_df/repair_df_y{}_c{}_b{}_e{}_i{}.csv'.format(outdir, year, case, budget, eco_route_ratio, iri_impact))
             return repair_list
 
         if case in ['normal', 'er']: 
@@ -278,13 +278,13 @@ if __name__ == '__main__':
     #sys.exit(0)
 
     ### Scen 34
-    budget = 1500 # int(os.environ['BUDGET']) ### 400 or 1500
-    eco_route_ratio = 0.1 # float(os.environ['ECO_ROUTE_RATIO']) ### 0.1, 0.5 or 1
-    iri_impact = 0.03 #float(os.environ['IRI_IMPACT']) ### 0.01 or 0.03
-    case = 'er' #os.environ['CASE'] ### 'er' for 'routing_only', 'ee' for 'both'
+    budget = int(os.environ['BUDGET']) ### 400 or 1500
+    eco_route_ratio = float(os.environ['ECO_ROUTE_RATIO']) ### 0.1, 0.5 or 1
+    iri_impact = float(os.environ['IRI_IMPACT']) ### 0.01 or 0.03
+    case = os.environ['CASE'] ### 'er' for 'routing_only', 'ee' for 'both'
     print('budget {}, eco_route_ratio {}, iri_impact {}, case {}'.format(budget, eco_route_ratio, iri_impact, case))
 
     step_results_list = eco_incentivize(budget, eco_route_ratio, iri_impact, case)
     results_df = pd.DataFrame(step_results_list, columns=['case', 'budget', 'iri_impact', 'eco_route_ratio', 'year', 'emi_total', 'emi_local', 'emi_highway', 'emi_newlocalroads',  'pci_average', 'pci_local', 'pci_highway', 'vht_total', 'vht_local', 'vht_highway', 'vkmt_total', 'vkmt_local', 'vkmt_highway'])
-    results_df.to_csv('{}/results/scen34_results_b{}_e{}_i{}_c{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case))
+    results_df.to_csv(absolute_path+'/{}/results/scen34_results_b{}_e{}_i{}_c{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case))
 
