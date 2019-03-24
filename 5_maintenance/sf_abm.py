@@ -195,7 +195,7 @@ def output_edges_df(outdir, edges_df, year, day, hour, random_seed, probe_ratio,
     ### Output
     edges_df[['edge_id_igraph', 'true_flow', 't_avg']].to_csv(absolute_path+'/{}/edges_df_abm/edges_df_b{}_e{}_i{}_c{}_y{}_HR{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case, year, hour), index=False)
 
-def sta(outdir, year, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route_ratio=0.1, iri_impact=0.03, case='er'):
+def sta(outdir, year, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route_ratio=0.1, iri_impact=0.03, case='er', closure_list = []):
 
     logging.basicConfig(filename=absolute_path+'/logs/sta.log', level=logging.CRITICAL)
     logger = logging.getLogger('sta')
@@ -219,6 +219,13 @@ def sta(outdir, year, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route
     ### Set edge variables that will be updated at the end of each time step
     edges_df['previous_t'] = edges_df['fft']
     edges_df['previous_co2'] = edges_df['eco_wgh']
+
+    ### closure
+    print(closure_list)
+    if len(closure_list) > 0:
+        closure_df = edges_df.loc[edges_df['edge_id_igraph'].isin(closure_list)].copy().reset_index()
+        for row in closure_df.itertuples():
+            g_time.update_edge(getattr(row,'start_sp'), getattr(row,'end_sp'), c_double(10e5))
 
     ### Define substep parameters
     substep_counts = 20

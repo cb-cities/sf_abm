@@ -2,7 +2,6 @@
 ### FUEL ECONOMY: 22 miles per gallon
 ### 8,887 grams CO2/ gallon
 ### 404 grams per mile per car
-import json
 import sys
 import numpy as np
 import scipy.sparse 
@@ -11,6 +10,7 @@ import time
 import os 
 import pandas as pd 
 import itertools 
+import glob
 import gc
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -100,6 +100,12 @@ def eco_incentivize_analysis():
     results_df = pd.DataFrame(results_list, columns=['case', 'budget', 'eco_route_ratio', 'iri_impact', 'year', 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'])
     results_df.to_csv('output_march/scen34_results.csv', index=False)
 
+def scen34_results(outdir):
+
+    scen34_results_df = pd.concat([pd.read_csv(f) for f in glob.glob(absolute_path+'/{}/results/scen34_results*.csv'.format(outdir))], ignore_index=True)
+    scen34_results_df = scen34_results_df.drop(columns=['Unnamed: 0'])
+    print(scen34_results_df.head())
+
 
 def plot_scen12_results(data, variable, ylim=[0,100], ylabel='None', scen_no=0, title = '', base_color=[0, 0, 1]):
 
@@ -162,7 +168,7 @@ def plot_scen34_results(data, variable, ylim=[0,100], ylabel='None', scen_no=4, 
         for budget in [400, 1500]:
             for iri_impact in [0.03, 0.01]:
                 data_slice = data.loc[(data['eco_route_ratio']==eco_route_ratio)&(data['budget']==budget)&(data['iri_impact']==iri_impact)]
-                ax.plot(data_slice['year']+1, data_slice[variable], c=color_dict[iri_impact], lw=lw_dict[iri_impact], linestyle=linestyle_dict[budget], marker='.', ms=1)
+                ax.plot(data_slice['year'], data_slice[variable], c=color_dict[iri_impact], lw=lw_dict[iri_impact], linestyle=linestyle_dict[budget], marker='.', ms=1)
                 single_legend_dict['{}_{}'.format(budget, iri_impact)] = Line2D([], [], lw=lw_dict[iri_impact], linestyle = linestyle_dict[budget], c=color_dict[iri_impact], label='Budget: {},\nIRI_impact: {}'.format(budget, iri_impact))
         all_legends_dict[eco_route_ratio] = [single_legend_dict[('400_0.03')], single_legend_dict['1500_0.03'], single_legend_dict['400_0.01'], single_legend_dict['1500_0.01']]
 
@@ -198,25 +204,59 @@ def plot_scen34_results(data, variable, ylim=[0,100], ylabel='None', scen_no=4, 
 if __name__ == '__main__':
 
     outdir = 'output_march19'
+    # scen34_results(outdir)
+    # sys.exit(0)
 
-    variable = 'pci_local' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
+    variable = 'emi_local' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
     ylim_dict = {
-        'emi_total': [3600, 4000], 'emi_local': [2000, 2300],
-        'vkmt_total': [1.45e7, 1.6e7], 
-        'vht_total': [6e5, 0.9e6], 
+        'emi_total': [3550, 3950], 'emi_local': [2100, 2400], 'emi_highway': [1400, 1700],
+        'vkmt_total': [1.45e7, 1.6e7], 'vkmt_local': [7.3e6, 7.8e6], 'vkmt_highway': [7.0e6, 8.6e6],
+        'vht_total': [6e5, 0.9e6], 'vht_local': [4e5, 6.5e5], 'vht_highway':[2e5, 2.4e5],
         'pci_average': [20, 90], 'pci_local': [20, 90]}
-    ylabel_dict = {'emi_total': 'Annual Average Daily CO\u2082 (t)', 'vkmt_total': 'Annual Average Daily Vehicle \n Kilometers Travelled (AAD-VKMT)', 'vht_total': 'Annual Average Daily Vehicle \n Hours Travelled (AAD-VHT)', 'pci_average': 'Network-wide Average Pavement\nCondition Index (PCI)', 'emi_local': 'Annual Averagy Daily CO\u2082 (t) on local roads', 'pci_local': 'Average Pavement Condition Index (PCI)\n of local roads'}
+    ylabel_dict = {
+        'emi_total': 'Annual Average Daily CO\u2082 (t)', 
+        'emi_local': 'Annual Averagy Daily CO\u2082 (t)\n on local roads', 
+        'emi_highway': 'Annual Averagy Daily CO\u2082 (t)\n on highway', 
+        'vkmt_total': 'Annual Average Daily Vehicle \n Kilometers Travelled (AAD-VKMT)', 
+        'vkmt_local': 'Annual Average Daily Vehicle Kilometers\n Travelled (AAD-VKMT) on local roads',
+        'vkmt_highway': 'Annual Average Daily Vehicle Kilometers\n Travelled (AAD-VKMT) on highway',
+        'vht_total': 'Annual Average Daily Vehicle \n Hours Travelled (AAD-VHT)', 
+        'vht_local': 'Annual Average Daily Vehicle Hours \n Travelled (AAD-VHT) on local roads', 
+        'vht_highway': 'Annual Average Daily Vehicle Hours \n Travelled (AAD-VHT) on highway', 
+        'pci_average': 'Network-wide Average Pavement\nCondition Index (PCI)', 
+        'pci_local': 'Average Pavement Condition Index (PCI)\n of local roads'}
 
-    results_df = pd.read_csv('{}/results/scen12_results.csv'.format(outdir))
-    data = results_df[results_df['case']=='normal']
-    plot_scen12_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=1, title = 'Normal maintenance', base_color=[0, 0, 0])
-    data = results_df[results_df['case']=='eco']
-    plot_scen12_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=2, title = 'Eco maintenance', base_color=[1, 0, 0])
-    sys.exit(0)
+    # results_df = pd.read_csv('{}/results/scen12_results.csv'.format(outdir))
+    # data = results_df[results_df['case']=='normal']
+    # plot_scen12_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=1, title = 'Normal maintenance', base_color=[0, 0, 0])
+    # data = results_df[results_df['case']=='eco']
+    # plot_scen12_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=2, title = 'Eco maintenance', base_color=[1, 0, 0])
+    # # sys.exit(0)
 
-    results_df = pd.read_csv('output_march/scen34_results.csv')
-    data = results_df[results_df['case']=='er']
-    plot_scen34_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=3, half_title='', base_color_map={0.1: [1, 0.8, 0], 0.5: [0, 0.8, 0], 1.0: [0, 0.2, 0]})
-    data = results_df[results_df['case']=='ee']
-    plot_scen34_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=4, half_title='Eco maintenance + ', base_color_map={0.1: [0, 0.6, 1], 0.5: [0, 0, 1], 1.0: [0.6, 0, 1]})
+    # results_df = pd.read_csv('{}/results/scen34_results.csv'.format(outdir))
+    # data = results_df[results_df['case']=='er']
+    # plot_scen34_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=3, half_title='', base_color_map={0.1: [1, 0.8, 0], 0.5: [0, 0.8, 0], 1.0: [0, 0.2, 0]})
+    # data = results_df[results_df['case']=='ee']
+    # plot_scen34_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=4, half_title='Eco maintenance + ', base_color_map={0.1: [0, 0.6, 1], 0.5: [0, 0, 1], 1.0: [0.6, 0, 1]})
+
+    ### Degradation model sensitivity analysis
+    data = pd.read_csv('{}/results/scen12_results_model_sensitivity_b700.csv'.format(outdir))
+    fig, ax = plt.subplots()
+    fig.set_size_inches(9, 5)
+    variable = 'emi_local'
+    color = iter(cm.viridis(np.linspace(0, 1, 3)))
+    linestyle_dict = {'normal': '-', 'eco': ':'}
+    
+    slope_mlt = 1
+    for improv_pct in [1, 0.75, 0.5]:
+    # improv_pct = 1
+    # for slope_mlt in [1, 3, 5]:
+        c = next(color)
+        for case in ['normal', 'eco']:
+            data_slice = data.loc[(data['case']==case) & (data['improv_pct']==improv_pct) & (data['slope_mlt']==slope_mlt)]
+            ax.plot(data_slice['year'], data_slice[variable], c=c, linestyle=linestyle_dict[case], marker='.', ms=1)
+            # legend_elements_dict['{}_{}'.format(budget, iri_impact)] = Line2D([], [], lw=lw_dict[iri_impact], linestyle = linestyle_dict[budget], c=color_dict[iri_impact], label='Budget: {},\nIRI_impact: {}'.format(budget, iri_impact))
+    #plt.ylim(ylim_dict[variable])
+    plt.show()
+
 
