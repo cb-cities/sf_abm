@@ -10,22 +10,32 @@ import gc
 absolute_path = os.path.dirname(os.path.abspath(__file__))
 
 folder = 'sf_overpass/original'
+outdir = 'output_march19'
 
 plt.rcParams.update({'font.size': 15, 'font.weight': "normal", 'font.family':'serif', 'axes.linewidth': 0.1})
 
 def hourly_traffic(case):
 
+    ### ABM parameters
     random_seed = 0
     probe_ratio = 1
+
+    ### sustainability simulation parameters
+    budget = 700
+    eco_route_ratio = 0.5
+    iri_impact = 0.03
+    case = 'ee'
+    year = 10
 
     ### Aggregate hourly flow to weekly flow
     network_attr_df = pd.read_csv(absolute_path+'/../0_network/data/{}/edges_elevation.csv'.format(folder))
     network_attr_df = network_attr_df[['edge_id_igraph', 'start_sp', 'end_sp', 'type', 'lanes', 'length', 'geometry']]
     network_attr_df[case] = 0
     
-    for day in [4]:
+    for day in [2]:
         for hour in range(3, 27):
-            hour_edge_flow_df = pd.read_csv(absolute_path+'/../2_ABM/output/edges_df/edges_df_DY{}_HR{}_r{}_p{}.csv'.format(day, hour, random_seed, probe_ratio))
+
+            hour_edge_flow_df = pd.read_csv(absolute_path+'/{}/edges_df_abm/edges_df_b{}_e{}_i{}_c{}_y{}_HR{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case, year, hour))
             network_attr_df = pd.merge(network_attr_df, hour_edge_flow_df[['edge_id_igraph', 'true_flow']], on = ['edge_id_igraph'])
             network_attr_df[case] += network_attr_df['true_flow']
             network_attr_df = network_attr_df[['edge_id_igraph', 'start_sp', 'end_sp', 'type', 'lanes', 'length', case, 'geometry']]
@@ -45,7 +55,7 @@ def hourly_traffic(case):
             'geometry': 'first'}).reset_index()
     network_attr_df_grp = network_attr_df_grp.rename(columns={case: 'undirected_{}'.format(case), 'lanes': 'undirected_lanes'})
 
-    network_attr_df_grp.to_csv('undirected_{}.csv'.format(case), index=False)
+    network_attr_df_grp.to_csv(absolute_path + '/{}/daily_undirected_b{}_e{}_i{}_c{}_y{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case, year), index=False)
 
 
 if __name__ == '__main__':

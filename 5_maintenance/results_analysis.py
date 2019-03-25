@@ -41,21 +41,22 @@ def plot_scen12_results(data, variable, ylim=[0,100], ylabel='None', scen_no=0, 
     second_color = base_color+[0.2]
     color_dict = {0.01: np.array(main_color), 0.03: np.array(second_color)}
     lw_dict = {0.01: 1, 0.03: 6}
-    linestyle_dict = {400: ':', 1500: 'solid'}
+    linestyle_dict = {200: ':', 700: 'solid'}
     legend_elements_dict = {} ### custom legend
 
-    for budget in [400, 1500]:
+    for budget in [200, 700]:
         for iri_impact in [0.03, 0.01]:
             data_slice = data.loc[(data['budget']==budget)&(data['iri_impact']==iri_impact)]
+            #print(data_slice.shape, np.min(data_slice[variable]), np.max(data_slice[variable]))
             ax.plot(data_slice['year'], data_slice[variable], c=color_dict[iri_impact], lw=lw_dict[iri_impact], linestyle=linestyle_dict[budget], marker='.', ms=1)
             legend_elements_dict['{}_{}'.format(budget, iri_impact)] = Line2D([], [], lw=lw_dict[iri_impact], linestyle = linestyle_dict[budget], c=color_dict[iri_impact], label='Budget: {},\nIRI_impact: {}'.format(budget, iri_impact))
 
-    legend_elements_list = [legend_elements_dict[('400_0.03')], legend_elements_dict['1500_0.03'], legend_elements_dict['400_0.01'], legend_elements_dict['1500_0.01']]
+    legend_elements_list = [legend_elements_dict[('200_0.03')], legend_elements_dict['700_0.03'], legend_elements_dict['200_0.01'], legend_elements_dict['700_0.01']]
 
     ### Not considering PCI
     ### 2152.737t CO2 per day on local roads
     if variable == 'emi_local':
-        ax.axhline(y=2152.737, color='black', linestyle='-.', lw=1)
+        ax.axhline(y=data.iloc[0]['emi_localroads_base'], color='black', linestyle='-.', lw=1)
         legend_elements_list.append(Line2D([], [], lw=1, linestyle='-.', c='black', label='No degradation'))
 
     ### Shrink current axis's height
@@ -81,7 +82,7 @@ def plot_scen34_results(data, variable, ylim=[0,100], ylabel='None', scen_no=4, 
     fig.set_size_inches(15, 5)
 
     lw_dict = {0.01: 1, 0.03: 6}
-    linestyle_dict = {400: ':', 1500: 'solid'}
+    linestyle_dict = {200: ':', 700: 'solid'}
     all_legends_dict = {}
 
     for eco_route_ratio in [0.1, 0.5, 1.0]:
@@ -90,12 +91,12 @@ def plot_scen34_results(data, variable, ylim=[0,100], ylabel='None', scen_no=4, 
         second_color = base_color+[0.2]
         color_dict = {0.01: np.array(main_color), 0.03: np.array(second_color)}
         single_legend_dict = {} ### custom legend
-        for budget in [400, 1500]:
+        for budget in [200, 700]:
             for iri_impact in [0.03, 0.01]:
                 data_slice = data.loc[(data['eco_route_ratio']==eco_route_ratio)&(data['budget']==budget)&(data['iri_impact']==iri_impact)]
                 ax.plot(data_slice['year'], data_slice[variable], c=color_dict[iri_impact], lw=lw_dict[iri_impact], linestyle=linestyle_dict[budget], marker='.', ms=1)
                 single_legend_dict['{}_{}'.format(budget, iri_impact)] = Line2D([], [], lw=lw_dict[iri_impact], linestyle = linestyle_dict[budget], c=color_dict[iri_impact], label='Budget: {},\nIRI_impact: {}'.format(budget, iri_impact))
-        all_legends_dict[eco_route_ratio] = [single_legend_dict[('400_0.03')], single_legend_dict['1500_0.03'], single_legend_dict['400_0.01'], single_legend_dict['1500_0.01']]
+        all_legends_dict[eco_route_ratio] = [single_legend_dict[('200_0.03')], single_legend_dict['700_0.03'], single_legend_dict['200_0.01'], single_legend_dict['700_0.01']]
 
     ### Shrink current axis's height
     box = ax.get_position()
@@ -133,9 +134,9 @@ if __name__ == '__main__':
     # scen34_results(outdir)
     # sys.exit(0)
 
-    variable = 'emi_local' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
+    variable = 'pci_local' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
     ylim_dict = {
-        'emi_total': [3550, 3950], 'emi_local': [2100, 2400], 'emi_highway': [1400, 1700],
+        'emi_total': [3700, 4000], 'emi_local': [1800, 2100], 'emi_highway': [1400, 1700],
         'vkmt_total': [1.45e7, 1.6e7], 'vkmt_local': [7.3e6, 7.8e6], 'vkmt_highway': [7.0e6, 8.6e6],
         'vht_total': [6e5, 0.9e6], 'vht_local': [4e5, 6.5e5], 'vht_highway':[2e5, 2.4e5],
         'pci_average': [20, 90], 'pci_local': [20, 90]}
@@ -152,37 +153,47 @@ if __name__ == '__main__':
         'pci_average': 'Network-wide Average Pavement\nCondition Index (PCI)', 
         'pci_local': 'Average Pavement Condition Index (PCI)\n of local roads'}
 
-    # results_df = pd.read_csv('{}/results/scen12_results.csv'.format(outdir))
-    # data = results_df[results_df['case']=='normal']
-    # plot_scen12_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=1, title = 'Normal maintenance', base_color=[0, 0, 0])
-    # data = results_df[results_df['case']=='eco']
-    # plot_scen12_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=2, title = 'Eco maintenance', base_color=[1, 0, 0])
-    # # sys.exit(0)
+    results_df = pd.read_csv('{}/results/scen12_results.csv'.format(outdir))
+    data = results_df[results_df['case']=='normal']
+    plot_scen12_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=1, title = 'Normal maintenance', base_color=[0, 0, 0])
+    data = results_df[results_df['case']=='eco']
+    plot_scen12_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=2, title = 'Eco maintenance', base_color=[1, 0, 0])
+    # sys.exit(0)
 
-    # results_df = pd.read_csv('{}/results/scen34_results.csv'.format(outdir))
-    # data = results_df[results_df['case']=='er']
-    # plot_scen34_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=3, half_title='', base_color_map={0.1: [1, 0.8, 0], 0.5: [0, 0.8, 0], 1.0: [0, 0.2, 0]})
-    # data = results_df[results_df['case']=='ee']
-    # plot_scen34_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=4, half_title='Eco maintenance + ', base_color_map={0.1: [0, 0.6, 1], 0.5: [0, 0, 1], 1.0: [0.6, 0, 1]})
+    results_df = pd.read_csv('{}/results/scen34_results.csv'.format(outdir))
+    data = results_df[results_df['case']=='er']
+    plot_scen34_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=3, half_title='', base_color_map={0.1: [1, 0.8, 0], 0.5: [0, 0.8, 0], 1.0: [0, 0.2, 0]})
+    data = results_df[results_df['case']=='ee']
+    plot_scen34_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=4, half_title='Eco maintenance + ', base_color_map={0.1: [0, 0.6, 1], 0.5: [0, 0, 1], 1.0: [0.6, 0, 1]})
+    sys.exit(0)
 
     ### Degradation model sensitivity analysis
-    data = pd.read_csv('{}/results/scen12_results_model_sensitivity_b700.csv'.format(outdir))
+    data = pd.read_csv('{}/results/scen12_results_model_sensitivity_slope_mlt.csv'.format(outdir))
     fig, ax = plt.subplots()
     fig.set_size_inches(9, 5)
     variable = 'emi_local'
     color = iter(cm.viridis(np.linspace(0, 1, 3)))
     linestyle_dict = {'normal': '-', 'eco': ':'}
     
-    slope_mlt = 1
-    for improv_pct in [1, 0.75, 0.5]:
-    # improv_pct = 1
-    # for slope_mlt in [1, 3, 5]:
+    ### Sensitivity parameters
+
+    #slope_mlt = 1
+    improv_pct = 1
+    offset = True
+    #for improv_pct in [1.0, 0.75, 0.5]:
+    for slope_mlt in [1, 3, 5]:
+    #for offset in [True, False]:
+
         c = next(color)
         for case in ['normal', 'eco']:
-            data_slice = data.loc[(data['case']==case) & (data['improv_pct']==improv_pct) & (data['slope_mlt']==slope_mlt)]
-            ax.plot(data_slice['year'], data_slice[variable], c=c, linestyle=linestyle_dict[case], marker='.', ms=1)
-            # legend_elements_dict['{}_{}'.format(budget, iri_impact)] = Line2D([], [], lw=lw_dict[iri_impact], linestyle = linestyle_dict[budget], c=color_dict[iri_impact], label='Budget: {},\nIRI_impact: {}'.format(budget, iri_impact))
-    #plt.ylim(ylim_dict[variable])
+            data_slice = data.loc[(data['case']==case) & (data['improv_pct']==improv_pct) & (data['slope_mlt']==slope_mlt) & (data['offset']==offset)]
+            ax.plot(data_slice['year'], data_slice[variable], c=c, linestyle=linestyle_dict[case], marker='.', ms=1, label='slope x {}, {} maintenance'.format(slope_mlt, case))
+    
+    plt.xlabel('Year', fontdict={'size': '16'}, labelpad=10)
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
+    plt.xlim([-0.5, 20])
+    plt.ylabel(ylabel_dict[variable], fontdict={'size': '16'}, labelpad=10)
+    plt.legend()
     plt.show()
 
 

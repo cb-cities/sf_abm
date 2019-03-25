@@ -223,9 +223,9 @@ def sta(outdir, year, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route
     ### closure
     if len(closure_case) > 0:
         case = closure_case
-        closure_df = edges_df.iloc[edges_df['edge_id_igraph'].isin(closure_list)].copy().reset_index()
+        closure_df = edges_df.loc[edges_df['edge_id_igraph'].isin(closure_list)].copy().reset_index()
         for row in closure_df.itertuples():
-            g_time.update_edge(getattr(row,'start_sp'), getattr(row,'end_sp'), 10e5)
+            g_time.update_edge(getattr(row,'start_sp'), getattr(row,'end_sp'), c_double(10e5))
 
     ### Define substep parameters
     substep_counts = 20
