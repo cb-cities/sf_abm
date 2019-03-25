@@ -23,7 +23,7 @@
 #SBATCH --cpus-per-task=32
 #! Bingyu added this part for specifying environment variables
 #!SBATCH --export=PROBE_RATIO=0.001,COV=2.0
-#SBATCH --export=BUDGET=1500,ECO_ROUTE_RATIO=0.1,IRI_IMPACT=0.03,CASE='ee'
+#SBATCH --export=BUDGET=200,ECO_ROUTE_RATIO=0.1,IRI_IMPACT=0.03,CASE='er'
 #! How much wallclock time will be required?
 #SBATCH --time=02:00:00
 #! What types of email messages do you wish to receive?
