@@ -55,10 +55,10 @@ def aad_vol_vmt_baseemi(aad_df, hour_volume_df):
     aad_df = aad_df[['edge_id_igraph', 'length', 'type', 'slope_factor', 'aad_vol', 'aad_vht', 'aad_vmt', 'aad_base_emi']]
     return aad_df
 
-def preprocessing():
+def preprocessing(offset=True):
     ### Read the edge attributes. 
     edges_df = pd.read_csv(absolute_path+'/../0_network/data/{}/{}/edges_elevation.csv'.format(folder, scenario))
-    edges_df = edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'slope', 'capacity', 'fft', 'type', 'geometry']]
+    edges_df = edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'lanes', 'slope', 'capacity', 'fft', 'type', 'geometry']]
     edges_df['slope_factor'] = np.where(edges_df['slope']<-0.05, 0.2, np.where(edges_df['slope']>0.15, 3.4, 1+0.16*(edges_df['slope']*100)))
 
     ### PCI RELATED EMISSION
@@ -80,7 +80,7 @@ def preprocessing():
     edges_df['cnn_expand'] = edges_df['cnn_expand'].astype(int).astype(str)
 
     ### Keep relevant colum_ns
-    edges_df = edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'slope', 'slope_factor', 'capacity', 'fft', 'cnn_expand', 'ispublicworks', 'stfcbr', 'alpha', 'beta', 'xi', 'uv', 'initial_age', 'type', 'geometry']]
+    edges_df = edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'lanes', 'slope', 'slope_factor', 'capacity', 'fft', 'cnn_expand', 'ispublicworks', 'stfcbr', 'alpha', 'beta', 'xi', 'uv', 'initial_age', 'type', 'geometry']]
     ### Remove duplicates
     edges_df = edges_df.drop_duplicates(subset='edge_id_igraph', keep='first').reset_index()
 
@@ -91,7 +91,9 @@ def preprocessing():
     edges_df['beta'] = edges_df['beta'].fillna(edges_df['beta'].mean())
     edges_df['xi'] = edges_df['xi'].fillna(0)
     edges_df['uv'] = edges_df['uv'].fillna(0)
-    edges_df['intercept'] = edges_df['alpha'] + edges_df['xi'] - 5.5 ### to match sf public works record
+    edges_df['intercept'] = edges_df['alpha'] + edges_df['xi']
+    if offset:
+        edges_df['intercept'] -= 5.5 ### to match sf public works record
     edges_df['slope'] = edges_df['beta'] + edges_df['uv']
 
     ### Not considering highways
@@ -110,10 +112,11 @@ def preprocessing():
     edges_df['pci_current'] = edges_df['intercept'] + edges_df['slope'] * edges_df['age_current']/365
     edges_df['pci_current'] = np.where(edges_df['pci_current']>100, 100, edges_df['pci_current'])
     edges_df['pci_current'] = np.where(edges_df['pci_current']<0, 0, edges_df['pci_current'])
+    print('total_blocks', len(np.unique(edges_df[edges_df['ispublicworks']==1]['cnn_expand'])))
     print('initial condition: ', np.mean(edges_df[(~edges_df['type'].isin(highway_type))&(edges_df['ispublicworks']==1)]['pci_current']))
     print('edges<63: ', sum(edges_df[(~edges_df['type'].isin(highway_type))&(edges_df['ispublicworks']==1)]['pci_current']<63))
-    edges_df.to_csv(absolute_path+'/{}/preprocessing.csv'.format(outdir), index=False)
-    #sys.exit(0)
+    # edges_df.to_csv(absolute_path+'/{}/preprocessing.csv'.format(outdir), index=False)
+    # sys.exit(0)
 
     return edges_df
 
@@ -179,9 +182,8 @@ def eco_incentivize(edges_df, budget, eco_route_ratio, iri_impact, case, improv_
 
             for hour in range(3, 27):
                 read_case = case
-                if len(closure_case)>0:
+                if len(closure_case)>0: 
                     read_case = closure_case
-                print(read_case)
                 hour_volume_df = pd.read_csv(absolute_path+'/{}/edges_df_abm/edges_df_b{}_e{}_i{}_c{}_y{}_HR{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, read_case, year, hour))
                 aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df)
 
@@ -297,24 +299,29 @@ def degradation_model_sensitivity():
     eco_route_ratio = 0
     iri_impact = 0.03
 
-    edges_df0 = preprocessing()
+    ### Sensitivity parameters
+    offset_list = [True] # [True, False] or [True] ### whether to offset intial value to 74
+    improv_pct_list = [1] # [1, 0.75, 0.5] or [1] ### maintenance gains
+    slope_mlt_list = [1,3,5] # [1, 3, 5] or [1] ### degradation rates
+
     results_list = []
     for case in ['normal', 'eco']:
-        for improv_pct in [1, 0.75, 0.5]:
-            #for slope_mlt in [1, 3, 5]:
-            for slope_mlt in [1]:
+        for improv_pct in improv_pct_list:
+            for slope_mlt in slope_mlt_list:
+                for offset in offset_list:
 
-                edges_df = edges_df0.copy()
-                edges_df['slope'] *= slope_mlt
-                edges_df['age_current'] /= slope_mlt
-                step_results_list = eco_incentivize(edges_df, budget, eco_route_ratio, iri_impact, case, improv_pct=improv_pct)
-                [year_result.extend([improv_pct, slope_mlt]) for year_result in step_results_list]
-                results_list += step_results_list
+                    edges_df0 = preprocessing(offset=offset) 
+                    edges_df = edges_df0.copy()
+                    edges_df['slope'] *= slope_mlt
+                    edges_df['age_current'] /= slope_mlt
+                    step_results_list = eco_incentivize(edges_df, budget, eco_route_ratio, iri_impact, case, improv_pct=improv_pct)
+                    [year_result.extend([improv_pct, slope_mlt, offset]) for year_result in step_results_list]
+                    results_list += step_results_list
 
 
-    results_df = pd.DataFrame(results_list, columns=['case', 'budget', 'iri_impact', 'eco_route_ratio', 'year', 'emi_total', 'emi_local', 'emi_highway', 'emi_localroads_base', 'pci_average', 'pci_local', 'pci_highway', 'vht_total', 'vht_local', 'vht_highway', 'vkmt_total', 'vkmt_local', 'vkmt_highway', 'improv_pct', 'slope_mlt'])
+    results_df = pd.DataFrame(results_list, columns=['case', 'budget', 'iri_impact', 'eco_route_ratio', 'year', 'emi_total', 'emi_local', 'emi_highway', 'emi_localroads_base', 'pci_average', 'pci_local', 'pci_highway', 'vht_total', 'vht_local', 'vht_highway', 'vkmt_total', 'vkmt_local', 'vkmt_highway', 'improv_pct', 'slope_mlt', 'offset'])
     print(results_df.shape)
-    results_df.to_csv('{}/results/scen12_results_model_sensitivity_b{}.csv'.format(outdir, budget), index=False)
+    results_df.to_csv('{}/results/scen12_results_model_sensitivity_slope_mlt.csv'.format(outdir), index=False)
 
 def closure_analysis():
     
@@ -333,7 +340,6 @@ def closure_analysis():
     improv_pct = 0
     edges_df0 = preprocessing()
     for key, value in closure_dict.items():
-        print(key)
         edges_df = edges_df0.copy()
         results_list = eco_incentivize(edges_df, budget, eco_route_ratio, iri_impact, case, improv_pct=improv_pct, closure_list = value, closure_case = key)
         results_df = pd.DataFrame(results_list, columns=['case', 'budget', 'iri_impact', 'eco_route_ratio', 'year', 'emi_total', 'emi_local', 'emi_highway', 'emi_localroads_base', 'pci_average', 'pci_local', 'pci_highway', 'vht_total', 'vht_local', 'vht_highway', 'vkmt_total', 'vkmt_local', 'vkmt_highway'])
