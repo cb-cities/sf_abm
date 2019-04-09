@@ -115,18 +115,21 @@ def preprocessing(offset=True):
     print('total_blocks', len(np.unique(edges_df[edges_df['ispublicworks']==1]['cnn_expand'])))
     print('initial condition: ', np.mean(edges_df[(~edges_df['type'].isin(highway_type))&(edges_df['ispublicworks']==1)]['pci_current']))
     print('edges<63: ', sum(edges_df[(~edges_df['type'].isin(highway_type))&(edges_df['ispublicworks']==1)]['pci_current']<63))
+    
+    edges_df['juris'] = np.where(edges_df['ispublicworks']==1, 'DPW',
+        np.where(edges_df['type'].isin(highway_type), 'Caltrans', 'no'))
     # edges_df.to_csv(absolute_path+'/{}/preprocessing.csv'.format(outdir), index=False)
     # sys.exit(0)
 
     return edges_df
 
-def eco_incentivize(edges_df, budget, eco_route_ratio, iri_impact, case, improv_pct=1, closure_list=[], closure_case=''):
+def eco_incentivize(edges_df, random_seed, budget, eco_route_ratio, iri_impact, case, improv_pct=1, closure_list=[], closure_case=''):
 
     ### ABM parameters
     day = 2 ### Wednesday
-    random_seed = 0
     probe_ratio = 1
 
+    ### simulation period
     step_results_list = []
     total_years = 21
     if len(closure_case)>0: 
@@ -150,7 +153,7 @@ def eco_incentivize(edges_df, budget, eco_route_ratio, iri_impact, case, improv_
 
         if case in ['normal', 'eco']:
             for hour in range(3, 27):
-                hour_volume_df = pd.read_csv(absolute_path+'/{}/edges_df_singleyear/edges_df_DY{}_HR{}_r{}_p{}.csv'.format(outdir, day, hour, random_seed, probe_ratio))
+                hour_volume_df = pd.read_csv(absolute_path+'/{}/edges_df_singleyear/edges_df_DY{}_HR{}_r0_p1.csv'.format(outdir, day, hours))
                 aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df)
 
         elif case in ['ee', 'er']:
@@ -171,20 +174,21 @@ def eco_incentivize(edges_df, budget, eco_route_ratio, iri_impact, case, improv_
             row = edges_df['start_sp']-1
             col = edges_df['end_sp']-1
             g_eco = scipy.sparse.coo_matrix((wgh, (row, col)), shape=g_time_shape)
-            sio.mmwrite(absolute_path+'/{}/network/network_sparse_b{}_e{}_i{}_c{}_y{}.mtx'.format(outdir, budget, eco_route_ratio, iri_impact, case, year), g_eco)
+            sio.mmwrite(absolute_path+'/{}/network/network_sparse_r{}_b{}_e{}_i{}_c{}_y{}.mtx'.format(outdir, random_seed, budget, eco_route_ratio, iri_impact, case, year), g_eco)
             # g_coo = sio.mmread(absolute_path+'/../data/{}/network_sparse.mtx'.format(folder))
 
             ### Output edge attributes for ABM simulation
-            edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'slope_factor', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']].to_csv(absolute_path+'/{}/edge_df/edges_b{}_e{}_i{}_c{}_y{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case, year), index=False)
+            abm_edges_df = edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'slope_factor', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']]#.to_csv(absolute_path+'/{}/edge_df/edges_b{}_e{}_i{}_c{}_y{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case, year), index=False)
 
             ### Run ABM
-            sf_abm.sta(outdir, year, day=day, random_seed=random_seed, probe_ratio=probe_ratio, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, closure_list=closure_list, closure_case=closure_case)
+            abm_hour_volume_dict = sf_abm.sta(outdir, abm_edges_df, year, day=day, random_seed=random_seed, probe_ratio=probe_ratio, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, closure_list=closure_list, closure_case=closure_case)
 
             for hour in range(3, 27):
                 read_case = case
                 if len(closure_case)>0: 
                     read_case = closure_case
-                hour_volume_df = pd.read_csv(absolute_path+'/{}/edges_df_abm/edges_df_b{}_e{}_i{}_c{}_y{}_HR{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, read_case, year, hour))
+                #hour_volume_df = pd.read_csv(absolute_path+'/{}/edges_df_abm/edges_df_b{}_e{}_i{}_c{}_y{}_HR{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, read_case, year, hour))
+                hour_volume_df = abm_hour_volume_dict['hour_{}'.format(hour)]
                 aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df)
 
         else:
@@ -225,13 +229,6 @@ def eco_incentivize(edges_df, budget, eco_route_ratio, iri_impact, case, improv_
                 edges_df['intercept'] + improv_pct*(100-edges_df['pci_current']),
                 edges_df['intercept'])
 
-            # edges_df['age_current'] = edges_df['age_current']+365
-            # edges_df.loc[edges_df['cnn_expand'].isin(repair_list), 'age_current'] = 0
-            # edges_df.loc[edges_df['cnn_expand'].isin(repair_list), 'slope'] *= 5
-            # edges_df['intercept'] = np.where(edges_df['cnn_expand'].isin(repair_list),
-            #     edges_df['pci_current'] + reset_intercept*(100-edges_df['pci_current']),
-            #     edges_df['intercept'])
-
         elif case in ['eco', 'ee']:
             repair_list = eco_maintenance(aad_df, year, case, budget, eco_route_ratio, iri_impact)
             ### Repair
@@ -263,34 +260,9 @@ def eco_incentivize(edges_df, budget, eco_route_ratio, iri_impact, case, improv_
         pci_local = np.mean(aad_df[aad_df['ispublicworks']==1]['pci_current'])
         pci_highway = np.mean(aad_df[aad_df['type'].isin(highway_type)]['pci_current'])
 
-        step_results_list.append([case, budget, iri_impact, eco_route_ratio, year, emi_total, emi_local, emi_highway, emi_localroads_base, pci_average, pci_local, pci_highway, vht_total, vht_local, vht_highway, vkmt_total, vkmt_local, vkmt_highway])
+        step_results_list.append([random_seed, case, budget, iri_impact, eco_route_ratio, year, emi_total, emi_local, emi_highway, emi_localroads_base, pci_average, pci_local, pci_highway, vht_total, vht_local, vht_highway, vkmt_total, vkmt_local, vkmt_highway])
     #print(step_results_list[0:10:9])
     return step_results_list
-
-def exploratory_budget():
-
-    plt.rcParams.update({'font.size': 12, 'font.weight': "normal", 'font.family':'serif', 'axes.linewidth': 0.1})
-
-    preprocessing()
-    results_list = []
-    for budget in [400, 1000, 1500, 2000, 2500]:
-        step_results_list = eco(budget, 0, 'normal')
-        results_list += step_results_list
-    
-    results_df = pd.DataFrame(results_list, columns=['case', 'budget', 'iri_impact', 'year', 'emi_total', 'emi_local', 'emi_highway', 'emi_localroads_base', 'pci_average', 'pci_local', 'pci_highway', 'vht_total', 'vht_local', 'vht_highway', 'vkmt_total', 'vkmt_local', 'vkmt_highway'])
-    
-    results_df_grp = results_df.groupby('budget')
-    color=iter(cm.magma(np.linspace(0,1,5)))
-    fig, ax = plt.subplots()
-    for budget, grp in results_df_grp:
-        c=next(color)
-        ax.plot('year', 'pci_average', data=grp, c=c, label=budget)
-    plt.axhline(y=76.7, linestyle=':')
-    plt.legend(title='Budget')
-    plt.xlabel('Year')
-    plt.ylabel('Average PCI on the local road network')
-    plt.ylim(50, 100)
-    plt.show()
 
 def degradation_model_sensitivity():
     
@@ -351,14 +323,15 @@ if __name__ == '__main__':
     # eco_incentivize(1500, 0, 0.03, 'normal')
     # sys.exit(0)
 
-    degradation_model_sensitivity()
-    sys.exit(0)
+    # degradation_model_sensitivity()
+    # sys.exit(0)
 
     # closure_analysis()
     # sys.exit(0)
 
-    ### Scne 12
+    ### Scen 12
     edges_df0 = preprocessing()
+    random_seed = 0
     eco_route_ratio = 0
     scen12_results_list = []
     for case in ['normal', 'eco']:
@@ -366,21 +339,25 @@ if __name__ == '__main__':
             for iri_impact in [0.01, 0.03]:
                 edges_df = edges_df0.copy()
                 print('budget {}, eco_route_ratio {}, iri_impact {}, case {}'.format(budget, eco_route_ratio, iri_impact, case))
-                step_results_list = eco_incentivize(edges_df, budget, eco_route_ratio, iri_impact, case)
+                step_results_list = eco_incentivize(edges_df, random_seed, budget, eco_route_ratio, iri_impact, case)
                 scen12_results_list += step_results_list
 
-    results_df = pd.DataFrame(scen12_results_list, columns=['case', 'budget', 'iri_impact', 'eco_route_ratio', 'year', 'emi_total', 'emi_local', 'emi_highway', 'emi_localroads_base',  'pci_average', 'pci_local', 'pci_highway', 'vht_total', 'vht_local', 'vht_highway', 'vkmt_total', 'vkmt_local', 'vkmt_highway'])
-    results_df.to_csv('{}/results/scen12_results.csv'.format(outdir), index=False)
+    results_df = pd.DataFrame(scen12_results_list, columns=['random_seed', 'case', 'budget', 'iri_impact', 'eco_route_ratio', 'year', 'emi_total', 'emi_local', 'emi_highway', 'emi_localroads_base',  'pci_average', 'pci_local', 'pci_highway', 'vht_total', 'vht_local', 'vht_highway', 'vkmt_total', 'vkmt_local', 'vkmt_highway'])
+    results_df.to_csv(absolute_path+'/{}/results/scen12_results.csv'.format(outdir), index=False)
     sys.exit(0)
 
     ### Scen 34
-    budget = 1500#int(os.environ['BUDGET']) ### 400 or 1500
+    edges_df0 = preprocessing()
+    edges_df = edges_df0.copy()
+
+    random_seed = 0#int(os.environ['RANDOM_SEED']) ### 0,1,2,3,4,5,6,7,8,9
+    budget = 700#int(os.environ['BUDGET']) ### 200 or 700
     eco_route_ratio = 0.1#float(os.environ['ECO_ROUTE_RATIO']) ### 0.1, 0.5 or 1
     iri_impact = 0.03#float(os.environ['IRI_IMPACT']) ### 0.01 or 0.03
     case = 'er'#os.environ['CASE'] ### 'er' for 'routing_only', 'ee' for 'both'
-    print('budget {}, eco_route_ratio {}, iri_impact {}, case {}'.format(budget, eco_route_ratio, iri_impact, case))
+    print('random_seed {}, budget {}, eco_route_ratio {}, iri_impact {}, case {}'.format(random_seed, budget, eco_route_ratio, iri_impact, case))
 
-    step_results_list = eco_incentivize(budget, eco_route_ratio, iri_impact, case)
-    results_df = pd.DataFrame(step_results_list, columns=['case', 'budget', 'iri_impact', 'eco_route_ratio', 'year', 'emi_total', 'emi_local', 'emi_highway', 'emi_newlocalroads',  'pci_average', 'pci_local', 'pci_highway', 'vht_total', 'vht_local', 'vht_highway', 'vkmt_total', 'vkmt_local', 'vkmt_highway'])
-    results_df.to_csv('{}/results/scen34_results_b{}_e{}_i{}_c{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case))
+    step_results_list = eco_incentivize(edges_df, random_seed, budget, eco_route_ratio, iri_impact, case)
+    results_df = pd.DataFrame(step_results_list, columns=['random_seed', 'case', 'budget', 'iri_impact', 'eco_route_ratio', 'year', 'emi_total', 'emi_local', 'emi_highway', 'emi_newlocalroads',  'pci_average', 'pci_local', 'pci_highway', 'vht_total', 'vht_local', 'vht_highway', 'vkmt_total', 'vkmt_local', 'vkmt_highway'])
+    results_df.to_csv(absolute_path+'/{}/results/scen34_results_r{}_b{}_e{}_i{}_c{}.csv'.format(outdir, random_seed, budget, eco_route_ratio, iri_impact, case))
 
