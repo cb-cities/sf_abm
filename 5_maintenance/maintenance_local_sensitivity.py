@@ -118,8 +118,8 @@ def preprocessing(offset=True):
     
     edges_df['juris'] = np.where(edges_df['ispublicworks']==1, 'DPW',
         np.where(edges_df['type'].isin(highway_type), 'Caltrans', 'no'))
-    # edges_df.to_csv(absolute_path+'/{}/preprocessing.csv'.format(outdir), index=False)
-    # sys.exit(0)
+    edges_df.to_csv(absolute_path+'/{}/preprocessing.csv'.format(outdir), index=False)
+    sys.exit(0)
 
     return edges_df
 
@@ -321,8 +321,8 @@ def closure_analysis():
 
 if __name__ == '__main__':
 
-    # preprocessing()
-    # sys.exit(0)
+    preprocessing()
+    sys.exit(0)
 
     # exploratory_budget()
     # sys.exit(0)
