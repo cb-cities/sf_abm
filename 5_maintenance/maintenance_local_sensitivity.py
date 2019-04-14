@@ -118,8 +118,8 @@ def preprocessing(offset=True):
     
     edges_df['juris'] = np.where(edges_df['ispublicworks']==1, 'DPW',
         np.where(edges_df['type'].isin(highway_type), 'Caltrans', 'no'))
-    # edges_df.to_csv(absolute_path+'/{}/preprocessing.csv'.format(outdir), index=False)
-    # sys.exit(0)
+    edges_df.to_csv(absolute_path+'/{}/preprocessing.csv'.format(outdir), index=False)
+    sys.exit(0)
 
     return edges_df
 
@@ -178,7 +178,7 @@ def eco_incentivize(edges_df, random_seed, budget, eco_route_ratio, iri_impact, 
             # g_coo = sio.mmread(absolute_path+'/../data/{}/network_sparse.mtx'.format(folder))
 
             ### Output edge attributes for ABM simulation
-            abm_edges_df = edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'slope_factor', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']]#.to_csv(absolute_path+'/{}/edge_df/edges_b{}_e{}_i{}_c{}_y{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case, year), index=False)
+            abm_edges_df = edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'slope_factor', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']].copy()#.to_csv(absolute_path+'/{}/edge_df/edges_b{}_e{}_i{}_c{}_y{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case, year), index=False)
 
             ### Run ABM
             abm_hour_volume_dict = sf_abm.sta(outdir, abm_edges_df, year, day=day, random_seed=random_seed, probe_ratio=probe_ratio, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, closure_list=closure_list, closure_case=closure_case)
@@ -314,8 +314,8 @@ def closure_analysis():
 
 if __name__ == '__main__':
 
-    # preprocessing()
-    # sys.exit(0)
+    preprocessing()
+    sys.exit(0)
 
     # exploratory_budget()
     # sys.exit(0)

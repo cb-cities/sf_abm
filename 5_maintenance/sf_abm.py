@@ -214,7 +214,7 @@ def sta(outdir, edges_df, year, day=2, random_seed=0, probe_ratio=1, budget=100,
 
     ### Read in the initial network (free flow travel time)
     g_time = interface.readgraph(bytes(absolute_path+'/../0_network/data/{}/{}/network_sparse.mtx'.format(folder, scenario), encoding='utf-8'))
-    g_eco = interface.readgraph(bytes(absolute_path+'/{}/network/network_sparse_b{}_e{}_i{}_c{}_y{}.mtx'.format(outdir, budget, eco_route_ratio, iri_impact, case, year), encoding='utf-8'))
+    g_eco = interface.readgraph(bytes(absolute_path+'/{}/network/network_sparse_r{}_b{}_e{}_i{}_c{}_y{}.mtx'.format(outdir, random_seed, budget, eco_route_ratio, iri_impact, case, year), encoding='utf-8'))
 
     ### Read in the edge attribute for volume delay calculation later
     #edges_df = pd.read_csv(absolute_path+'/{}/edge_df/edges_b{}_e{}_i{}_c{}_y{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case, year))
