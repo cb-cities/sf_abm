@@ -208,9 +208,9 @@ if __name__ == '__main__':
     # scen34_results(outdir)
     # sys.exit(0)
 
-    variable = 'pci_local' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
+    variable = 'emi_total' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
     ylim_dict = {
-        'emi_total': [3700, 4000], 'emi_local': [1800, 2100], 'emi_highway': [1400, 1700],
+        'emi_total': [3600, 4000], 'emi_local': [1800, 2100], 'emi_highway': [1400, 1700],
         'vkmt_total': [1.45e7, 1.6e7], 'vkmt_local': [7.3e6, 7.8e6], 'vkmt_highway': [7.0e6, 8.6e6],
         'vht_total': [6e5, 0.9e6], 'vht_local': [4e5, 6.5e5], 'vht_highway':[2e5, 2.4e5],
         'pci_average': [20, 90], 'pci_local': [20, 90]}

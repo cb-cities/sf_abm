@@ -11,6 +11,7 @@ import datetime
 import warnings
 import pandas as pd 
 from ctypes import *
+import gc 
 
 pd.set_option('display.max_columns', 10)
 
@@ -193,9 +194,10 @@ def output_edges_df(outdir, edges_df, year, day, hour, random_seed, probe_ratio,
     edges_df['t_avg'] = edges_df['fft']*(1 + 0.6*(edges_df['true_flow']/edges_df['capacity'])**4)
 
     ### Output
-    edges_df[['edge_id_igraph', 'true_flow', 't_avg']].to_csv(absolute_path+'/{}/edges_df_abm/edges_df_b{}_e{}_i{}_c{}_y{}_HR{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case, year, hour), index=False)
+    #edges_df[['edge_id_igraph', 'true_flow', 't_avg']].to_csv(absolute_path+'/{}/edges_df_abm/edges_df_b{}_e{}_i{}_c{}_y{}_HR{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case, year, hour), index=False)
+    return edges_df[['edge_id_igraph', 'true_flow', 't_avg']]
 
-def sta(outdir, year, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route_ratio=0.1, iri_impact=0.03, case='er', closure_list = [], closure_case = ''):
+def sta(outdir, edges_df, year, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route_ratio=0.1, iri_impact=0.03, case='er', closure_list = [], closure_case = ''):
 
     logging.basicConfig(filename=absolute_path+'/logs/sta.log', level=logging.CRITICAL)
     logger = logging.getLogger('sta')
@@ -212,10 +214,10 @@ def sta(outdir, year, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route
 
     ### Read in the initial network (free flow travel time)
     g_time = interface.readgraph(bytes(absolute_path+'/../0_network/data/{}/{}/network_sparse.mtx'.format(folder, scenario), encoding='utf-8'))
-    g_eco = interface.readgraph(bytes(absolute_path+'/{}/network/network_sparse_b{}_e{}_i{}_c{}_y{}.mtx'.format(outdir, budget, eco_route_ratio, iri_impact, case, year), encoding='utf-8'))
+    g_eco = interface.readgraph(bytes(absolute_path+'/{}/network/network_sparse_r{}_b{}_e{}_i{}_c{}_y{}.mtx'.format(outdir, random_seed, budget, eco_route_ratio, iri_impact, case, year), encoding='utf-8'))
 
     ### Read in the edge attribute for volume delay calculation later
-    edges_df = pd.read_csv(absolute_path+'/{}/edge_df/edges_b{}_e{}_i{}_c{}_y{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case, year))
+    #edges_df = pd.read_csv(absolute_path+'/{}/edge_df/edges_b{}_e{}_i{}_c{}_y{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case, year))
     ### Set edge variables that will be updated at the end of each time step
     edges_df['previous_t'] = edges_df['fft']
     edges_df['previous_co2'] = edges_df['eco_wgh']
@@ -235,10 +237,10 @@ def sta(outdir, year, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route
     logger.debug('{} substeps'.format(substep_counts))
 
     ### Loop through days and hours
+    abm_hour_volume_dict = dict()
     for day in [day]:
         for hour in range(3, 27):
-            print(hour)
-
+            
             #logger.info('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()
 
@@ -278,7 +280,8 @@ def sta(outdir, year, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route
                 t_substep_1 = time.time()
                 logger.debug('DY{}_HR{} SS {}: {} sec, {} OD pairs'.format(day, hour, ss_id, t_substep_1-t_substep_0, OD_ss.shape[0], ))
 
-            output_edges_df(outdir, edges_df, year, day, hour, random_seed, probe_ratio, budget, eco_route_ratio, iri_impact, case)
+            hour_volume_df = output_edges_df(outdir, edges_df, year, day, hour, random_seed, probe_ratio, budget, eco_route_ratio, iri_impact, case)
+            abm_hour_volume_dict['hour_{}'.format(hour)] = hour_volume_df
 
             t_hour_1 = time.time()
             ### log hour results before resetting the flow for the next time step
@@ -287,4 +290,5 @@ def sta(outdir, year, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route
     t_main_1 = time.time()
     logger.info('total run time: {} sec \n\n\n\n\n'.format(t_main_1 - t_main_0))
     #return probe_veh_counts, links_probed_norepe, links_probed_repe, VHT, VKMT, max10
+    return abm_hour_volume_dict
 
