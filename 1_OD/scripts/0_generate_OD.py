@@ -39,6 +39,8 @@ def haversine(lat1, lon1, lat2, lon2):
     From: https://stackoverflow.com/questions/4913349/haversine-formula-in-python-bearing-and-distance-between-two-gps-points
     """
 
+    ### Convert lat lon to radian before calculation
+
     # haversine formula 
     dlon = lon2 - lon1 
     dlat = lat2 - lat1 
@@ -132,6 +134,7 @@ def TAZ_nodes_OD(day, hour, count=50000):
         O_list = np.random.choice(hour_taz_travel_df['TAZ'], step_demand, replace=True, p=O_prob)
         D_list = np.random.choice(hour_taz_travel_df['TAZ'], step_demand, replace=True, p=D_prob)
         step_OD_df = pd.DataFrame({'O': O_list, 'D': D_list})
+        ### I did not sort OD by small or big, so merge twice.
         step_OD_df = pd.merge(step_OD_df, taz_pair_dist_df, how='left', left_on=['O', 'D'], right_on=['TAZ_small', 'TAZ_big'])
         step_OD_df = pd.merge(step_OD_df, taz_pair_dist_df, how='left', left_on=['D', 'O'], right_on=['TAZ_small', 'TAZ_big'], suffixes=['_1', '_2'])
         step_OD_df = step_OD_df.fillna(value={'distance_1': 0, 'distance_2':0})

@@ -82,7 +82,7 @@ def plot_scen12_results(data, variable, ylim=[0,100], ylabel='None', scen_no=0, 
     plt.ylabel(ylabel, fontdict={'size': '16'}, labelpad=10)
     if variable[0:3] != 'pci': plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
     #plt.show()
-    plt.savefig('Figs/{}_scen{}.png'.format(variable, scen_no), dpi=300, transparent=True)
+    plt.savefig('Figs/{}_scen{}_highiri.png'.format(variable, scen_no), dpi=300, transparent=True)
 
 def plot_scen34_results(data, variable, ylim=[0,100], ylabel='None', scen_no=4, half_title='Eco maintenance + ', base_color_map={0.1: [0, 0.6, 1], 0.5: [0, 0, 1], 1.0: [0.6, 0, 1]}):
 
@@ -133,7 +133,7 @@ def plot_scen34_results(data, variable, ylim=[0,100], ylabel='None', scen_no=4, 
     plt.ylabel(ylabel, fontdict={'size': '16'}, labelpad=10)
     if variable != 'pci_average': plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
     #plt.show()
-    plt.savefig('Figs/{}_scen{}.png'.format(variable, scen_no), dpi=300, transparent=True)  
+    plt.savefig('Figs/{}_scen{}_highiri.png'.format(variable, scen_no), dpi=300, transparent=True)  
 
 
 if __name__ == '__main__':
@@ -142,7 +142,7 @@ if __name__ == '__main__':
     # scen34_results(outdir)
     # sys.exit(0)
 
-    variable = 'emi_highway' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
+    variable = 'emi_local' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
     ylim_dict = {
         'emi_total': [3600, 4000], 'emi_local': [1750, 2050], 'emi_highway': [1400, 1700],
         'vkmt_total': [1.45e7, 1.6e7], 'vkmt_local': [7.3e6, 7.8e6], 'vkmt_highway': [7.0e6, 8.6e6],
@@ -162,18 +162,18 @@ if __name__ == '__main__':
         'pci_local': 'Average Pavement Condition Index (PCI)\n of local roads'}
 
     # results_df = pd.read_csv('{}/results/scen12_results.csv'.format(outdir))
-    # data = results_df[results_df['case']=='normal']
+    # data = results_df[(results_df['case']=='normal') & (results_df['iri_impact']==0.03)]
     # plot_scen12_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=1, title = 'PCI-based maintenance', base_color=[0, 0, 0])
-    # data = results_df[results_df['case']=='eco']
+    # data = results_df[(results_df['case']=='eco') & (results_df['iri_impact']==0.03)]
     # plot_scen12_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=2, title = 'Eco-maintenance', base_color=[1, 0, 0])
     # sys.exit(0)
 
-    # results_df = pd.read_csv('{}/results/scen34_results.csv'.format(outdir))
-    # data = results_df[results_df['case']=='er']
+    results_df = pd.read_csv('{}/results/scen34_results.csv'.format(outdir))
+    # data = results_df[(results_df['case']=='er') & (results_df['iri_impact']==0.03) & (results_df['budget']==700)]
     # plot_scen34_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=3, half_title='', base_color_map={0.1: [1, 0.8, 0], 0.5: [0, 0.8, 0], 1.0: [0, 0.2, 0]})
-    # data = results_df[results_df['case']=='ee']
-    # plot_scen34_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=4, half_title='Eco-maintenance + ', base_color_map={0.1: [0, 0.6, 1], 0.5: [0, 0, 1], 1.0: [0.6, 0, 1]})
-    # sys.exit(0)
+    data = results_df[(results_df['case']=='ee') & (results_df['iri_impact']==0.03) & (results_df['budget']==700)]
+    plot_scen34_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=4, half_title='Eco-maintenance + ', base_color_map={0.1: [0, 0.6, 1], 0.5: [0, 0, 1], 1.0: [0.6, 0, 1]})
+    sys.exit(0)
 
     ### Degradation model sensitivity analysis
     #data = pd.read_csv('{}/results/scen12_results_model_sensitivity_offset.csv'.format(outdir))

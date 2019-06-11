@@ -12,6 +12,7 @@ figures/private/
 0_network/data/**/*.csv
 0_network/data/**/*.tif
 1_OD/old/
+1_OD/input/planbayarea2040/
 1_OD/output/*
 1_OD/output_scaled/*
 2_ABM/*.json
