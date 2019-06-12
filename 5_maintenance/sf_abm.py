@@ -159,15 +159,19 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
 
     return edges_df, probed_link_list
 
-def read_OD(day, hour, probe_ratio, eco_route_ratio):
+def read_OD(year, day, hour, traffic_growth, probe_ratio, eco_route_ratio):
     ### Read the OD table of this time step
 
     logger = logging.getLogger('read_OD')
     t_OD_0 = time.time()
 
     ### Change OD list from using osmid to sequential id. It is easier to find the shortest path based on sequential index.
-    intracity_OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/{}/DY{}/SF_OD_DY{}_HR{}.csv'.format(folder, scenario, day, day, hour))
-    intercity_OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/{}/intercity/intercity_HR{}.csv'.format(folder, scenario, hour))
+    if traffic_growth:
+        intracity_OD = pd.read_csv(absolute_path+'/../1_OD/output/OD_tables_growth/intraSF/SF_OD_YR{}_DY{}_HR{}.csv'.format(year, day, hour))
+        intercity_OD = pd.read_csv(absolute_path+'/../1_OD/output/OD_tables_growth/intercity/intercity_YR{}_HR{}.csv'.format(year, hour))
+    else:
+        intracity_OD = pd.read_csv(absolute_path+'/../1_OD/output/OD_tables_no_growth/intraSF/SF_OD_YR0_DY{}_HR{}.csv'.format(day, hour))
+        intercity_OD = pd.read_csv(absolute_path+'/../1_OD/output/OD_tables_growth/intercity/intercity_YR0_HR{}.csv'.format(hour))
     OD = pd.concat([intracity_OD, intercity_OD], ignore_index=True)
     nodes_df = pd.read_csv(absolute_path+'/../0_network/data/{}/{}/nodes.csv'.format(folder, scenario))
 
@@ -197,7 +201,7 @@ def output_edges_df(outdir, edges_df, year, day, hour, random_seed, probe_ratio,
     #edges_df[['edge_id_igraph', 'true_flow', 't_avg']].to_csv(absolute_path+'/{}/edges_df_abm/edges_df_b{}_e{}_i{}_c{}_y{}_HR{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case, year, hour), index=False)
     return edges_df[['edge_id_igraph', 'true_flow', 't_avg']]
 
-def sta(outdir, edges_df, year, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route_ratio=0.1, iri_impact=0.03, case='er', closure_list = [], closure_case = ''):
+def sta(outdir, edges_df, year, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route_ratio=0.1, iri_impact=0.03, case='er', traffic_growth=False, closure_list = [], closure_case = ''):
 
     logging.basicConfig(filename=absolute_path+'/logs/sta.log', level=logging.CRITICAL)
     logger = logging.getLogger('sta')
@@ -245,7 +249,7 @@ def sta(outdir, edges_df, year, day=2, random_seed=0, probe_ratio=1, budget=100,
             t_hour_0 = time.time()
 
             ### Read OD
-            OD = read_OD(day, hour, probe_ratio, eco_route_ratio)
+            OD = read_OD(year, day, hour, traffic_growth, probe_ratio, eco_route_ratio)
             ### Total OD, assigned OD
             hour_demand = OD.shape[0]
             assigned_demand = 0
