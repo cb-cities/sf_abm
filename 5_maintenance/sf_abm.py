@@ -37,6 +37,7 @@ def map_edge_flow(row):
     origin_ID = int(OD_ss['origin_sp'].iloc[row])
     destin_ID = int(OD_ss['destin_sp'].iloc[row])
     ss_id = int(OD_ss['ss_id'].iloc[row])
+    agent_vol = int(OD_ss['flow'].iloc[row]) ### number of travellers with this OD
     probe_veh = int(OD_ss['probe'].iloc[row]) ### 1 if the shortest path between this OD pair is traversed by a probe vehicle
     eco_veh = int(OD_ss['eco'].iloc[row]) ### 1 if the vehicle is going on the least co2 route
 
@@ -54,7 +55,7 @@ def map_edge_flow(row):
         return [], 0 ### empty path; not reach destination; travel time 0
     else:
         sp_route = sp.route(destin_ID) ### agent route planned with imperfect information
-        results = {'agent_id': agent_id, 'o_sp': origin_ID, 'd_sp': destin_ID, 'ss': ss_id, 'probe': probe_veh, 'eco': eco_veh, 'route': [edge[0] for edge in sp_route]+[destin_ID]}
+        results = {'agent_id': agent_id, 'o_sp': origin_ID, 'd_sp': destin_ID, 'ss': ss_id, 'vol': agent_vol, 'probe': probe_veh, 'eco': eco_veh, 'route': [edge[0] for edge in sp_route]+[destin_ID]}
         ### agent_ID: agent for each OD pair
         ### probe_veh: num of probe vehicles (with location service on) between this OD pair
         ### [(edge[0], edge[1]) for edge in sp_route]: agent's choice of route
@@ -66,11 +67,11 @@ def reduce_edge_flow_pd(agent_info_routes, day, hour, ss_id):
 
     logger = logging.getLogger('reduce')
     t0 = time.time()
-    flat_L = [(e[0], e[1], r['probe']) for r in agent_info_routes for e in zip(r['route'], r['route'][1:])]
-    df_L = pd.DataFrame(flat_L, columns=['start_sp', 'end_sp', 'probe'])
-    df_L_flow = df_L.groupby(['start_sp', 'end_sp'])['probe'].agg(
-        ['size', np.sum]).rename(
-        columns={'size': 'ss_flow', 'sum': 'ss_probe'}).reset_index()
+    flat_L = [(e[0], e[1], r['vol'], r['probe']) for r in agent_info_routes for e in zip(r['route'], r['route'][1:])]
+    df_L = pd.DataFrame(flat_L, columns=['start_sp', 'end_sp', 'vol', 'probe'])
+    df_L_flow = df_L.groupby(['start_sp', 'end_sp']).agg({
+        'vol': np.sum, 'probe': np.sum}).rename(
+        columns={'vol': 'ss_flow', 'probe': 'ss_probe'}).reset_index()
         # link_flow counts the number of vehicles, link_probe counts the number of probe vehicles
     t1 = time.time()
     logger.debug('DY{}_HR{} SS {}: reduce find {} edges, {} sec w/ pd.groupby, max substep flow {}, max substep probe {}'.format(day, hour, ss_id, df_L_flow.shape[0], t1-t0, max(df_L_flow['ss_flow']), max(df_L_flow['ss_probe'])))
@@ -164,11 +165,16 @@ def read_OD(year, day, hour, traffic_growth, probe_ratio, eco_route_ratio):
     ### Change OD list from using osmid to sequential id. It is easier to find the shortest path based on sequential index.
     if traffic_growth:
         intracity_OD = pd.read_csv(absolute_path+'/../1_OD/output/OD_tables_growth/intraSF/SF_OD_YR{}_DY{}_HR{}.csv'.format(year, day, hour))
+        if 'flow' not in intracity_OD.columns: intracity_OD['flow']=1
         intercity_OD = pd.read_csv(absolute_path+'/../1_OD/output/OD_tables_growth/intercity/intercity_YR{}_HR{}.csv'.format(year, hour))
+        if 'flow' not in intercity_OD.columns: intercity_OD['flow']=1
     else:
         intracity_OD = pd.read_csv(absolute_path+'/../1_OD/output/OD_tables_no_growth/intraSF/SF_OD_YR0_DY{}_HR{}.csv'.format(day, hour))
+        if 'flow' not in intracity_OD.columns: intracity_OD['flow']=1
         intercity_OD = pd.read_csv(absolute_path+'/../1_OD/output/OD_tables_growth/intercity/intercity_YR0_HR{}.csv'.format(hour))
+        if 'flow' not in intercity_OD.columns: intercity_OD['flow']=1
     OD = pd.concat([intracity_OD, intercity_OD], ignore_index=True, sort=False)
+    print(max(OD['flow']))
     nodes_df = pd.read_csv(absolute_path+'/../0_network/data/{}/{}/nodes.csv'.format(folder, scenario))
 
     OD = pd.merge(OD, nodes_df[['node_id_igraph', 'node_osmid']], how='left', left_on='O', right_on='node_osmid')
@@ -178,7 +184,7 @@ def read_OD(year, day, hour, traffic_growth, probe_ratio, eco_route_ratio):
     OD['destin_sp'] = OD['node_id_igraph_D'] + 1
     OD['probe'] = np.random.choice([0, 1], size=OD.shape[0], p=[1-probe_ratio, probe_ratio]) ### Randomly assigning probe_ratio of vehicles to report speed
     OD['eco'] = np.random.choice([0, 1], size=OD.shape[0], p=[1-eco_route_ratio, eco_route_ratio]) ### Randomly assigning eco_route_ratio of vehicles to route by least emission route
-    OD = OD[['agent_id', 'origin_sp', 'destin_sp', 'probe', 'eco']]
+    OD = OD[['agent_id', 'origin_sp', 'destin_sp', 'flow', 'probe', 'eco']]
     OD = OD.sample(frac=1).reset_index(drop=True) ### randomly shuffle rows
 
     t_OD_1 = time.time()
@@ -197,7 +203,7 @@ def output_edges_df(outdir, edges_df, year, day, hour, random_seed, probe_ratio,
     #edges_df[['edge_id_igraph', 'true_flow', 't_avg']].to_csv(absolute_path+'/{}/edges_df_abm/edges_df_b{}_e{}_i{}_c{}_tg{}_y{}_HR{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case, traffic_growth, year, hour), index=False)
     return edges_df[['edge_id_igraph', 'true_flow', 't_avg']]
 
-def sta(outdir, edges_df, year=0, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route_ratio=0.1, iri_impact=0.03, case='er', traffic_growth=False, closure_list = [], closure_case = ''):
+def sta(outdir, edges_df, year=0, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route_ratio=0.1, iri_impact=0.03, case='er', traffic_growth=0, closure_list = [], closure_case = ''):
 
     logging.basicConfig(filename=absolute_path+'/logs/sta.log', level=logging.CRITICAL)
     logger = logging.getLogger('sta')
@@ -214,7 +220,8 @@ def sta(outdir, edges_df, year=0, day=2, random_seed=0, probe_ratio=1, budget=10
 
     ### Read in the initial network (free flow travel time)
     g_time = interface.readgraph(bytes(absolute_path+'/../0_network/data/{}/{}/network_sparse.mtx'.format(folder, scenario), encoding='utf-8'))
-    g_eco = interface.readgraph(bytes(absolute_path+'/{}/network/network_sparse_r{}_b{}_e{}_i{}_c{}_tg{}_y{}.mtx'.format(outdir, random_seed, budget, eco_route_ratio, iri_impact, case, traffic_growth, year), encoding='utf-8'))
+    print('finish reading g_time')
+    g_eco = interface.readgraph(bytes(absolute_path+'/{}/network/network_sparse_r{}_b{}_e{}_i{}_c{}_tg{}_y{}_compare.mtx'.format(outdir, random_seed, budget, eco_route_ratio, iri_impact, case, traffic_growth, year), encoding='utf-8'))
 
     ### Set edge variables that will be updated at the end of each time step
     edges_df['previous_t'] = edges_df['fft']
