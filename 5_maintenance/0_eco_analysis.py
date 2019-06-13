@@ -311,7 +311,7 @@ def scenarios():
     eco_route_ratio = 0.1#float(os.environ['ECO_ROUTE_RATIO']) ### 0.1, 0.5 or 1
     iri_impact = 0.03#float(os.environ['IRI_IMPACT']) ### 0.01 or 0.03
     case = 'er'#os.environ['CASE'] ### 'nr' no eco-routing or eco-maintenance, 'em' for eco-maintenance, 'er' for 'routing_only', 'ee' for 'both'
-    traffic_growth = True #os.environ['TRAFFIC_GROWTH'] ### True or False
+    traffic_growth = True #int(os.environ['TRAFFIC_GROWTH']) ### 1 or 0
     print('random_seed {}, budget {}, eco_route_ratio {}, iri_impact {}, case {}, traffic_growth {}'.format(random_seed, budget, eco_route_ratio, iri_impact, case, traffic_growth))
 
     ### ABM parameters
