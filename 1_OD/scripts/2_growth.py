@@ -1,3 +1,6 @@
+### Check growth rates: 
+### https://www.sfmta.com/sites/default/files/reports-and-documents/2018/01/san_francisco_transportation_trends_2.3.15.pdf
+### https://www.sfmta.com/sites/default/files/reports-and-documents/2019/01/sfmta_mobility_trends_report_2018.pdf
 import os
 import sys
 import time
