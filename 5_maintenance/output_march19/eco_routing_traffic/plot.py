@@ -2,6 +2,8 @@ import os
 import sys
 import pandas as pd 
 import numpy as np 
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt 
 import matplotlib.cm as cm
 from matplotlib.lines import Line2D
@@ -50,7 +52,7 @@ def plot_pcp(case, scale):
     else:
         pcp = pcp.loc[pcp['juris'] == 'DPW']
         color = 'g'
-    pcp = pcp.iloc[0:100]
+    #pcp = pcp.iloc[0:100]
 
     fig, ax = plt.subplots()
     fig.set_size_inches(18,7)
@@ -77,4 +79,4 @@ def plot_pcp(case, scale):
 
 
 if __name__ == '__main__':
-    plot_pcp('highway', 'log') ### max flow hour is 18
+    plot_pcp('local', 'log') ### max flow hour is 18
