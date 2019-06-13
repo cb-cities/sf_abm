@@ -140,7 +140,7 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
         edges_df['perceived_t'] = edges_df['unit_delay_sample_mean']*edges_df['length'] + edges_df['fft']
         edges_df = edges_df.drop(columns=['ss_probe_0', 'gamma_k', 'gamma_theta', 'unit_delay_avg', 'unit_delay_sample_mean'])
         t_delay_1 = time.time()
-        print('time to calculate delay is ', t_delay_1 - t_delay_0)
+        #print('time to calculate delay is ', t_delay_1 - t_delay_0)
 
     update_df = edges_df.loc[edges_df['perceived_t'] != edges_df['previous_t']].copy().reset_index()
     #logger.info('links to be updated {}'.format(edge_probe_df.shape[0]))
@@ -172,7 +172,7 @@ def read_OD(day, hour, probe_ratio):
 
     ### Change OD list from using osmid to sequential id. It is easier to find the shortest path based on sequential index.
     intracity_OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/{}/DY{}/SF_OD_DY{}_HR{}.csv'.format(folder, scenario, day, day, hour))
-    intercity_OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/{}/intercity/intercity_HR{}.csv'.format(folder, scenario, hour))
+    intercity_OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/{}/intercity/intercity_YR0_HR{}.csv'.format(folder, scenario, hour))
     OD = pd.concat([intracity_OD, intercity_OD], ignore_index=True)
     nodes_df = pd.read_csv(absolute_path+'/../0_network/data/{}/{}/nodes.csv'.format(folder, scenario))
 
@@ -201,7 +201,8 @@ def output_edges_df(edges_df, day, hour, random_seed, probe_ratio, cov):
     #edges_df['vkmt'] = edges_df['length']*edges_df['hour_flow']/1000
 
     ### Output
-    edges_df[['edge_id_igraph', 'true_flow', 't_avg']].to_csv(absolute_path+'/output/sensor_cov/edges_df/edges_df_DY{}_HR{}_r{}_p{}_cov{}.csv'.format(day, hour, random_seed, probe_ratio, cov), index=False)
+    #edges_df[['edge_id_igraph', 'true_flow', 't_avg']].to_csv(absolute_path+'/output/sensor_cov/edges_df/edges_df_DY{}_HR{}_r{}_p{}_cov{}.csv'.format(day, hour, random_seed, probe_ratio, cov), index=False)
+    edges_df[['edge_id_igraph', 'true_flow', 't_avg']].to_csv(absolute_path+'/output/sensor_cov/edges_df/edges_df_DY{}_HR{}_r{}_p{}_cov{}_test.csv'.format(day, hour, random_seed, probe_ratio, cov), index=False)
 
 def sta(random_seed=0, probe_ratio=1, cov=0):
 
@@ -240,7 +241,7 @@ def sta(random_seed=0, probe_ratio=1, cov=0):
         edges_df['previous_t'] = edges_df['fft'] ### Used to find which edge to update. At the beginning of each day, previous_t is the free flow time.
 
         OD_count = 0
-        for hour in range(3, 27):
+        for hour in range(3, 5):
 
             #logger.info('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()
@@ -248,7 +249,7 @@ def sta(random_seed=0, probe_ratio=1, cov=0):
             ### Read OD
             OD = read_OD(day, hour, probe_ratio)
             OD_count += OD.shape[0]
-            continue
+            # continue
 
             ### Total OD, assigned OD
             hour_demand = OD.shape[0]

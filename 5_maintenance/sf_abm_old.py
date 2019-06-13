@@ -37,7 +37,7 @@ def map_edge_flow(row):
     origin_ID = int(OD_ss['origin_sp'].iloc[row])
     destin_ID = int(OD_ss['destin_sp'].iloc[row])
     ss_id = int(OD_ss['ss_id'].iloc[row])
-    agent_vol = int(OD_ss['flow'].iloc[row]) ### number of travellers with this OD
+    agent_flow = int(OD_ss['flow'].iloc[row]) ### number of travellers with this OD
     probe_veh = int(OD_ss['probe'].iloc[row]) ### 1 if the shortest path between this OD pair is traversed by a probe vehicle
     eco_veh = int(OD_ss['eco'].iloc[row]) ### 1 if the vehicle is going on the least co2 route
 
@@ -55,8 +55,9 @@ def map_edge_flow(row):
         return [], 0 ### empty path; not reach destination; travel time 0
     else:
         sp_route = sp.route(destin_ID) ### agent route planned with imperfect information
-        results = {'agent_id': agent_id, 'o_sp': origin_ID, 'd_sp': destin_ID, 'ss': ss_id, 'vol': agent_vol, 'probe': probe_veh, 'eco': eco_veh, 'route': [edge[0] for edge in sp_route]+[destin_ID]}
+        results = {'agent_id': agent_id, 'o_sp': origin_ID, 'd_sp': destin_ID, 'ss': ss_id, 'flow': agent_flow, 'probe': probe_veh, 'eco': eco_veh, 'route': [edge[0] for edge in sp_route]+[destin_ID]}
         ### agent_ID: agent for each OD pair
+        ### traffic_flow: num of agents between this OD pair
         ### probe_veh: num of probe vehicles (with location service on) between this OD pair
         ### [(edge[0], edge[1]) for edge in sp_route]: agent's choice of route
         return results, 1
@@ -67,12 +68,11 @@ def reduce_edge_flow_pd(agent_info_routes, day, hour, ss_id):
 
     logger = logging.getLogger('reduce')
     t0 = time.time()
-    flat_L = [(e[0], e[1], r['vol'], r['probe']) for r in agent_info_routes for e in zip(r['route'], r['route'][1:])]
-    df_L = pd.DataFrame(flat_L, columns=['start_sp', 'end_sp', 'vol', 'probe'])
+    flat_L = [(e[0], e[1], r['flow'], r['probe']) for r in agent_info_routes for e in zip(r['route'], r['route'][1:])]
+    df_L = pd.DataFrame(flat_L, columns=['start_sp', 'end_sp', 'flow', 'probe'])
     df_L_flow = df_L.groupby(['start_sp', 'end_sp']).agg({
-        'vol': np.sum, 'probe': np.sum}).rename(
-        columns={'vol': 'ss_flow', 'probe': 'ss_probe'}).reset_index()
-        # link_flow counts the number of vehicles, link_probe counts the number of probe vehicles
+        'flow': np.sum, 'probe': np.sum}).rename(columns={
+        'flow': 'ss_flow', 'probe': 'ss_probe'}).reset_index() # link_flow counts the number of vehicles, link_probe counts the number of probe vehicles
     t1 = time.time()
     logger.debug('DY{}_HR{} SS {}: reduce find {} edges, {} sec w/ pd.groupby, max substep flow {}, max substep probe {}'.format(day, hour, ss_id, df_L_flow.shape[0], t1-t0, max(df_L_flow['ss_flow']), max(df_L_flow['ss_probe'])))
     
@@ -122,6 +122,9 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
     edges_df['perceived_hour_flow'] = np.where(edges_df['ss_probe']==0, edges_df['perceived_hour_flow'], edges_df['hour_flow']) ### If there is a probe, then we can perceive the true flow; otherwise, we don't update the perceived flow.
     probed_link_list += edges_df[edges_df['ss_probe']>0]['edge_id_igraph'].tolist()
 
+    ### True flux
+    #edges_df['hour_flux'] = edges_df['hour_flow']*hour_demand/assigned_demand
+
     ## Perceived flux
     edges_df['perceived_flux'] = edges_df['perceived_hour_flow']*hour_demand/assigned_demand
     edges_df['perceived_t'] = edges_df['fft']*(1 + 0.6*(edges_df['perceived_flux']/edges_df['capacity'])**4)
@@ -156,24 +159,16 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
 
     return edges_df, probed_link_list
 
-def read_OD(year, day, hour, traffic_growth, probe_ratio, eco_route_ratio):
+def read_OD(day, hour, probe_ratio, eco_route_ratio):
     ### Read the OD table of this time step
 
     logger = logging.getLogger('read_OD')
     t_OD_0 = time.time()
 
     ### Change OD list from using osmid to sequential id. It is easier to find the shortest path based on sequential index.
-    if traffic_growth:
-        intracity_OD = pd.read_csv(absolute_path+'/../1_OD/output/OD_tables_growth/intraSF/SF_OD_YR{}_DY{}_HR{}.csv'.format(year, day, hour))
-        if 'flow' not in intracity_OD.columns: intracity_OD['flow']=1
-        intercity_OD = pd.read_csv(absolute_path+'/../1_OD/output/OD_tables_growth/intercity/intercity_YR{}_HR{}.csv'.format(year, hour))
-        if 'flow' not in intercity_OD.columns: intercity_OD['flow']=1
-    else:
-        intracity_OD = pd.read_csv(absolute_path+'/../1_OD/output/OD_tables_no_growth/intraSF/SF_OD_YR0_DY{}_HR{}.csv'.format(day, hour))
-        if 'flow' not in intracity_OD.columns: intracity_OD['flow']=1
-        intercity_OD = pd.read_csv(absolute_path+'/../1_OD/output/OD_tables_no_growth/intercity/intercity_YR0_HR{}.csv'.format(hour))
-        if 'flow' not in intercity_OD.columns: intercity_OD['flow']=1
-    OD = pd.concat([intracity_OD, intercity_OD], ignore_index=True, sort=False)
+    intracity_OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/{}/DY{}/SF_OD_DY{}_HR{}.csv'.format(folder, scenario, day, day, hour))
+    intercity_OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/{}/intercity/intercity_HR{}.csv'.format(folder, scenario, hour))
+    OD = pd.concat([intracity_OD, intercity_OD], ignore_index=True)
     nodes_df = pd.read_csv(absolute_path+'/../0_network/data/{}/{}/nodes.csv'.format(folder, scenario))
 
     OD = pd.merge(OD, nodes_df[['node_id_igraph', 'node_osmid']], how='left', left_on='O', right_on='node_osmid')
@@ -191,7 +186,7 @@ def read_OD(year, day, hour, traffic_growth, probe_ratio, eco_route_ratio):
 
     return OD
 
-def output_edges_df(outdir, edges_df, year, day, hour, random_seed, probe_ratio, budget, eco_route_ratio, iri_impact, case, traffic_growth):
+def output_edges_df(outdir, edges_df, year, day, hour, random_seed, probe_ratio, budget, eco_route_ratio, iri_impact, case):
 
     ### Aggregate and calculate link-level variables after all increments
     
@@ -199,15 +194,15 @@ def output_edges_df(outdir, edges_df, year, day, hour, random_seed, probe_ratio,
     edges_df['t_avg'] = edges_df['fft']*(1 + 0.6*(edges_df['true_flow']/edges_df['capacity'])**4)
 
     ### Output
-    #edges_df[['edge_id_igraph', 'true_flow', 't_avg']].to_csv(absolute_path+'/{}/edges_df_abm/edges_df_b{}_e{}_i{}_c{}_tg{}_y{}_HR{}_test.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case, traffic_growth, year, hour), index=False)
+    #edges_df[['edge_id_igraph', 'true_flow', 't_avg']].to_csv(absolute_path+'/{}/edges_df_abm/edges_df_b{}_e{}_i{}_c{}_y{}_HR{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case, year, hour), index=False)
     return edges_df[['edge_id_igraph', 'true_flow', 't_avg']]
 
-def sta(outdir, edges_df, year=0, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route_ratio=0.1, iri_impact=0.03, case='er', traffic_growth=0, closure_list = [], closure_case = ''):
+def sta(outdir, edges_df, year, day=2, random_seed=0, probe_ratio=1, budget=100, eco_route_ratio=0.1, iri_impact=0.03, case='er', closure_list = [], closure_case = ''):
 
     logging.basicConfig(filename=absolute_path+'/logs/sta.log', level=logging.CRITICAL)
     logger = logging.getLogger('sta')
     logger.info('{}'.format(datetime.datetime.now()))
-    logger.info('maintenance, {} network, year {}, random_seed {}, probe_ratio {}, eco_route_ratio {}, iri_impact {}, traffic_growth {}'.format(folder, year, random_seed, probe_ratio, eco_route_ratio, iri_impact, traffic_growth))
+    logger.info('maintenance, {} network, year {}, random_seed {}, probe_ratio {}, eco_route_ratio {}, iri_impact {}'.format(folder, year, random_seed, probe_ratio, eco_route_ratio, iri_impact))
 
     t_main_0 = time.time()
     ### Fix random seed
@@ -219,8 +214,10 @@ def sta(outdir, edges_df, year=0, day=2, random_seed=0, probe_ratio=1, budget=10
 
     ### Read in the initial network (free flow travel time)
     g_time = interface.readgraph(bytes(absolute_path+'/../0_network/data/{}/{}/network_sparse.mtx'.format(folder, scenario), encoding='utf-8'))
-    g_eco = interface.readgraph(bytes(absolute_path+'/{}/network/network_sparse_r{}_b{}_e{}_i{}_c{}_tg{}_y{}.mtx'.format(outdir, random_seed, budget, eco_route_ratio, iri_impact, case, traffic_growth, year), encoding='utf-8'))
+    g_eco = interface.readgraph(bytes(absolute_path+'/{}/network/network_sparse_r{}_b{}_e{}_i{}_c{}_y{}.mtx'.format(outdir, random_seed, budget, eco_route_ratio, iri_impact, case, year), encoding='utf-8'))
 
+    ### Read in the edge attribute for volume delay calculation later
+    #edges_df = pd.read_csv(absolute_path+'/{}/edge_df/edges_b{}_e{}_i{}_c{}_y{}.csv'.format(outdir, budget, eco_route_ratio, iri_impact, case, year))
     ### Set edge variables that will be updated at the end of each time step
     edges_df['previous_t'] = edges_df['fft']
     edges_df['previous_co2'] = edges_df['eco_wgh']
@@ -248,7 +245,7 @@ def sta(outdir, edges_df, year=0, day=2, random_seed=0, probe_ratio=1, budget=10
             t_hour_0 = time.time()
 
             ### Read OD
-            OD = read_OD(year, day, hour, traffic_growth, probe_ratio, eco_route_ratio)
+            OD = read_OD(day, hour, probe_ratio, eco_route_ratio)
             ### Total OD, assigned OD
             hour_demand = OD.shape[0]
             assigned_demand = 0
@@ -281,9 +278,9 @@ def sta(outdir, edges_df, year=0, day=2, random_seed=0, probe_ratio=1, budget=10
                 edges_df, probed_link_list = update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_demand, probed_link_list, iri_impact)
 
                 t_substep_1 = time.time()
-                logger.debug('DY{}_HR{} SS {}: {} sec, {} OD pairs'.format(day, hour, ss_id, t_substep_1-t_substep_0, OD_ss.shape[0]))
+                logger.debug('DY{}_HR{} SS {}: {} sec, {} OD pairs'.format(day, hour, ss_id, t_substep_1-t_substep_0, OD_ss.shape[0], ))
 
-            hour_volume_df = output_edges_df(outdir, edges_df, year, day, hour, random_seed, probe_ratio, budget, eco_route_ratio, iri_impact, case, traffic_growth)
+            hour_volume_df = output_edges_df(outdir, edges_df, year, day, hour, random_seed, probe_ratio, budget, eco_route_ratio, iri_impact, case)
             abm_hour_volume_dict['hour_{}'.format(hour)] = hour_volume_df
 
             t_hour_1 = time.time()
@@ -294,4 +291,3 @@ def sta(outdir, edges_df, year=0, day=2, random_seed=0, probe_ratio=1, budget=10
     logger.info('total run time: {} sec \n\n\n\n\n'.format(t_main_1 - t_main_0))
     #return probe_veh_counts, links_probed_norepe, links_probed_repe, VHT, VKMT, max10
     return abm_hour_volume_dict
-

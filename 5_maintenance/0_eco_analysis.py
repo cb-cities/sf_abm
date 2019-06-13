@@ -118,8 +118,8 @@ def preprocessing(offset=True):
     
     edges_df['juris'] = np.where(edges_df['ispublicworks']==1, 'DPW',
         np.where(edges_df['type'].isin(highway_type), 'Caltrans', 'no'))
-    # edges_df.to_csv(absolute_path+'/{}/preprocessing.csv'.format(outdir), index=False)
-    # sys.exit(0)
+    #edges_df.to_csv(absolute_path+'/{}/preprocessing.csv'.format(outdir), index=False)
+    #sys.exit(0)
 
     return edges_df
 
@@ -307,11 +307,11 @@ def scenarios():
 
     ### Emission analysis parameters
     random_seed = 0#int(os.environ['RANDOM_SEED']) ### 0,1,2,3,4,5,6,7,8,9
-    budget = 700#int(os.environ['BUDGET']) ### 200 or 700
-    eco_route_ratio = 0.1#float(os.environ['ECO_ROUTE_RATIO']) ### 0.1, 0.5 or 1
-    iri_impact = 0.03#float(os.environ['IRI_IMPACT']) ### 0.01 or 0.03
-    case = 'er'#os.environ['CASE'] ### 'nr' no eco-routing or eco-maintenance, 'em' for eco-maintenance, 'er' for 'routing_only', 'ee' for 'both'
-    traffic_growth = True #int(os.environ['TRAFFIC_GROWTH']) ### 1 or 0
+    budget = 200#int(os.environ['BUDGET']) ### 200 or 700
+    eco_route_ratio = 1.0#float(os.environ['ECO_ROUTE_RATIO']) ### 0.1, 0.5 or 1
+    iri_impact = 0.01#float(os.environ['IRI_IMPACT']) ### 0.01 or 0.03
+    case = 'ee'#os.environ['CASE'] ### 'nr' no eco-routing or eco-maintenance, 'em' for eco-maintenance, 'er' for 'routing_only', 'ee' for 'both'
+    traffic_growth = 0 #int(os.environ['TRAFFIC_GROWTH']) ### 1 or 0
     print('random_seed {}, budget {}, eco_route_ratio {}, iri_impact {}, case {}, traffic_growth {}'.format(random_seed, budget, eco_route_ratio, iri_impact, case, traffic_growth))
 
     ### ABM parameters
@@ -319,7 +319,7 @@ def scenarios():
     probe_ratio = 1
 
     ### simulation period
-    total_years = 11
+    total_years = 1
 
     step_results_list = eco_incentivize(random_seed, budget, eco_route_ratio, iri_impact, case, traffic_growth, day, probe_ratio, total_years)
     results_df = pd.DataFrame(step_results_list, columns=['random_seed', 'case', 'budget', 'iri_impact', 'eco_route_ratio', 'year', 'emi_total', 'emi_local', 'emi_highway', 'emi_localroads_base',  'pci_average', 'pci_local', 'pci_highway', 'vht_total', 'vht_local', 'vht_highway', 'vkmt_total', 'vkmt_local', 'vkmt_highway'])
