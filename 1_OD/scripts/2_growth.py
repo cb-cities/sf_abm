@@ -187,7 +187,7 @@ def TAZ_nodes_OD(district_growth, TAZ_district, hour=5, day=3, year=0):
     nodal_OD_df = pd.DataFrame(nodal_OD, columns=['O', 'D'])
     print('final nodal OD {}'.format(nodal_OD_df.shape[0]))
 
-    nodal_OD_df.to_csv(absolute_path+'/../output/sf_overpass/original/growth/intraSF/SF_OD_YR{}_DY{}_HR{}.csv'.format(year, day, hour), index=False)
+    nodal_OD_df.to_csv(absolute_path+'/../output/OD_tables_growth/intraSF/SF_OD_YR{}_DY{}_HR{}.csv'.format(year, day, hour), index=False)
 
 def main():
 
@@ -200,8 +200,8 @@ def main():
     
     for year in range(1, 11):
         ### year 0 should be copied
-        #for hour in range(3, 27):
-        for hour in range(7, 8):
+        for hour in range(3, 27):
+        #for hour in range(7, 8):
             TAZ_nodes_OD(district_growth, TAZ_district, hour=hour, day=2, year=year)
 
 def process_year_0(day = 2):
@@ -226,5 +226,5 @@ def process_year_0(day = 2):
         processed_year_0_OD_df.to_csv(absolute_path+'/../output/OD_tables_no_growth/intraSF/SF_OD_YR0_DY{}_HR{}.csv'.format(day, hour), index=False)
 
 if __name__ == '__main__':
-    #main()
-    process_year_0(day = 6)
+    main()
+    #process_year_0(day = 6)

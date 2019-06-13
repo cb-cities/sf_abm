@@ -87,7 +87,7 @@ def map_reduce_edge_flow(day, hour, ss_id):
     pool = Pool(processes=process_count)
 
     ### Find shortest pathes
-    unique_origin = 100#OD_ss.shape[0]
+    unique_origin = OD_ss.shape[0]
     t_odsp_0 = time.time()
     res = pool.imap_unordered(map_edge_flow, range(unique_origin))
 
@@ -240,6 +240,7 @@ def sta(outdir, edges_df, year=0, day=2, random_seed=0, probe_ratio=1, budget=10
         for hour in range(3, 27):
             
             #logger.info('*************** DY{} HR{} ***************'.format(day, hour))
+            #print(hour)
             t_hour_0 = time.time()
 
             ### Read OD
