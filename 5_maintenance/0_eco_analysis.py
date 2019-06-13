@@ -323,7 +323,7 @@ def scenarios():
 
     step_results_list = eco_incentivize(random_seed, budget, eco_route_ratio, iri_impact, case, traffic_growth, day, probe_ratio, total_years)
     results_df = pd.DataFrame(step_results_list, columns=['random_seed', 'case', 'budget', 'iri_impact', 'eco_route_ratio', 'year', 'emi_total', 'emi_local', 'emi_highway', 'emi_localroads_base',  'pci_average', 'pci_local', 'pci_highway', 'vht_total', 'vht_local', 'vht_highway', 'vkmt_total', 'vkmt_local', 'vkmt_highway'])
-    results_df.to_csv(absolute_path+'/{}/results/scen_res_r{}_b{}_e{}_i{}_c{}_g{}.csv'.format(outdir, random_seed, budget, eco_route_ratio, iri_impact, case, traffic_growth))
+    results_df.to_csv(absolute_path+'/{}/results/scen_res_r{}_b{}_e{}_i{}_c{}_g{}.csv'.format(outdir, random_seed, budget, eco_route_ratio, iri_impact, case, traffic_growth), index=False)
 
 if __name__ == '__main__':
 

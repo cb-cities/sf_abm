@@ -210,21 +210,24 @@ def process_year_0(day = 2):
     for hour in range(3, 27):
         year_0_OD = pd.read_csv(absolute_path+'/../output/OD_tables_no_growth/intraSF/DY{}/SF_OD_DY{}_HR{}.csv'.format(day, day, hour))
 
-        duplicated_year_0_OD_list = []
-        duplicated_year_0_OD = year_0_OD.loc[year_0_OD['flow']>1]
-        for index, row in duplicated_year_0_OD.iterrows():
-            duplicated_year_0_OD_list += [(getattr(row, 'O'), getattr(row, 'D'))]*getattr(row, 'flow')
-        duplicated_year_0_OD_df = pd.DataFrame(duplicated_year_0_OD_list, columns=['O', 'D'])
+        # duplicated_year_0_OD_list = []
+        # duplicated_year_0_OD = year_0_OD.loc[year_0_OD['flow']>1]
+        # for index, row in duplicated_year_0_OD.iterrows():
+        #     duplicated_year_0_OD_list += [(getattr(row, 'O'), getattr(row, 'D'))]*getattr(row, 'flow')
+        # duplicated_year_0_OD_df = pd.DataFrame(duplicated_year_0_OD_list, columns=['O', 'D'])
         
-        processed_year_0_OD_df = year_0_OD.loc[year_0_OD['flow']==1][['O', 'D']].reset_index(drop=True)
-        processed_year_0_OD_df = pd.concat([processed_year_0_OD_df, duplicated_year_0_OD_df])
+        # processed_year_0_OD_df = year_0_OD.loc[year_0_OD['flow']==1][['O', 'D']].reset_index(drop=True)
+        # processed_year_0_OD_df = pd.concat([processed_year_0_OD_df, duplicated_year_0_OD_df])
         
-        print('DY{}, HR {}, OD_df shape with flow column {}, duplicate agents {}, in {} rows, OD_df shape without flow column {}'.format(day, hour, year_0_OD.shape, duplicated_year_0_OD['flow'].sum(), duplicated_year_0_OD.shape[0], processed_year_0_OD_df.shape))
+        # print('DY{}, HR {}, OD_df shape with flow column {}, duplicate agents {}, in {} rows, OD_df shape without flow column {}'.format(day, hour, year_0_OD.shape, duplicated_year_0_OD['flow'].sum(), duplicated_year_0_OD.shape[0], processed_year_0_OD_df.shape))
 
+        # if day ==2: ### Only for Wednesday do we consider the traffic increase. As Wednesday was used for the 10 year emission analysis
+        #     processed_year_0_OD_df.to_csv(absolute_path+'/../output/OD_tables_growth/intraSF/SF_OD_YR0_DY{}_HR{}.csv'.format(day, hour), index=False)
+        # processed_year_0_OD_df.to_csv(absolute_path+'/../output/OD_tables_no_growth/intraSF/SF_OD_YR0_DY{}_HR{}.csv'.format(day, hour), index=False)
         if day ==2: ### Only for Wednesday do we consider the traffic increase. As Wednesday was used for the 10 year emission analysis
-            processed_year_0_OD_df.to_csv(absolute_path+'/../output/OD_tables_growth/intraSF/SF_OD_YR0_DY{}_HR{}.csv'.format(day, hour), index=False)
-        processed_year_0_OD_df.to_csv(absolute_path+'/../output/OD_tables_no_growth/intraSF/SF_OD_YR0_DY{}_HR{}.csv'.format(day, hour), index=False)
+            year_0_OD[['O', 'D', 'flow']].to_csv(absolute_path+'/../output/OD_tables_growth/intraSF/SF_OD_YR0_DY{}_HR{}.csv'.format(day, hour), index=False)
+        year_0_OD[['O', 'D', 'flow']].to_csv(absolute_path+'/../output/OD_tables_no_growth/intraSF/SF_OD_YR0_DY{}_HR{}.csv'.format(day, hour), index=False)
 
 if __name__ == '__main__':
-    main()
-    #process_year_0(day = 6)
+    #main()
+    process_year_0(day = 2)
