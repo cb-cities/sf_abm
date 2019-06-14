@@ -156,7 +156,7 @@ def update_graph(edge_volume, edges_df, day, hour, ss_id, hour_demand, assigned_
 
     return edges_df, probed_link_list
 
-def read_OD(year, day, hour, traffic_growth, probe_ratio, eco_route_ratio):
+def read_OD(year, day, hour, case, traffic_growth, probe_ratio, eco_route_ratio):
     ### Read the OD table of this time step
 
     logger = logging.getLogger('read_OD')
@@ -182,7 +182,11 @@ def read_OD(year, day, hour, traffic_growth, probe_ratio, eco_route_ratio):
     OD['origin_sp'] = OD['node_id_igraph_O'] + 1 ### the node id in module sp is 1 higher than igraph id
     OD['destin_sp'] = OD['node_id_igraph_D'] + 1
     OD['probe'] = np.random.choice([0, 1], size=OD.shape[0], p=[1-probe_ratio, probe_ratio]) ### Randomly assigning probe_ratio of vehicles to report speed
-    OD['eco'] = np.random.choice([0, 1], size=OD.shape[0], p=[1-eco_route_ratio, eco_route_ratio]) ### Randomly assigning eco_route_ratio of vehicles to route by least emission route
+    ### If case does not involve eco-routing, then the random number should not be generated to make the results match the no traffic growth case.
+    if case is in ['nr', 'em']:
+        OD['eco'] = 0
+    else:
+        OD['eco'] = np.random.choice([0, 1], size=OD.shape[0], p=[1-eco_route_ratio, eco_route_ratio]) ### Randomly assigning eco_route_ratio of vehicles to route by least emission route
     OD = OD[['agent_id', 'origin_sp', 'destin_sp', 'flow', 'probe', 'eco']]
     OD = OD.sample(frac=1).reset_index(drop=True) ### randomly shuffle rows
 
@@ -248,7 +252,7 @@ def sta(outdir, edges_df, year=0, day=2, random_seed=0, probe_ratio=1, budget=10
             t_hour_0 = time.time()
 
             ### Read OD
-            OD = read_OD(year, day, hour, traffic_growth, probe_ratio, eco_route_ratio)
+            OD = read_OD(year, day, hour, case, traffic_growth, probe_ratio, eco_route_ratio)
             ### Total OD, assigned OD
             hour_demand = OD.shape[0]
             assigned_demand = 0
