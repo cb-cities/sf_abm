@@ -74,7 +74,7 @@ def check():
 
 
 if __name__ == '__main__':
-    for year in range(11):
+    for year in range(1, 11):
         main(year=year)
     #check()
 
