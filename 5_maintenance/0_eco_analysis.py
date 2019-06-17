@@ -146,7 +146,7 @@ def eco_incentivize(random_seed, budget, eco_route_ratio, iri_impact, case, traf
 
         if (case in ['nr', 'em']) and (not traffic_growth):
             for hour in range(3, 27):
-                hour_volume_df = pd.read_csv(absolute_path+'/{}/edges_df_singleyear/edges_df_DY{}_HR{}_r0_p1.csv'.format(outdir, day, hours))
+                hour_volume_df = pd.read_csv(absolute_path+'/{}/edges_df_singleyear/edges_df_DY{}_HR{}_r0_p1.csv'.format(outdir, day, hour))
                 aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df)
 
         elif (case in ['ee', 'er']) or traffic_growth:
@@ -205,8 +205,8 @@ def eco_incentivize(random_seed, budget, eco_route_ratio, iri_impact, case, traf
             repair_df = df[(~df['type'].isin(highway_type)) & (df['ispublicworks']==1)].copy()
             repair_df = repair_df.groupby(['cnn_expand']).agg({'aad_emi_potential': np.sum}).reset_index().nlargest(budget, 'aad_emi_potential')
             repair_list = repair_df['cnn_expand'].tolist()
-            # extract_df = df.loc[df['cnn_expand'].isin(repair_list)]
-            #extract_df[['edge_id_igraph', 'aad_emi_potential']].to_csv('repair_df/repair_df_y{}_c{}_b{}_e{}_i{}.csv'.format(year, case, budget, eco_route_ratio, iri_impact))
+            extract_df = df.loc[df['cnn_expand'].isin(repair_list)]
+            extract_df[['edge_id_igraph', 'aad_vol', 'aad_emi_potential']].to_csv(absolute_path+'/{}/repair_df/repair_df_y{}_c{}_tg{}_b{}_e{}_i{}.csv'.format(outdir, year, case, traffic_growth, budget, eco_route_ratio, iri_impact))
             return repair_list
 
         if case in ['nr', 'er']: 
@@ -323,7 +323,8 @@ def scenarios():
 
     step_results_list = eco_incentivize(random_seed, budget, eco_route_ratio, iri_impact, case, traffic_growth, day, probe_ratio, total_years)
     results_df = pd.DataFrame(step_results_list, columns=['random_seed', 'case', 'budget', 'iri_impact', 'eco_route_ratio', 'year', 'emi_total', 'emi_local', 'emi_highway', 'emi_localroads_base',  'pci_average', 'pci_local', 'pci_highway', 'vht_total', 'vht_local', 'vht_highway', 'vkmt_total', 'vkmt_local', 'vkmt_highway'])
-    #print(results_df.iloc[-1])
+    results_df['tg'] = traffic_growth
+    print(results_df.iloc[-1])
     results_df.to_csv(absolute_path+'/{}/results/scen_res_r{}_b{}_e{}_i{}_c{}_tg{}.csv'.format(outdir, random_seed, budget, eco_route_ratio, iri_impact, case, traffic_growth), index=False)
 
 if __name__ == '__main__':

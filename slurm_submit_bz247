@@ -23,7 +23,7 @@
 #SBATCH --cpus-per-task=32
 #! Bingyu added this part for specifying environment variables
 #!SBATCH --export=PROBE_RATIO=0.001,COV=2.0
-#SBATCH --export=BUDGET=700,ECO_ROUTE_RATIO=0.0,IRI_IMPACT=0.03,CASE='em',TRAFFIC_GROWTH=1
+#SBATCH --export=BUDGET=700,ECO_ROUTE_RATIO=1.0,IRI_IMPACT=0.03,CASE='ee',TRAFFIC_GROWTH=1
 #!SBATCH --export=SLURM_ARRAY_TASK_ID=0
 #!SBATCH --array=0-9
 #! How much wallclock time will be required?
