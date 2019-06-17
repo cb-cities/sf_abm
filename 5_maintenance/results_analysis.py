@@ -23,21 +23,19 @@ pd.set_option('display.max_columns', 10)
 
 absolute_path = os.path.dirname(os.path.abspath(__file__))
 
-def scen34_results(outdir):
+def scen_results(outdir):
 
     subscen_list = []
-    for f in glob.glob(absolute_path+'/{}/results/scen34_results_b*.csv'.format(outdir)):
+    for f in glob.glob(absolute_path+'/{}/results/scen_res_r0_*.csv'.format(outdir)):
         subscen = pd.read_csv(f)
         subscen = subscen.loc[subscen['year']<=10]
-        subscen = subscen[['case','budget','iri_impact','eco_route_ratio','year','emi_total','emi_local','emi_highway','pci_average','pci_local','pci_highway','vht_total','vht_local','vht_highway','vkmt_total','vkmt_local','vkmt_highway']]
+        subscen = subscen[['tg', 'case','budget','iri_impact','eco_route_ratio','year','emi_total','emi_local','emi_highway','pci_average','pci_local','pci_highway','vht_total','vht_local','vht_highway','vkmt_total','vkmt_local','vkmt_highway']]
         subscen_list.append(subscen)
     
-    scen34_results_df = pd.concat(subscen_list, ignore_index=True)
-    #scen34_results_df = pd.concat([pd.read_csv(f) for f in glob.glob(absolute_path+'/{}/results/scen34_results*.csv'.format(outdir))], ignore_index=True)
-    #scen34_results_df = scen34_results_df.drop(columns=['Unnamed: 0'])
-    print(scen34_results_df.head())
+    scen_results_df = pd.concat(subscen_list, ignore_index=True)
+    print(scen_results_df.head())
 
-    scen34_results_df.to_csv(absolute_path+'/{}/results/scen34_results.csv'.format(outdir), index=False)
+    scen_results_df.to_csv(absolute_path+'/{}/results/scen_tg1_results.csv'.format(outdir), index=False)
 
 
 def plot_scen12_results(data, variable, ylim=[0,100], ylabel='None', scen_no=0, title = '', base_color=[0, 0, 1]):
@@ -82,7 +80,7 @@ def plot_scen12_results(data, variable, ylim=[0,100], ylabel='None', scen_no=0, 
     plt.ylabel(ylabel, fontdict={'size': '16'}, labelpad=10)
     if variable[0:3] != 'pci': plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
     #plt.show()
-    plt.savefig('Figs/{}_scen{}_highiri.png'.format(variable, scen_no), dpi=300, transparent=True)
+    plt.savefig(absolute_path + '/{}/Figs/{}_scen{}_highiri.png'.format(outdir, variable, scen_no), dpi=300, transparent=True)  
 
 def plot_scen34_results(data, variable, ylim=[0,100], ylabel='None', scen_no=4, half_title='Eco maintenance + ', base_color_map={0.1: [0, 0.6, 1], 0.5: [0, 0, 1], 1.0: [0.6, 0, 1]}):
 
@@ -133,16 +131,16 @@ def plot_scen34_results(data, variable, ylim=[0,100], ylabel='None', scen_no=4, 
     plt.ylabel(ylabel, fontdict={'size': '16'}, labelpad=10)
     if variable != 'pci_average': plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
     #plt.show()
-    plt.savefig('Figs/{}_scen{}_highiri.png'.format(variable, scen_no), dpi=300, transparent=True)  
+    plt.savefig(absolute_path + '/{}/Figs/{}_scen{}_highiri.png'.format(outdir, variable, scen_no), dpi=300, transparent=True)  
 
 
 if __name__ == '__main__':
 
-    outdir = 'output_march19'
-    # scen34_results(outdir)
+    outdir = 'output_Jun2019'
+    # scen_results(outdir)
     # sys.exit(0)
 
-    variable = 'emi_local' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
+    variable = 'emi_total' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
     ylim_dict = {
         'emi_total': [3600, 4000], 'emi_local': [1750, 2050], 'emi_highway': [1400, 1700],
         'vkmt_total': [1.45e7, 1.6e7], 'vkmt_local': [7.3e6, 7.8e6], 'vkmt_highway': [7.0e6, 8.6e6],
@@ -167,6 +165,11 @@ if __name__ == '__main__':
     # data = results_df[(results_df['case']=='eco') & (results_df['iri_impact']==0.03)]
     # plot_scen12_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=2, title = 'Eco-maintenance', base_color=[1, 0, 0])
     # sys.exit(0)
+    results_df = pd.read_csv('{}/results/scen_tg1_results.csv'.format(outdir))
+    data = results_df[results_df['case'].isin(['nr'])].reset_index(drop=False)
+    print(data.shape)
+    plot_scen12_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=1, title = 'PCI-based maintenance', base_color=[0, 0, 0])
+    sys.exit(0)
 
     results_df = pd.read_csv('{}/results/scen34_results.csv'.format(outdir))
     # data = results_df[(results_df['case']=='er') & (results_df['iri_impact']==0.03) & (results_df['budget']==700)]

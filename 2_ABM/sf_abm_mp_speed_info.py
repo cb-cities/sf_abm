@@ -183,7 +183,9 @@ def read_OD(day, hour, probe_ratio):
     OD['destin_sp'] = OD['node_id_igraph_D'] + 1
     OD['probe'] = np.random.choice([0, 1], size=OD.shape[0], p=[1-probe_ratio, probe_ratio]) ### Randomly assigning 1% of vehicles to report speed
     OD = OD[['agent_id', 'origin_sp', 'destin_sp', 'flow', 'probe']]
+    print(OD.head())
     OD = OD.sample(frac=1).reset_index(drop=True) ### randomly shuffle rows
+    print(OD.head())
 
     t_OD_1 = time.time()
     logger.debug('DY{}_HR{}: {} sec to read {} OD pairs, {} probes \n'.format(day, hour, t_OD_1-t_OD_0, OD.shape[0], sum(OD['probe'])))
@@ -241,7 +243,7 @@ def sta(random_seed=0, probe_ratio=1, cov=0):
         edges_df['previous_t'] = edges_df['fft'] ### Used to find which edge to update. At the beginning of each day, previous_t is the free flow time.
 
         OD_count = 0
-        for hour in range(3, 5):
+        for hour in range(3, 6):
 
             #logger.info('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()

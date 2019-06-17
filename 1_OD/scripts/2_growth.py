@@ -12,6 +12,8 @@ import itertools
 import json
 import random
 
+pd.set_option('display.max_columns', 10)
+
 absolute_path = os.path.dirname(os.path.abspath(__file__))
 np.random.seed(0)
 random.seed(0)
@@ -24,6 +26,7 @@ def district_growth_rate():
     ### Keep only driving mode and total counts
     district_data = district_data[
         district_data['group_mode'].isin(['drive', 'uber/lyft']) & 
+        #district_data['group_mode'].isin(['walk/bike']) & 
         district_data['group_purpose'].isin(['total'])]
 
     ### Change origin name in accordance with destination name (column headers)
@@ -55,7 +58,7 @@ def district_growth_rate():
     district_growth['pickups_year_growth'] = np.power(district_growth['pickups_2050']/district_growth['pickups_2015'], 1/(50-15))
     district_growth['dropoffs_year_growth'] = np.power(district_growth['dropoffs_2050']/district_growth['dropoffs_2015'], 1/(50-15))
 
-    # print(district_growth[district_growth['district'].isin(outside_SF_districts)][['pickups_year_growth', 'dropoffs_year_growth']])
+    print(district_growth[['district', 'pickups_year_growth', 'dropoffs_year_growth']])
     
     # district_growth.to_csv('connectsf_district_growth_2.csv', index=False)
     # sys.exit(0)
@@ -229,5 +232,6 @@ def process_year_0(day = 2):
         year_0_OD[['O', 'D', 'flow']].to_csv(absolute_path+'/../output/OD_tables_no_growth/intraSF/SF_OD_YR0_DY{}_HR{}.csv'.format(day, hour), index=False)
 
 if __name__ == '__main__':
+    district_growth_rate()
     #main()
-    process_year_0(day = 2)
+    #process_year_0(day = 2)

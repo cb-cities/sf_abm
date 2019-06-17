@@ -146,7 +146,7 @@ def eco_incentivize(random_seed, budget, eco_route_ratio, iri_impact, case, traf
 
         if (case in ['nr', 'em']) and (not traffic_growth):
             for hour in range(3, 27):
-                hour_volume_df = pd.read_csv(absolute_path+'/{}/edges_df_singleyear/edges_df_DY{}_HR{}_r0_p1.csv'.format(outdir, day, hours))
+                hour_volume_df = pd.read_csv(absolute_path+'/{}/edges_df_singleyear/edges_df_DY{}_HR{}_r0_p1.csv'.format(outdir, day, hour))
                 aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df)
 
         elif (case in ['ee', 'er']) or traffic_growth:
@@ -310,8 +310,8 @@ def scenarios():
     budget = 700#int(os.environ['BUDGET']) ### 200 or 700
     eco_route_ratio = 1.0#float(os.environ['ECO_ROUTE_RATIO']) ### 0.1, 0.5 or 1
     iri_impact = 0.03#float(os.environ['IRI_IMPACT']) ### 0.01 or 0.03
-    case = 'ee'#os.environ['CASE'] ### 'nr' no eco-routing or eco-maintenance, 'em' for eco-maintenance, 'er' for 'routing_only', 'ee' for 'both'
-    traffic_growth = 0 #int(os.environ['TRAFFIC_GROWTH']) ### 1 or 0
+    case = 'em'#os.environ['CASE'] ### 'nr' no eco-routing or eco-maintenance, 'em' for eco-maintenance, 'er' for 'routing_only', 'ee' for 'both'
+    traffic_growth = 1 #int(os.environ['TRAFFIC_GROWTH']) ### 1 or 0
     print('random_seed {}, budget {}, eco_route_ratio {}, iri_impact {}, case {}, traffic_growth {}'.format(random_seed, budget, eco_route_ratio, iri_impact, case, traffic_growth))
 
     ### ABM parameters
