@@ -74,7 +74,7 @@
       </filegroup>
     </legendlayer>
   </legend>
-  <Composer title="sf" visible="0">
+  <Composer title="sf" visible="1">
     <Composition resizeToContentsMarginLeft="0" snapping="0" showPages="1" guidesVisible="1" resizeToContentsMarginTop="0" worldFileMap="{4f27b0e2-70b3-4ec1-b808-91a921d80ee8}" alignmentSnap="1" printResolution="300" paperWidth="297" gridVisible="0" snapGridOffsetX="0" smartGuides="1" snapGridOffsetY="0" resizeToContentsMarginRight="0" snapTolerancePixels="5" printAsRaster="0" generateWorldFile="0" paperHeight="210" numPages="1" snapGridResolution="10" resizeToContentsMarginBottom="0">
       <symbol alpha="1" clip_to_extent="1" type="fill" name="">
         <layer pass="0" class="SimpleFill" locked="0">
@@ -100,6 +100,36 @@
           <customproperties/>
         </ComposerItem>
       </ComposerLabel>
+      <ComposerArrow arrowHeadFillColor="0,0,0,255" arrowHeadOutlineColor="0,0,0,255" startMarkerFile="" boundsBehaviourVersion="24" arrowHeadWidth="2" endMarkerFile="" outlineWidth="1" markerMode="0">
+        <lineStyle>
+          <symbol alpha="1" clip_to_extent="1" type="line" name="">
+            <layer pass="0" class="SimpleLine" locked="0">
+              <prop k="capstyle" v="square"/>
+              <prop k="customdash" v="5;2"/>
+              <prop k="customdash_map_unit_scale" v="0,0,0,0,0,0"/>
+              <prop k="customdash_unit" v="MM"/>
+              <prop k="draw_inside_polygon" v="0"/>
+              <prop k="joinstyle" v="bevel"/>
+              <prop k="line_color" v="0,0,0,255"/>
+              <prop k="line_style" v="solid"/>
+              <prop k="line_width" v="0.6"/>
+              <prop k="line_width_unit" v="MM"/>
+              <prop k="offset" v="0"/>
+              <prop k="offset_map_unit_scale" v="0,0,0,0,0,0"/>
+              <prop k="offset_unit" v="MM"/>
+              <prop k="use_custom_dash" v="0"/>
+              <prop k="width_map_unit_scale" v="0,0,0,0,0,0"/>
+            </layer>
+          </symbol>
+        </lineStyle>
+        <StartPoint x="173.583" y="105.637"/>
+        <StopPoint x="170.412" y="93.4067"/>
+        <ComposerItem pagey="91.6996" page="1" id="" lastValidViewScaleFactor="-1" positionMode="0" positionLock="false" x="168.705" y="91.6996" visibility="1" zValue="4" background="false" transparency="0" frameJoinStyle="miter" blendMode="0" width="6.58503" outlineWidth="0.3" excludeFromExports="0" uuid="{cc5641db-eeb8-4324-b6ba-e18d0326e285}" height="15.6445" itemRotation="0" frame="false" pagex="168.705">
+          <FrameColor alpha="255" red="0" blue="0" green="0"/>
+          <BackgroundColor alpha="255" red="255" blue="255" green="255"/>
+          <customproperties/>
+        </ComposerItem>
+      </ComposerArrow>
       <ComposerPicture resizeMode="0" svgBorderWidth="0.2" pictureRotation="0" pictureWidth="23.2095" svgFillColor="255,255,255,255" svgBorderColor="0,0,0,255" northMode="0" file="/Applications/QGIS.app/Contents/Resources/svg/arrows/Arrow_03.svg" northOffset="0" pictureHeight="23.2095" mapId="-1" anchorPoint="0">
         <ComposerItem pagey="163.67" page="1" id="" lastValidViewScaleFactor="-1" positionMode="0" positionLock="false" x="16.4853" y="163.67" visibility="1" zValue="3" background="false" transparency="0" frameJoinStyle="miter" blendMode="0" width="23.2095" outlineWidth="0.3" excludeFromExports="0" uuid="{9beb0f01-7f63-4f6f-964e-b228d384291e}" height="29.5734" itemRotation="0" frame="false" pagex="16.4853">
           <FrameColor alpha="255" red="0" blue="0" green="0"/>
@@ -131,13 +161,7 @@
           <customproperties/>
         </ComposerItem>
       </ComposerMap>
-      <customproperties>
-        <property key="imageCropMarginBottom" value="0"/>
-        <property key="imageCropMarginLeft" value="0"/>
-        <property key="imageCropMarginRight" value="0"/>
-        <property key="imageCropMarginTop" value="0"/>
-        <property key="imageCropToContents" value="false"/>
-      </customproperties>
+      <customproperties/>
     </Composition>
   </Composer>
   <projectlayers>
@@ -414,7 +438,7 @@
       <attributetableconfig actionWidgetStyle="dropDown" sortExpression="" sortOrder="89392240">
         <columns>
           <column width="-1" hidden="0" type="field" name="DIST15"/>
-          <column width="350" hidden="0" type="field" name="DIST15NAME"/>
+          <column width="-1" hidden="0" type="field" name="DIST15NAME"/>
           <column width="-1" hidden="0" type="field" name="pickup_grw"/>
           <column width="-1" hidden="1" type="actions"/>
         </columns>

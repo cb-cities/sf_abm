@@ -34,7 +34,7 @@ Next step:
 '''
 
 absolute_path = os.path.dirname(os.path.abspath(__file__))
-folder='berkeley' ### sf_overpass
+folder='sf_overpass' ### sf_overpass
 
 def populate_attributes(w):
 
@@ -234,7 +234,7 @@ def osm_to_json(output_csv=False, folder = 'sf'):
     ### Clean the OSM data by removing curve nodes, separate into nodes and ways, output .json (for further processing) and .geosjon (for visualisation).
 
     # Load OSM data as downloaded from overpass
-    osm_data = json.load(open(absolute_path+'/../data/{}/target_berkeley.osm'.format(folder)))
+    osm_data = json.load(open(absolute_path+'/../data/{}/target.osm'.format(folder)))
     osm_data = osm_data['elements']
     print('length of the OSM data: ', len(osm_data))
 
@@ -250,6 +250,10 @@ def osm_to_json(output_csv=False, folder = 'sf'):
     crossings_stops = [k for k, v in all_nodes.items() if v[2] in ['crossing', 'stop']]
     traffic_signals = [k for k, v in all_nodes.items() if v[2] in ['traffic_signals', 'psv:traffic_signals']]
     print('{} nodes, including {} crossings_stops and {} traffic_signals'.format(len(all_nodes), len(crossings_stops), len(traffic_signals)))
+    all_nodes_df = pd.DataFrame.from_dict(all_nodes, orient='index', columns=['lat', 'lon', 'highway'])
+    all_nodes_df = all_nodes_df.reset_index().rename(columns={'index': 'osmid'})
+    all_nodes_df.to_csv(absolute_path+'/../data/{}/all_nodes.csv'.format(folder), index=False)
+    sys.exit(0)
     #random_key = random.choice(list(all_nodes))
     #print('example, {}: {}'.format(random_key, all_nodes[random_key]))
 
@@ -385,7 +389,7 @@ def convert_to_mtx(g, folder, scenario):
 
 if __name__ == '__main__':
     nodes_df, edges_df = osm_to_json(output_csv=False, folder = folder)
-    g = graph_simplify(nodes_df, edges_df)
-    convert_to_mtx(g, folder=folder, scenario = 'original')
+    #g = graph_simplify(nodes_df, edges_df)
+    #convert_to_mtx(g, folder=folder, scenario = 'original')
 
 
