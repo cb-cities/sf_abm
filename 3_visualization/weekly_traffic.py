@@ -17,24 +17,34 @@ def weekly_traffic(case):
     ### Aggregate hourly flow to weekly flow
     network_attr_df = pd.read_csv(absolute_path+'/../0_network/data/{}/edges_elevation.csv'.format(folder))
     network_attr_df = network_attr_df[['edge_id_igraph', 'lanes', 'length', 'geometry']]
-    network_attr_df[case] = 0
+    network_attr_df['{}_traffic'.format(case)] = 0
+    network_attr_df['{}_veh_hr_delay'.format(case)] = 0
 
     random_seed = 0
     probe_ratio = 1
-    if case=='sevenday_traffic':
+    if case=='sevenday':
         day_list = [0, 1, 2, 3, 4, 5, 6]
-    else:
+    elif case=='fiveday':
         day_list = [0, 1, 2, 3, 4]
+    else:
+        print('no such case')
 
     for day in day_list:
         for hour in range(3, 27):
             hour_edge_flow_df = pd.read_csv(absolute_path+'/../2_ABM/output/edges_df/edges_df_DY{}_HR{}_r{}_p{}.csv'.format(day, hour, random_seed, probe_ratio))
-            network_attr_df = pd.merge(network_attr_df, hour_edge_flow_df[['edge_id_igraph', 'true_flow']], on = ['edge_id_igraph'])
-            network_attr_df[case] += network_attr_df['true_flow']
-            network_attr_df = network_attr_df[['edge_id_igraph', 'lanes', 'length', case]]
+            network_attr_df = pd.merge(network_attr_df, hour_edge_flow_df[['edge_id_igraph', 'true_flow', 't_avg']], on = ['edge_id_igraph'])
+            network_attr_df['{}_traffic'.format(case)] += network_attr_df['true_flow']
+            network_attr_df['{}_veh_hr_delay'.format(case)] += network_attr_df['true_flow']*network_attr_df['t_avg']/3600
+            network_attr_df = network_attr_df[['edge_id_igraph', 'lanes', 'length', '{}_traffic'.format(case), '{}_veh_hr_delay'.format(case), 'geometry']]
+    for day in day_list:
+        for hour in [18]:
+            hour_edge_flow_df = pd.read_csv(absolute_path+'/../2_ABM/output/edges_df/edges_df_DY{}_HR{}_r{}_p{}.csv'.format(day, hour, random_seed, probe_ratio))
+            network_attr_df = pd.merge(network_attr_df, hour_edge_flow_df[['edge_id_igraph', 't_avg']], on = ['edge_id_igraph'])
+            network_attr_df = network_attr_df.rename(columns={'t_avg': 't_avg_DY{}_HR{}'.format(day, hour)})
 
     ### Directed flow
-    network_attr_df.to_csv('directed_{}.csv'.format(case), index=False)
+    network_attr_df.to_csv('output/directed_{}_20190623.csv'.format(case), index=False)
+    sys.exit(0)
 
     ### Merge results from two directions
     network_attr_df['edge_id_igraph_str'] = network_attr_df['edge_id_igraph'].astype(str)
@@ -90,7 +100,7 @@ def delay_time():
 
 
 if __name__ == '__main__':
-    weekly_traffic('sevenday_traffic')
+    weekly_traffic('fiveday')
     #delay_time()
 
 
