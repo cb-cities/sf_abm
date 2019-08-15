@@ -23,97 +23,19 @@ pd.set_option('display.max_columns', 10)
 
 absolute_path = os.path.dirname(os.path.abspath(__file__))
 
-def base_co2(mph_array):
-    ### CO2 - speed function constants (Barth and Boriboonsomsin, "Real-World Carbon Dioxide Impacts of Traffic Congestion")
-    b0 = 7.362867270508520
-    b1 = -0.149814315838651
-    b2 = 0.004214810510200
-    b3 = -0.000049253951464
-    b4 = 0.000000217166574
-    return np.exp(b0 + b1*mph_array + b2*mph_array**2 + b3*mph_array**3 + b4*mph_array**4)
-
-def aad_vol_vmt_baseemi(aad_df, hour_volume_df):
-    ### volume_df[['edge_id_igraph', 'length', 'aad_vol', 'aad_vmt', 'aad_base_emi']]
-    ### hour_volume_df[['edge_id_igraph', 'hour_flow', 'carryover_flow', 't_avg']]
-
-    aad_df = pd.merge(aad_df, hour_volume_df, on='edge_id_igraph', how='left')
-    aad_df['vht'] = aad_df['true_flow'] * aad_df['t_avg']/3600
-    aad_df['v_avg_mph'] = aad_df['length']/aad_df['t_avg'] * 2.23694 ### time step link speed in mph
-    aad_df['base_co2'] = base_co2(aad_df['v_avg_mph']) ### link-level co2 eimission in gram per mile per vehicle
-    aad_df['base_co2'] = aad_df['base_co2'] * aad_df['slope_factor']
-    aad_df['base_emi'] = aad_df['base_co2'] * aad_df['length'] /1609.34 * aad_df['true_flow'] ### speed related CO2 x length x flow. Final results unit is gram.
-
-    aad_df['aad_vol'] += aad_df['true_flow']
-    aad_df['aad_vht'] += aad_df['vht']
-    aad_df['aad_vmt'] += aad_df['true_flow']*aad_df['length']
-    aad_df['aad_base_emi'] += aad_df['base_emi']
-    aad_df = aad_df[['edge_id_igraph', 'length', 'slope_factor', 'aad_vol', 'aad_vht', 'aad_vmt', 'aad_base_emi']]
-    return aad_df
-
-def eco_incentivize_analysis():
-
-    day = 2
-    random_seed = 0
-    probe_ratio = 1
-    results_list = []
-
-    budget_list = [400, 1500]
-    eco_route_ratio_list = [0.1, 0.5, 1.0]
-    iri_impact_list = [0.01, 0.03]
-    case_list = ['ee', 'er']
-
-    for (budget, eco_route_ratio, iri_impact, case) in list(itertools.product(budget_list, eco_route_ratio_list, iri_impact_list, case_list)):
-
-        print(budget, eco_route_ratio, iri_impact, case)
-
-        for year in range(10):
-            print(year)
-            ### ['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']
-            try:
-                edges_df = pd.read_csv(absolute_path+'/output_march/edge_df/edges_b{}_e{}_i{}_c{}_y{}.csv'.format(budget, eco_route_ratio, iri_impact, case, year))
-            except FileNotFoundError:
-                print('no file')
-                continue
-
-            aad_df = edges_df[['edge_id_igraph', 'length', 'slope_factor', 'pci_current']].copy()
-            aad_df['aad_vol'] = 0
-            aad_df['aad_vht'] = 0 ### daily vehicle hours travelled
-            aad_df['aad_vmt'] = 0
-            aad_df['aad_base_emi'] = 0
-
-            for hour in range(3, 27):
-                hour_volume_df = pd.read_csv(absolute_path+'/output_march/edges_df_abm/edges_df_b{}_e{}_i{}_c{}_y{}_HR{}.csv'.format(budget, eco_route_ratio, iri_impact, case, year, hour))
-                ### ['edge_id_igraph', 'length', 'aad_vol', 'aad_vht', 'aad_vmt', 'aad_base_emi']
-                aad_df = aad_vol_vmt_baseemi(aad_df, hour_volume_df)
-                gc.collect()
-
-            aad_df = pd.merge(aad_df, edges_df[['edge_id_igraph', 'pci_current']], on='edge_id_igraph', how='left')
-            ### Adjust emission by considering the impact of pavement degradation
-            aad_df['aad_pci_emi'] = aad_df['aad_base_emi']*(1+0.0714*iri_impact*(100-aad_df['pci_current'])) ### daily emission (aad) in gram
-
-            vkmt_total = np.sum(aad_df['aad_vmt'])/1000 ### vehicle kilometers travelled
-            vht_total = np.sum(aad_df['aad_vht']) ### vehicle hours travelled
-            emi_total = np.sum(aad_df['aad_pci_emi'])/1e6 ### co2 emission in t
-            pci_average = np.mean(aad_df['pci_current'])
-            results_list.append([case, budget, eco_route_ratio, iri_impact, year, emi_total, vkmt_total, vht_total, pci_average])
-
-    results_df = pd.DataFrame(results_list, columns=['case', 'budget', 'eco_route_ratio', 'iri_impact', 'year', 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'])
-    results_df.to_csv('output_march/scen34_results.csv', index=False)
-
-def scen34_results(outdir):
+def scen_results(outdir):
 
     subscen_list = []
-    for f in glob.glob(absolute_path+'/{}/results/scen34_results_b*.csv'.format(outdir)):
+    for f in glob.glob(absolute_path+'/{}/results/scen_res_r0_*.csv'.format(outdir)):
         subscen = pd.read_csv(f)
         subscen = subscen.loc[subscen['year']<=10]
-        subscen = subscen[['case','budget','iri_impact','eco_route_ratio','year','emi_total','emi_local','emi_highway','pci_average','pci_local','pci_highway','vht_total','vht_local','vht_highway','vkmt_total','vkmt_local','vkmt_highway']]
+        subscen = subscen[['tg', 'case','budget','iri_impact','eco_route_ratio','year','emi_total','emi_local','emi_highway','pci_average','pci_local','pci_highway','vht_total','vht_local','vht_highway','vkmt_total','vkmt_local','vkmt_highway']]
         subscen_list.append(subscen)
     
-    scen34_results_df = pd.concat(subscen_list, ignore_index=True)
-    #scen34_results_df = pd.concat([pd.read_csv(f) for f in glob.glob(absolute_path+'/{}/results/scen34_results*.csv'.format(outdir))], ignore_index=True)
-    #scen34_results_df = scen34_results_df.drop(columns=['Unnamed: 0'])
-    print(scen34_results_df.head())
+    scen_results_df = pd.concat(subscen_list, ignore_index=True)
+    print(scen_results_df.head())
 
+    scen_results_df.to_csv(absolute_path+'/{}/results/scen_tg1_results.csv'.format(outdir), index=False)
 
 def plot_scen12_results(data, variable, ylim=[0,100], ylabel='None', scen_no=0, title = '', base_color=[0, 0, 1]):
 
@@ -157,7 +79,7 @@ def plot_scen12_results(data, variable, ylim=[0,100], ylabel='None', scen_no=0, 
     plt.ylabel(ylabel, fontdict={'size': '16'}, labelpad=10)
     if variable[0:3] != 'pci': plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
     #plt.show()
-    plt.savefig('Figs/{}_scen{}_highiri.png'.format(variable, scen_no), dpi=300, transparent=True)
+    plt.savefig(absolute_path + '/{}/Figs/{}_scen{}_highiri.png'.format(outdir, variable, scen_no), dpi=300, transparent=True)  
 
 def plot_scen34_results(data, variable, ylim=[0,100], ylabel='None', scen_no=4, half_title='Eco maintenance + ', base_color_map={0.1: [0, 0.6, 1], 0.5: [0, 0, 1], 1.0: [0.6, 0, 1]}):
 
@@ -208,15 +130,15 @@ def plot_scen34_results(data, variable, ylim=[0,100], ylabel='None', scen_no=4, 
     plt.ylabel(ylabel, fontdict={'size': '16'}, labelpad=10)
     if variable != 'pci_average': plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
     #plt.show()
-    plt.savefig('Figs/{}_scen{}_highiri.png'.format(variable, scen_no), dpi=300, transparent=True)  
+    plt.savefig(absolute_path + '/{}/Figs/{}_scen{}_highiri.png'.format(outdir, variable, scen_no), dpi=300, transparent=True)  
 
 if __name__ == '__main__':
 
-    outdir = 'output_march19'
-    # scen34_results(outdir)
+    outdir = 'output_Jun2019'
+    # scen_results(outdir)
     # sys.exit(0)
 
-    variable = 'emi_local' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
+    variable = 'emi_total' ### 'emi_total', 'vkmt_total', 'vht_total', 'pci_average'
     ylim_dict = {
         'emi_total': [3600, 4000], 'emi_local': [1750, 2050], 'emi_highway': [1400, 1700],
         'vkmt_total': [1.45e7, 1.6e7], 'vkmt_local': [7.3e6, 7.8e6], 'vkmt_highway': [7.0e6, 8.6e6],
@@ -241,6 +163,11 @@ if __name__ == '__main__':
     # data = results_df[(results_df['case']=='eco') & (results_df['iri_impact']==0.03)]
     # plot_scen12_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=2, title = 'Eco-maintenance', base_color=[1, 0, 0])
     # sys.exit(0)
+    results_df = pd.read_csv('{}/results/scen_tg1_results.csv'.format(outdir))
+    data = results_df[results_df['case'].isin(['nr'])].reset_index(drop=False)
+    print(data.shape)
+    plot_scen12_results(data, variable, ylim=ylim_dict[variable], ylabel=ylabel_dict[variable], scen_no=1, title = 'PCI-based maintenance', base_color=[0, 0, 0])
+    sys.exit(0)
 
     results_df = pd.read_csv('{}/results/scen34_results.csv'.format(outdir))
     # data = results_df[(results_df['case']=='er') & (results_df['iri_impact']==0.03) & (results_df['budget']==700)]

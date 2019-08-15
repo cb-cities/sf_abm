@@ -1,3 +1,5 @@
+**/*.qgs
+**/*.dbf
 sf_abm_mp_profile.txt
 sp/
 *.out

@@ -186,7 +186,9 @@ def read_OD(day, hour, probe_ratio):
     OD['destin_sp'] = OD['node_id_igraph_D'] + 1
     OD['probe'] = np.random.choice([0, 1], size=OD.shape[0], p=[1-probe_ratio, probe_ratio]) ### Randomly assigning 1% of vehicles to report speed
     OD = OD[['agent_id', 'origin_sp', 'destin_sp', 'flow', 'probe']]
+    print(OD.head())
     OD = OD.sample(frac=1).reset_index(drop=True) ### randomly shuffle rows
+    print(OD.head())
 
     t_OD_1 = time.time()
     logger.debug('DY{}_HR{}: {} sec to read {} OD pairs, {} probes \n'.format(day, hour, t_OD_1-t_OD_0, OD.shape[0], sum(OD['probe'])))
@@ -318,14 +320,14 @@ def main():
     logger.info('no carry over volume')
     logger.info('{}'.format(datetime.datetime.now()))
 
-    #probe_ratio = 1
-    probe_ratio = float(os.environ['PROBE_RATIO'])
-    #cov = 0.5 ### 0.5 or 1.0 based on (Mahmassani, Hou & Doung, 2012, "Characterizing")
-    cov = float(os.environ['COV'])
+    probe_ratio = 1
+    #probe_ratio = float(os.environ['PROBE_RATIO'])
+    cov = 0.5 ### 0.5 or 1.0 based on (Mahmassani, Hou & Doung, 2012, "Characterizing")
+    #cov = float(os.environ['COV'])
 
     results_collect = []
-    #for random_seed in [0]:
-    for random_seed in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
+    for random_seed in [0]:
+    #for random_seed in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
         sta_stats = sta(random_seed, probe_ratio, cov)
         sys.exit(0)
         results_collect += sta_stats
