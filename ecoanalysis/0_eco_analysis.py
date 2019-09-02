@@ -173,7 +173,7 @@ def eco_incentivize(random_seed='', budget='', eco_route_ratio='', iri_impact=''
         abm_edges_df = edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'slope_factor', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']].copy()
 
         ### Run ABM
-        # x, y = sf_residual_demand.quasi_sta(abm_edges_df, outdir=outdir, year=year, day=day, quarter_counts=4, random_seed=random_seed, residual=residual, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, traffic_growth=traffic_growth, closure_list=closure_list, closure_case=closure_case)
+        x, y = sf_residual_demand.quasi_sta(abm_edges_df, outdir=outdir, year=year, day=day, quarter_counts=4, random_seed=random_seed, residual=residual, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, traffic_growth=traffic_growth, closure_list=closure_list, closure_case=closure_case)
 
         for hour in range(3, 5):
             for quarter in range(4):
