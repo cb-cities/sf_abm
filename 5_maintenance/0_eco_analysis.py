@@ -248,58 +248,6 @@ def eco_incentivize(random_seed='', budget='', eco_route_ratio='', iri_impact=''
     #print(step_results_list[0:10:9])
     return step_results_list
 
-def degradation_model_sensitivity():
-    
-    budget = 700
-    eco_route_ratio = 0
-    iri_impact = 0.03
-
-    ### Sensitivity parameters
-    offset_list = [True] # [True, False] or [True] ### whether to offset intial value to 74
-    improv_pct_list = [1] # [1, 0.75, 0.5] or [1] ### maintenance gains
-    slope_mlt_list = [1,3,5] # [1, 3, 5] or [1] ### degradation rates
-
-    results_list = []
-    for case in ['normal', 'eco']:
-        for improv_pct in improv_pct_list:
-            for slope_mlt in slope_mlt_list:
-                for offset in offset_list:
-
-                    edges_df0 = preprocessing(offset=offset) 
-                    edges_df = edges_df0.copy()
-                    edges_df['slope'] *= slope_mlt
-                    edges_df['age_current'] /= slope_mlt
-                    step_results_list = eco_incentivize(edges_df, budget, eco_route_ratio, iri_impact, case, improv_pct=improv_pct)
-                    [year_result.extend([improv_pct, slope_mlt, offset]) for year_result in step_results_list]
-                    results_list += step_results_list
-
-
-    results_df = pd.DataFrame(results_list, columns=['case', 'budget', 'iri_impact', 'eco_route_ratio', 'year', 'emi_total', 'emi_local', 'emi_highway', 'emi_localroads_base', 'pci_average', 'pci_local', 'pci_highway', 'vht_total', 'vht_local', 'vht_highway', 'vkmt_total', 'vkmt_local', 'vkmt_highway', 'improv_pct', 'slope_mlt', 'offset'])
-    print(results_df.shape)
-    results_df.to_csv('{}/results/scen12_results_model_sensitivity_slope_mlt.csv'.format(outdir), index=False)
-
-def closure_analysis():
-    
-    ### edge_id_igraph of local roads with highest, mean and 25% bidirectional volumes on Friday
-    closure_dict = {'normal': [], 'max': [6089, 26873], 'mean': [20049, 20053], 'low_quant': [6785, 8192]}
-
-    budget = 0
-    eco_route_ratio = 0
-    iri_impact = 0.03
-    case = 'er' ### eco-routing with 0 percent eco-routing vehicles to invoke the abm.
-    improv_pct = 0
-    edges_df0 = preprocessing()
-
-    day = 4
-    total_years = 1
-
-    for key, value in closure_dict.items():
-        edges_df = edges_df0.copy()
-        results_list = eco_incentivize(edges_df, budget, eco_route_ratio, iri_impact, case, improv_pct=improv_pct, closure_list = value, closure_case = key)
-        results_df = pd.DataFrame(results_list, columns=['case', 'budget', 'iri_impact', 'eco_route_ratio', 'year', 'emi_total', 'emi_local', 'emi_highway', 'emi_localroads_base', 'pci_average', 'pci_local', 'pci_highway', 'vht_total', 'vht_local', 'vht_highway', 'vkmt_total', 'vkmt_local', 'vkmt_highway'])
-        results_df.to_csv(absolute_path+'/{}/results/closure_{}.csv'.format(outdir, key), index=False)
-
-
 def scenarios():
 
     ### Emission analysis parameters
@@ -317,33 +265,18 @@ def scenarios():
     day = 2 ### Wednesday
 
     ### simulation period
-    total_years = 1
+    total_years = 2
 
     residual = 1
     improv_pct = 1
 
     step_results_list = eco_incentivize(random_seed=random_seed, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, traffic_growth=traffic_growth, residual=residual, day=day, total_years=total_years, improv_pct=improv_pct)
     results_df = pd.DataFrame(step_results_list, columns=['random_seed', 'case', 'budget', 'iri_impact', 'eco_route_ratio', 'year', 'emi_total', 'emi_local', 'emi_highway', 'emi_localroads_base',  'pci_average', 'pci_local', 'pci_highway', 'vht_total', 'vht_local', 'vht_highway', 'vkmt_total', 'vkmt_local', 'vkmt_highway'])
-    print(results_df.iloc[0])
+    print(results_df.iloc[1])
     #results_df.to_csv(absolute_path+'/{}/results/scen_res_r{}_b{}_e{}_i{}_c{}_g{}.csv'.format(outdir, random_seed, budget, eco_route_ratio, iri_impact, case, traffic_growth), index=False)
 
 if __name__ == '__main__':
 
-    # preprocessing()
-    # sys.exit(0)
-
-    # exploratory_budget()
-    # sys.exit(0)
-
-    # eco_incentivize(1500, 0, 0.03, 'normal')
-    # sys.exit(0)
-
-    # degradation_model_sensitivity()
-    # sys.exit(0)
-
-    # closure_analysis()
-    # sys.exit(0)
-
-    scenarios()
     ### Running different eco-maintenance and eco-routing scenarios
+    scenarios()
 
