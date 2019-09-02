@@ -16,7 +16,6 @@ from math import radians
 
 absolute_path = os.path.dirname(os.path.abspath(__file__))
 folder = 'sf_overpass'
-scenario = 'original'
 
 ################################################################
 ### Estabilish relationship between OSM/graph nodes and TAZs ###
@@ -61,7 +60,7 @@ def TAZ_pair_distance(taz_gdf):
     taz_pair_df = pd.merge(taz_pair_df, taz_gdf[['TAZ', 'lon', 'lat']], how='left', left_on='TAZ_small', right_on='TAZ')
     taz_pair_df = pd.merge(taz_pair_df, taz_gdf[['TAZ', 'lon', 'lat']], how='left', left_on='TAZ_big', right_on='TAZ', suffixes=['_1', '_2'])
     taz_pair_df['distance'] = haversine(taz_pair_df['lat_1'], taz_pair_df['lon_1'], taz_pair_df['lat_2'], taz_pair_df['lon_2'])
-    taz_pair_df[['TAZ_small', 'TAZ_big', 'distance']].to_csv(absolute_path+'/../output/{}/{}/TAZ_pair_distance.csv'.format(folder, scenario), index=False)
+    taz_pair_df[['TAZ_small', 'TAZ_big', 'distance']].to_csv(absolute_path+'/../output/{}/TAZ_pair_distance.csv'.format(folder), index=False)
 
 def TAZ_nodes():
     ### Find corresponding nodes for each TAZ
@@ -72,13 +71,13 @@ def TAZ_nodes():
     #sys.exit(0)
 
     ### Input 2: OSM nodes coordinate
-    nodes_df = pd.read_csv(absolute_path+'/../../0_network/data/{}/{}/nodes.csv'.format(folder, scenario))
+    nodes_df = pd.read_csv(absolute_path+'/../../0_network/data/{}/nodes.csv'.format(folder))
     points = nodes_df[['lon', 'lat']].values
     taz_gdf['in_nodes'] = taz_gdf.apply(lambda row: find_in_nodes(row, points, nodes_df), axis=1)
     taz_nodes_dict = {row['TAZ']:row['in_nodes'] for index, row in taz_gdf.iterrows()}
     
     ### [{'taz': 1, 'in_nodes': '[...]''}, ...]
-    with open(absolute_path+'/../output/{}/{}/taz_nodes.json'.format(folder, scenario), 'w') as outfile:
+    with open(absolute_path+'/../output/{}/taz_nodes.json'.format(folder), 'w') as outfile:
         json.dump(taz_nodes_dict, outfile, indent=2)
 
 
@@ -87,7 +86,8 @@ def TAZ_nodes():
 ################################################################
 
 
-def TAZ_nodes_OD(day, hour, count=50000):
+def TAZ_nodes_OD(year = 0, day=2, hour=3,
+    taz_growth_df = pd.DataFrame([], columns=['TAZ', 'district', 'pickups_year_growth', 'dropoffs_year_growth'])):
 
     logger = logging.getLogger('TAZ_nodes_OD')
 
@@ -96,7 +96,7 @@ def TAZ_nodes_OD(day, hour, count=50000):
     ### 0. READING
     taz_travel_df = pd.read_csv(absolute_path+'/../input/TNC_pickups_dropoffs.csv') ### TNC ODs from each TAZ
     taz_scale_df = pd.read_csv(absolute_path+'/../input/TAZ_supervisorial.csv') ### Scaling factors for each TAZ. Figure 17-19 in the SFCTA TNCs Today report
-    taz_pair_dist_df = pd.read_csv(absolute_path+'/../output/{}/{}/TAZ_pair_distance.csv'.format(folder, scenario)) ### Centroid coordinates of each TAZ
+    taz_pair_dist_df = pd.read_csv(absolute_path+'/../output/{}/TAZ_pair_distance.csv'.format(folder)) ### Centroid coordinates of each TAZ
 
     ### 1. FILTERING to time of interest
     ### OD_df: pickups and dropoffs by TAZ from TNC study
@@ -116,16 +116,25 @@ def TAZ_nodes_OD(day, hour, count=50000):
     hour_taz_travel_df['veh_dropoffs'] = hour_taz_travel_df.apply(lambda row: row['dropoffs']/row[share_col], axis=1)
     hour_taz_travel_df = hour_taz_travel_df.dropna(subset=['veh_pickups', 'veh_dropoffs']) ### drop the rows that have NaN total_pickups and total_dropoffs
 
-    O_counts = np.sum(hour_taz_travel_df['veh_pickups'])
-    D_counts = np.sum(hour_taz_travel_df['veh_dropoffs'])
+    ### 2.b SCALING by yearly growth rate
+    if year == 0:
+        hour_taz_travel_df['veh_pickups_proj'] = hour_taz_travel_df['veh_pickups']
+        hour_taz_travel_df['veh_dropoffs_proj'] = hour_taz_travel_df['veh_dropoffs']
+    else:
+        hour_taz_travel_df = pd.merge(hour_taz_travel_df[['taz', 'veh_pickups', 'veh_dropoffs']], taz_growth_df, how='left', left_on='taz', right_on='TAZ')
+        hour_taz_travel_df['veh_pickups_proj'] = hour_taz_travel_df['veh_pickups']*hour_taz_travel_df['pickups_year_growth']**year
+        hour_taz_travel_df['veh_dropoffs_proj'] = hour_taz_travel_df['veh_dropoffs']*hour_taz_travel_df['dropoffs_year_growth']**year
+
+    O_counts = np.sum(hour_taz_travel_df['veh_pickups_proj'])
+    D_counts = np.sum(hour_taz_travel_df['veh_dropoffs_proj'])
     logger.debug('sum total_pickups {}; sum total_dropoffs {}. They may not be equal'.format(O_counts, D_counts))
 
     ### 3. TAZ-level OD pairs
     ### The probability of trips from each origin (to each destination) TAZ is proporional to the # trip origins (destinations) of that TAZ devided by the total origins (destinations) in all TAZs.
     hour_demand = int(0.5 * (O_counts + D_counts))
     logger.debug('DY{}, HR{}, total number of OD pairs: {}'.format(day, hour, hour_demand))
-    O_prob = hour_taz_travel_df['veh_pickups']/O_counts
-    D_prob = hour_taz_travel_df['veh_dropoffs']/D_counts
+    O_prob = hour_taz_travel_df['veh_pickups_proj']/O_counts
+    D_prob = hour_taz_travel_df['veh_dropoffs_proj']/D_counts
     
     OD_list = [] ### A list holding all the TAZ level OD pairs
     step = 0
@@ -138,7 +147,7 @@ def TAZ_nodes_OD(day, hour, count=50000):
         step_OD_df = pd.merge(step_OD_df, taz_pair_dist_df, how='left', left_on=['O', 'D'], right_on=['TAZ_small', 'TAZ_big'])
         step_OD_df = pd.merge(step_OD_df, taz_pair_dist_df, how='left', left_on=['D', 'O'], right_on=['TAZ_small', 'TAZ_big'], suffixes=['_1', '_2'])
         step_OD_df = step_OD_df.fillna(value={'distance_1': 0, 'distance_2':0})
-        step_OD_df = step_OD_df.loc[step_OD_df['distance_1'] + step_OD_df['distance_2']>2500].reset_index() ### half an hour if walking at 5km/h
+        step_OD_df = step_OD_df.loc[step_OD_df['distance_1'] + step_OD_df['distance_2']>1000].reset_index() ### if smaller than 1km, then no drive. distance_1 and distance_2, one is empty.
         OD_list += list(zip(step_OD_df['O'], step_OD_df['D']))
         logger.debug('step demand {}, length of OD at step {}: {}'.format(step_demand, step, len(OD_list)))
         step += 1
@@ -149,7 +158,7 @@ def TAZ_nodes_OD(day, hour, count=50000):
 
     ### 4. Nodal-level OD pairs
     ### Now sample the nodes for each TAZ level OD pair
-    taz_nodes_dict = json.load(open(absolute_path+'/../output/{}/{}/taz_nodes.json'.format(folder, scenario)))
+    taz_nodes_dict = json.load(open(absolute_path+'/../output/{}/taz_nodes.json'.format(folder)))
     #node_osmid2graphid_dict = json.load(open(absolute_path+'/../0_network/data/sf/node_osmid2graphid.json'))
     nodal_OD = []
     for k, v in OD_counter.items():
@@ -167,34 +176,31 @@ def TAZ_nodes_OD(day, hour, count=50000):
         except IndexError:
             #print(taz_O, taz_D) ### 868-872 does not have nodes
             continue
-        nodal_OD_counter = Counter(nodal_OD_pairs)
 
-        for nodal_k, nodal_v in nodal_OD_counter.items():
-            #nodal_OD.append([node_osmid2graphid_dict[nodal_k[0]], node_osmid2graphid_dict[nodal_k[1]], nodal_v])
-            nodal_OD.append([nodal_k[0], nodal_k[1], nodal_v])
+        nodal_OD += nodal_OD_pairs
 
-    nodal_OD_df = pd.DataFrame(nodal_OD, columns=['O', 'D', 'flow'])
+    nodal_OD_df = pd.DataFrame(nodal_OD, columns=['O', 'D'])
     #print(nodal_OD_df.head())
 
-    nodal_OD_df.to_csv(absolute_path+'/../output/{}/{}/DY{}/SF_OD_DY{}_HR{}.csv'.format(folder, scenario, day, day, hour))
+    nodal_OD_df.to_csv(absolute_path+'/../output/{}/intraSF_growth/SF_OD_YR{}_DY{}_HR{}.csv'.format(folder, year, day, hour), index=False)
 
     return hour_demand
 
 
 if __name__ == '__main__':
 
-    logging.basicConfig(filename=absolute_path+'/../output/{}/{}/OD.log'.format(folder, scenario), level=logging.DEBUG)
+    logging.basicConfig(filename=absolute_path+'/intraSF_OD.log', level=logging.DEBUG)
     logger = logging.getLogger('main')
     logger.info('{} \n'.format(datetime.datetime.now()))
 
     ### Run TAZ_nodes() once to generate 'output/taz_coordinates.csv' and 'output/taz_nodes.csv'
-    #TAZ_nodes()
-    #sys.exit(0)
+    # TAZ_nodes()
+    # sys.exit(0)
 
     ### Based on the output of TAZ_nodes(), generate hourly node-level ODs by setting "day_of_week" and "hour".
-    for day_of_week in [0, 1, 2, 3, 4, 5, 6]: ### 4 for Friday
+    for day_of_week in [2]: ### 4 for Friday
         daily_demand = 0
         for hour in range(3, 27): ### 24 hour-slices per day. Monday is 0 -- Sunday is 6. Hour is from 3am-26am(2am next day)
-            hour_demand = TAZ_nodes_OD(day_of_week, hour)
+            hour_demand = TAZ_nodes_OD(year = 0, day = day_of_week, hour = hour)
             daily_demand += hour_demand
         logger.info('DY {} total demand {}'.format(day_of_week, daily_demand))
