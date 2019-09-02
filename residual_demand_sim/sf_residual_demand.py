@@ -165,7 +165,7 @@ def map_reduce_edge_flow(day='', hour='', quarter='', ss_id='', residual='', qua
 
     return edge_volume, ss_residual_OD_list, ss_travel_time_list, ss_cannot_arrive
 
-def update_graph(edge_volume, edges_df, day='', hour='', quarter='', ss_id='', quarter_demand='', assigned_demand='', quarter_counts='', iri_impact=''):
+def update_graph(edge_volume, edges_df, traffic_only='', day='', hour='', quarter='', ss_id='', quarter_demand='', assigned_demand='', quarter_counts='', iri_impact=''):
     ### Update graph
 
     logger = logging.getLogger('update')
@@ -183,9 +183,10 @@ def update_graph(edge_volume, edges_df, day='', hour='', quarter='', ss_id='', q
 
     edges_df['t_avg'] = edges_df['fft']*(1 + 0.6*(edges_df['true_flow']/edges_df['capacity'])**4)
     edges_df['v_avg_mph'] = edges_df['length']/edges_df['t_avg'] * 2.23694 ### time step link speed in mph
-    edges_df['base_co2'] = base_co2(edges_df['v_avg_mph']) ### link-level co2 eimission in gram per mile per vehicle
-    ### correction for slope
-    edges_df['pci_co2'] = edges_df['base_co2'] * edges_df['slope_factor'] * edges_df['length'] /1609.34 * (1+0.0714*iri_impact*(100-edges_df['pci_current'])) ### speed related CO2 x length x flow. Final results unit is gram.
+    if not traffic_only:
+        edges_df['base_co2'] = base_co2(edges_df['v_avg_mph']) ### link-level co2 eimission in gram per mile per vehicle
+        ### correction for slope
+        edges_df['pci_co2'] = edges_df['base_co2'] * edges_df['slope_factor'] * edges_df['length'] /1609.34 * (1+0.0714*iri_impact*(100-edges_df['pci_current'])) ### speed related CO2 x length x flow. Final results unit is gram.
 
     ### update time weights
     time_update_df = edges_df.loc[edges_df['t_avg'] != edges_df['previous_t']].copy().reset_index()
@@ -193,14 +194,15 @@ def update_graph(edge_volume, edges_df, day='', hour='', quarter='', ss_id='', q
     for row in time_update_df.itertuples():
         g_time.update_edge(getattr(row,'start_sp'), getattr(row,'end_sp'), c_double(getattr(row,'t_avg')))
 
-    ### update CO2 weights
-    eco_update_df = edges_df.loc[edges_df['pci_co2'] != edges_df['previous_co2']].copy().reset_index()
-    #logger.info('links to be updated {}'.format(edge_probe_df.shape[0]))
-    for row in eco_update_df.itertuples():
-        g_co2.update_edge(getattr(row,'start_sp'), getattr(row,'end_sp'), c_double(getattr(row,'pci_co2')))
+    if not traffic_only:
+        ### update CO2 weights
+        eco_update_df = edges_df.loc[edges_df['pci_co2'] != edges_df['previous_co2']].copy().reset_index()
+        #logger.info('links to be updated {}'.format(edge_probe_df.shape[0]))
+        for row in eco_update_df.itertuples():
+            g_co2.update_edge(getattr(row,'start_sp'), getattr(row,'end_sp'), c_double(getattr(row,'pci_co2')))
 
     edges_df['previous_t'] = edges_df['t_avg']
-    edges_df['previous_co2'] = edges_df['pci_co2']
+    if not traffic_only: edges_df['previous_co2'] = edges_df['pci_co2']
     edges_df = edges_df.drop(columns=['ss_vol'])
 
     t_update_1 = time.time()
@@ -236,7 +238,7 @@ def read_OD(year='', day='', hour='', eco_route_ratio=''):
 
     return OD
 
-def quasi_sta(edges_df0, outdir='', year='', day='', quarter_counts='', random_seed='', residual='', budget='', eco_route_ratio='', iri_impact='', case='', traffic_growth='', closure_list=[], closure_case=''):
+def quasi_sta(edges_df0, traffic_only='', outdir='', year='', day='', quarter_counts='', random_seed='', residual='', budget='', eco_route_ratio='', iri_impact='', case='', traffic_growth='', closure_list=[], closure_case=''):
 
     logger = logging.getLogger('quasi_sta')
     logger.info('{} network, random_seed {}'.format(folder, random_seed))
@@ -248,7 +250,7 @@ def quasi_sta(edges_df0, outdir='', year='', day='', quarter_counts='', random_s
 
     ### Define global variables to be shared with subprocesses
     global g_time ### weighted graph
-    global g_co2
+    if not traffic_only: global g_co2
     global OD_ss ### substep demand
     global edges_df ### link weights
 
@@ -270,15 +272,15 @@ def quasi_sta(edges_df0, outdir='', year='', day='', quarter_counts='', random_s
 
         ### Read in the initial network (free flow travel time)
         g_time = interface.readgraph(bytes(absolute_path+'/../0_network/data/{}/network_sparse.mtx'.format(folder), encoding='utf-8'))
-        g_co2 = interface.readgraph(bytes('{}/network/network_sparse_r{}_b{}_e{}_i{}_c{}_tg{}_y{}.mtx'.format(outdir, random_seed, budget, eco_route_ratio, iri_impact, case, traffic_growth, year), encoding='utf-8'))
+        if not traffic_only: g_co2 = interface.readgraph(bytes('{}/network/network_sparse_r{}_b{}_e{}_i{}_c{}_tg{}_y{}.mtx'.format(outdir, random_seed, budget, eco_route_ratio, iri_impact, case, traffic_growth, year), encoding='utf-8'))
         ### Variables reset at each 3 AM
         edges_df = edges_df0.copy() ### length, capacity and fft that should never change in one simulation
         edges_df['previous_t'] = edges_df['fft'] ### Used to find which edge to update. At the beginning of each day, previous_t is the free flow time.
-        edges_df['previous_co2'] = edges_df['eco_wgh']
+        if not traffic_only: edges_df['previous_co2'] = edges_df['eco_wgh']
         edges_df['tot_vol'] = 0
         cannot_arrive = 0
 
-        for hour in range(3, 5):
+        for hour in range(3, 4):
 
             #logger.info('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()
@@ -327,7 +329,7 @@ def quasi_sta(edges_df0, outdir='', year='', day='', quarter_counts='', random_s
                     cannot_arrive += ss_cannot_arrive
 
                     ### Updating
-                    edges_df = update_graph(edge_volume, edges_df, day=day, hour=hour, quarter=quarter, ss_id=ss_id, quarter_demand=quarter_demand, assigned_demand=assigned_demand, quarter_counts=quarter_counts, iri_impact=iri_impact)
+                    edges_df = update_graph(edge_volume, edges_df, traffic_only=traffic_only, day=day, hour=hour, quarter=quarter, ss_id=ss_id, quarter_demand=quarter_demand, assigned_demand=assigned_demand, quarter_counts=quarter_counts, iri_impact=iri_impact)
 
                     t_substep_1 = time.time()
                     logger.debug('DY{}_HR{} SS {}: {} sec, {} OD pairs'.format(day, hour, ss_id, t_substep_1-t_substep_0, OD_ss.shape[0], ))
@@ -363,21 +365,23 @@ def main():
     edges_df0 = edges_df0[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft']]
     #convert_to_graph(edges_df0, 'r{}_p{}'.format(random_seed, probe_ratio))
 
-    for residual in [True]:
-        for quarter_counts in [4]:
+    residual = 1
+    quarter_counts = 4
+    random_seed = 0
+    outdir = absolute_path+'/output'
+    year = 0
+    day = 2
+    budget = 0
+    eco_route_ratio=0
+    iri_impact = 0
+    case = ''
+    traffic_growth = 1
+    closure_list = []
+    closure_case = ''
+    traffic_only = 1
 
-            stats_collect = []
-            for random_seed in [0]:
-            #for random_seed in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]:
-                stats, travel_time_list = sta(edges_df0 = edges_df0, random_seed=random_seed, residual=residual, quarter_counts=quarter_counts)
-                stats_collect += stats
 
-            #     if random_seed == 0:
-            #         travel_time_df = pd.DataFrame(travel_time_list, columns = ['agent_id', 'day', 'hour', 'quarter', 'ss_id', 'ss_travel_time'])
-            #         travel_time_df.to_csv(absolute_path+'/output/travel_time_df/travel_time_res{}_qt{}_r{}.csv'.format(residual, quarter_counts, random_seed), index=False)
-
-            # stats_collect_df = pd.DataFrame(stats_collect, columns = ['random_seed', 'day', 'hour', 'quarter', 'quarter_demand', 'including_residual', 'producing_residual', 'avg_min', 'avg_km', 'max10_vol'])
-            # stats_collect_df.to_csv(absolute_path+'/output/summary_df/summary_10repeats_res{}_qt{}.csv'.format(residual, quarter_counts), index=False)
+    x, y = quasi_sta(edges_df0, traffic_only=traffic_only, outdir=outdir, year=year, day=day, quarter_counts=quarter_counts, random_seed=random_seed, residual=residual, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, traffic_growth=traffic_growth, closure_list=closure_list, closure_case=closure_case)
 
 if __name__ == '__main__':
     main()
