@@ -374,7 +374,7 @@ def main():
     edges_df0 = edges_df0[['edge_id_igraph', 'start_sp', 'end_sp', 'length', 'capacity', 'fft']]
     #convert_to_graph(edges_df0, 'r{}_p{}'.format(random_seed, probe_ratio))
 
-    residual = 1
+    residual = 0
     quarter_counts = 4
     random_seed = 0
     outdir = absolute_path+'/output'
