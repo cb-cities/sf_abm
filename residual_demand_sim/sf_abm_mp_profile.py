@@ -15,5 +15,5 @@ def analysis():
     print(stats.strip_dirs().sort_stats('tottime').print_stats(15)) #
 
 if __name__ == '__main__':
-    #profile()
+    profile()
     analysis()
