@@ -1,0 +1,30 @@
+#!/bin/bash
+# Job name:
+#SBATCH --job-name=bz247_project
+#
+# Account:
+#SBATCH --account=fc_mpm
+#
+# Partition:
+#SBATCH --partition=savio2
+#
+# QoS:
+#SBATCH --qos=savio_normal
+#
+# Request one node:
+#SBATCH --nodes=1
+#SBATCH --exclusive
+#
+# Specify number of tasks for use case (example):
+#SBATCH --ntasks-per-node=1
+#
+# Processors per task:
+#SBATCH --cpus-per-task=24
+#
+# Wall clock limit:
+#SBATCH --time=01:30:00
+#
+## Command(s) to run (example):
+module load gcc openmpi
+export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
+/global/home/users/bz247/sf_abm/run.sh

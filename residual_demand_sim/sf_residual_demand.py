@@ -52,18 +52,21 @@ def map_edge_flow_no_residual(row):
     else:
         sp_route = sp.route(destin_ID) ### agent route planned with imperfect information
 
-        sp_route_df = pd.DataFrame([edge for edge in sp_route], columns=['start_sp', 'end_sp'])
-        #sp_route_df.insert(0, 'seq_id', range(sp_route_df.shape[0]))
-        sub_edges_df = edges_df[(edges_df['start_sp'].isin(sp_route_df['start_sp'])) & (edges_df['end_sp'].isin(sp_route_df['end_sp']))]
+        # sp_route_df = pd.DataFrame([edge for edge in sp_route], columns=['start_sp', 'end_sp'])
+        # #sp_route_df.insert(0, 'seq_id', range(sp_route_df.shape[0]))
+        # sub_edges_df = edges_df[(edges_df['start_sp'].isin(sp_route_df['start_sp'])) & (edges_df['end_sp'].isin(sp_route_df['end_sp']))]
 
-        #sp_route_df = pd.merge(sp_route_df, sub_edges_df[['previous_t']], how='left')
-        sp_route_df = sp_route_df.merge(sub_edges_df[['start_sp', 'end_sp','previous_t']], on=['start_sp', 'end_sp'], how='left')
-        sp_route_df['timestamp'] = sp_route_df['previous_t'].cumsum()
+        # #sp_route_df = pd.merge(sp_route_df, sub_edges_df[['previous_t']], how='left')
+        # sp_route_df = sp_route_df.merge(sub_edges_df[['start_sp', 'end_sp','previous_t']], on=['start_sp', 'end_sp'], how='left')
+        # sp_route_df['timestamp'] = sp_route_df['previous_t'].cumsum()
 
-        trunc_sp_route_df = sp_route_df ### no truncation if no residual is considered
-        stop_node = trunc_sp_route_df.iloc[-1]['end_sp']
-        travel_time = trunc_sp_route_df.iloc[-1]['timestamp']
-        trunc_edges = trunc_sp_route_df[['start_sp', 'end_sp']]
+        # trunc_sp_route_df = sp_route_df ### no truncation if no residual is considered
+        # stop_node = trunc_sp_route_df.iloc[-1]['end_sp']
+        # travel_time = trunc_sp_route_df.iloc[-1]['timestamp']
+        # trunc_edges = trunc_sp_route_df[['start_sp', 'end_sp']]
+        stop_node = destin_ID
+        travel_time = sp_dist
+        trunc_edges = pd.DataFrame([edge for edge in sp_route], columns=['start_sp', 'end_sp'])
 
         results = {'agent_id': agent_id, 'eco': eco_veh, 'o_sp': origin_ID, 'd_sp': destin_ID, 'h_sp': stop_node, 'travel_time': travel_time, 'route': trunc_edges}
         ### [(edge[0], edge[1]) for edge in sp_route]: agent's choice of route
