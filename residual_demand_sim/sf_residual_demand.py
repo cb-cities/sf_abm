@@ -37,8 +37,15 @@ def map_edge_flow_no_residual(row):
     agent_id = int(OD_ss['agent_id'].iloc[row])
     origin_ID = int(OD_ss['origin_sp'].iloc[row])
     destin_ID = int(OD_ss['destin_sp'].iloc[row])
+    eco_veh = int(OD_ss['eco'].iloc[row]) ### 1 if the vehicle is going on the least co2 route
 
-    sp = g.dijkstra(origin_ID, destin_ID) ### g_0 is the network with imperfect information for route planning
+    if eco_veh == 0:
+        sp = g_time.dijkstra(origin_ID, destin_ID)
+    elif eco_veh == 1:
+        sp = g_co2.dijkstra(origin_ID, destin_ID)
+    else:
+        return [], 'n_a'
+
     sp_dist = sp.distance(destin_ID) ### agent believed travel time with imperfect information
     if sp_dist > 10e7:
         return [], 'n_a' ### empty path; not reach destination, no travel time
@@ -55,9 +62,10 @@ def map_edge_flow_no_residual(row):
 
         trunc_sp_route_df = sp_route_df ### no truncation if no residual is considered
         stop_node = trunc_sp_route_df.iloc[-1]['end_sp']
+        travel_time = trunc_sp_route_df.iloc[-1]['timestamp']
         trunc_edges = trunc_sp_route_df[['start_sp', 'end_sp']]
 
-        results = {'agent_id': agent_id, 'o_sp': origin_ID, 'd_sp': destin_ID, 'h_sp': stop_node, 'travel_time': trunc_sp_route_df.iloc[-1]['timestamp'], 'route': trunc_edges}
+        results = {'agent_id': agent_id, 'eco': eco_veh, 'o_sp': origin_ID, 'd_sp': destin_ID, 'h_sp': stop_node, 'travel_time': travel_time, 'route': trunc_edges}
         ### [(edge[0], edge[1]) for edge in sp_route]: agent's choice of route
         return results, 'a' ### 'a' means arrival
 
