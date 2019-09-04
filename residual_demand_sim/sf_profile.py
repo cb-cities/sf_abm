@@ -1,4 +1,5 @@
 import os
+import sys
 import pstats
 import cProfile
 
@@ -8,10 +9,11 @@ absolute_path = os.path.dirname(os.path.abspath(__file__))
 
 def profile():
     #cProfile.run('sf_abm_mp_igraph.main()', 'sf_abm_mp_profile.txt')
-    cProfile.run('sf_residual_demand.main()', absolute_path+'/sf_residual_demand_profile_noresidual.txt')
+    cProfile.run('sf_residual_demand.main()', 
+absolute_path+'/sf_residual_demand_profile_noresidual_nomerge.txt')
 
 def analysis():
-    stats = pstats.Stats('sf_residual_demand_profile_noresidual.txt')
+    stats = pstats.Stats('sf_residual_demand_profile_noresidual_nomerge.txt')
     print(stats.strip_dirs().sort_stats('tottime').print_stats(15)) #
 
 if __name__ == '__main__':

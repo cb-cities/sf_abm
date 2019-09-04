@@ -291,7 +291,7 @@ def quasi_sta(edges_df0, traffic_only='', outdir='', year='', day='', quarter_co
         edges_df['tot_vol'] = 0
         cannot_arrive = 0
 
-        for hour in range(3, 27):
+        for hour in range(3, 7):
 
             #logger.info('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()

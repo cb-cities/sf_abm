@@ -173,9 +173,10 @@ def eco_incentivize(random_seed='', budget='', eco_route_ratio='', iri_impact=''
         abm_edges_df = edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'slope_factor', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']].copy()
 
         ### Run ABM
-        x, y = sf_residual_demand.quasi_sta(abm_edges_df, outdir=outdir, year=year, day=day, quarter_counts=4, random_seed=random_seed, residual=residual, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, traffic_growth=traffic_growth, closure_list=closure_list, closure_case=closure_case)
+        x, y = sf_residual_demand.quasi_sta(abm_edges_df, traffic_only=False, outdir=outdir, year=year, day=day, 
+quarter_counts=4, random_seed=random_seed, residual=residual, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, traffic_growth=traffic_growth, closure_list=closure_list, closure_case=closure_case)
 
-        for hour in range(3, 5):
+        for hour in range(3, 7):
             for quarter in range(4):
                 aad_df = aad_vol_vmt_baseemi(aad_df, year=year, day=day, hour=hour, quarter=quarter, residual=residual, random_seed=random_seed)
 
@@ -255,7 +256,7 @@ def scenarios():
     budget = 700#int(os.environ['BUDGET']) ### 200 or 700
     eco_route_ratio = 1.0#float(os.environ['ECO_ROUTE_RATIO']) ### 0.1, 0.5 or 1
     iri_impact = 0.03#float(os.environ['IRI_IMPACT']) ### 0.01 or 0.03
-    case = 'em'#os.environ['CASE'] ### 'nr' no eco-routing or eco-maintenance, 'em' for eco-maintenance, 'er' for 'routing_only', 'ee' for 'both'
+    case = os.environ['CASE'] ### 'nr' no eco-routing or eco-maintenance, 'em' for eco-maintenance, 'er' for 'routing_only', 'ee' for 'both'
     if case in ['nr', 'em']:
         eco_route_ratio = 0    
     traffic_growth = 1 #int(os.environ['TRAFFIC_GROWTH']) ### 1 or 0
@@ -272,8 +273,8 @@ def scenarios():
 
     step_results_list = eco_incentivize(random_seed=random_seed, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, traffic_growth=traffic_growth, residual=residual, day=day, total_years=total_years, improv_pct=improv_pct)
     results_df = pd.DataFrame(step_results_list, columns=['random_seed', 'case', 'budget', 'iri_impact', 'eco_route_ratio', 'year', 'emi_total', 'emi_local', 'emi_highway', 'emi_localroads_base',  'pci_average', 'pci_local', 'pci_highway', 'vht_total', 'vht_local', 'vht_highway', 'vkmt_total', 'vkmt_local', 'vkmt_highway'])
-    print(results_df.iloc[1])
-    #results_df.to_csv(absolute_path+'/{}/results/scen_res_r{}_b{}_e{}_i{}_c{}_g{}.csv'.format(outdir, random_seed, budget, eco_route_ratio, iri_impact, case, traffic_growth), index=False)
+    #print(results_df.iloc[1])
+    results_df.to_csv('{}/summary/scen_c{}.csv'.format(outdir, case), index=False)
 
 if __name__ == '__main__':
 
