@@ -3,6 +3,7 @@ import os
 import gc 
 import sys
 import time 
+import random
 import logging
 import datetime
 import numpy as np
@@ -139,7 +140,7 @@ def map_reduce_edge_flow(day='', hour='', quarter='', ss_id='', residual='', qua
     logger = logging.getLogger('map-reduce')
 
     ### Build a pool
-    process_count = 24
+    process_count = 8
     pool = Pool(processes=process_count)
 
     ### Find shortest pathes
@@ -242,7 +243,7 @@ def read_OD(year='', day='', hour='', eco_route_ratio=''):
     OD = OD[['agent_id', 'origin_sp', 'destin_sp', 'eco']]
     OD = OD.sample(frac=1).reset_index(drop=True) ### randomly shuffle rows
 
-    # OD.to_csv(absolute_path+'/output/OD/OD_DY{}_HR{}.csv'.format(day, hour), index=False)
+    # OD.to_csv(absolute_path+'/output/OD/OD_DY{}_HR{}_2.csv'.format(day, hour), index=False)
 
     t_OD_1 = time.time()
     logger.debug('DY{}_HR{}: {} sec to read {} OD pairs\n'.format(day, hour, t_OD_1-t_OD_0, OD.shape[0]))
@@ -258,6 +259,7 @@ def quasi_sta(edges_df0, traffic_only='', outdir='', year='', day='', quarter_co
 
     ### Fix random seed
     np.random.seed(random_seed)
+    random.seed(random_seed)
 
     ### Define global variables to be shared with subprocesses
     global g_time ### weighted graph
@@ -291,7 +293,7 @@ def quasi_sta(edges_df0, traffic_only='', outdir='', year='', day='', quarter_co
         edges_df['tot_vol'] = 0
         cannot_arrive = 0
 
-        for hour in range(3, 7):
+        for hour in range(3, 4):
 
             #logger.info('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()
@@ -314,11 +316,12 @@ def quasi_sta(edges_df0, traffic_only='', outdir='', year='', day='', quarter_co
                 ### Residual OD is no longer residual after it has been merged to the quarterly OD
                 residual_OD_list = []
                 OD_quarter = OD_quarter[OD_quarter['origin_sp'] != OD_quarter['destin_sp']]
+                OD_quarter = OD_quarter.sort_values(by=['agent_id']) ### to make sure fixing the random seed works with subprocess results
                 OD_quarter = OD_quarter.sample(frac=1).reset_index(drop=True)
+
                 quarter_demand = OD_quarter.shape[0] ### total demand for this quarter, including total and residual demand
                 residual_demand = OD_residual.shape[0] ### how many among the OD pairs to be assigned in this quarter are actually residual from previous quarters
                 assigned_demand = 0
-
                 OD_substep_msk = np.random.choice(substep_ids, size=quarter_demand, p=substep_ps)
                 OD_quarter['ss_id'] = OD_substep_msk
 
@@ -346,7 +349,7 @@ def quasi_sta(edges_df0, traffic_only='', outdir='', year='', day='', quarter_co
                     logger.debug('DY{}_HR{} SS {}: {} sec, {} OD pairs'.format(day, hour, ss_id, t_substep_1-t_substep_0, OD_ss.shape[0], ))
 
                 #output_edges_df(edges_df, day, hour, quarter, residual, random_seed)
-                edges_df[['edge_id_igraph', 'true_vol', 'tot_vol', 't_avg']].to_csv('{}/edges_df/edges_df_YR{}_DY{}_HR{}_qt{}_res{}_r{}.csv'.format(outdir, year, day, hour, quarter, residual, random_seed), index=False)
+                edges_df[['edge_id_igraph', 'true_vol', 'tot_vol', 't_avg']].to_csv('{}/edges_df/edges_df_YR{}_DY{}_HR{}_qt{}_res{}_c{}_r{}.csv'.format(outdir, year, day, hour, quarter, residual, case, random_seed), index=False)
 
                 ### Update carry over flow
                 stats.append([

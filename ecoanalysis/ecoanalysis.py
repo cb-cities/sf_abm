@@ -41,9 +41,9 @@ def base_co2(mph_array):
     b4 = 0.000000217166574
     return np.exp(b0 + b1*mph_array + b2*mph_array**2 + b3*mph_array**3 + b4*mph_array**4)
 
-def aad_vol_vmt_baseemi(aad_df, year='', day='', hour='', quarter='', residual=True, random_seed=''):
+def aad_vol_vmt_baseemi(aad_df, year='', day='', hour='', quarter='', residual=True, case='', random_seed=''):
 
-    quarter_volume_df = pd.read_csv('{}/edges_df/edges_df_YR{}_DY{}_HR{}_qt{}_res{}_r{}.csv'.format(outdir, year, day, hour, quarter, residual, random_seed))
+    quarter_volume_df = pd.read_csv('{}/edges_df/edges_df_YR{}_DY{}_HR{}_qt{}_res{}_c{}_r{}.csv'.format(outdir, year, day, hour, quarter, residual, case, random_seed))
     aad_df = pd.merge(aad_df, quarter_volume_df, on='edge_id_igraph', how='left')
     # print(np.sum(aad_df['aad_vol']))
     aad_df['vht'] = aad_df['true_vol'] * aad_df['t_avg']/3600
@@ -133,7 +133,8 @@ def eco_incentivize(random_seed='', budget='', eco_route_ratio='', iri_impact=''
 
     ### Network preprocessing
     edges_df = preprocessing()
-    step_results_list = []
+    emi_results_list = []
+    traf_results_list = []
 
     for year in range(total_years):
         gc.collect()
@@ -173,12 +174,12 @@ def eco_incentivize(random_seed='', budget='', eco_route_ratio='', iri_impact=''
         abm_edges_df = edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'slope_factor', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']].copy()
 
         ### Run ABM
-        x, y = sf_residual_demand.quasi_sta(abm_edges_df, traffic_only=False, outdir=outdir, year=year, day=day, 
-quarter_counts=4, random_seed=random_seed, residual=residual, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, traffic_growth=traffic_growth, closure_list=closure_list, closure_case=closure_case)
+        traf_stats, y = sf_residual_demand.quasi_sta(abm_edges_df, traffic_only=False, outdir=outdir, year=year, day=day, quarter_counts=4, random_seed=random_seed, residual=residual, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, traffic_growth=traffic_growth, closure_list=closure_list, closure_case=closure_case)
+        traf_results_list += traf_stats
 
-        for hour in range(3, 7):
+        for hour in range(3, 4):
             for quarter in range(4):
-                aad_df = aad_vol_vmt_baseemi(aad_df, year=year, day=day, hour=hour, quarter=quarter, residual=residual, random_seed=random_seed)
+                aad_df = aad_vol_vmt_baseemi(aad_df, year=year, day=day, hour=hour, quarter=quarter, residual=residual, case=case, random_seed=random_seed)
 
         # print(np.sum(aad_df['aad_vol']))
         # sys.exit(0)
@@ -245,14 +246,17 @@ quarter_counts=4, random_seed=random_seed, residual=residual, budget=budget, eco
         pci_local = np.mean(aad_df[aad_df['juris']=='DPW']['pci_current'])
         pci_highway = np.mean(aad_df[aad_df['juris']=='Caltrans']['pci_current'])
 
-        step_results_list.append([random_seed, case, budget, iri_impact, eco_route_ratio, year, emi_total, emi_local, emi_highway, emi_localroads_base, pci_average, pci_local, pci_highway, vht_total, vht_local, vht_highway, vkmt_total, vkmt_local, vkmt_highway])
+        emi_results_list.append([random_seed, case, budget, iri_impact, eco_route_ratio, year, emi_total, emi_local, emi_highway, emi_localroads_base, pci_average, pci_local, pci_highway, vht_total, vht_local, vht_highway, vkmt_total, vkmt_local, vkmt_highway])
     #print(step_results_list[0:10:9])
-    return step_results_list
+    return traf_results_list, emi_results_list
 
 def scenarios():
 
     ### Emission analysis parameters
     random_seed = 0#int(os.environ['RANDOM_SEED']) ### 0,1,2,3,4,5,6,7,8,9
+    ### Fix random seed
+    np.random.seed(random_seed)
+
     budget = 700#int(os.environ['BUDGET']) ### 200 or 700
     eco_route_ratio = 1.0#float(os.environ['ECO_ROUTE_RATIO']) ### 0.1, 0.5 or 1
     iri_impact = 0.03#float(os.environ['IRI_IMPACT']) ### 0.01 or 0.03
@@ -271,10 +275,12 @@ def scenarios():
     residual = 1
     improv_pct = 1
 
-    step_results_list = eco_incentivize(random_seed=random_seed, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, traffic_growth=traffic_growth, residual=residual, day=day, total_years=total_years, improv_pct=improv_pct)
-    results_df = pd.DataFrame(step_results_list, columns=['random_seed', 'case', 'budget', 'iri_impact', 'eco_route_ratio', 'year', 'emi_total', 'emi_local', 'emi_highway', 'emi_localroads_base',  'pci_average', 'pci_local', 'pci_highway', 'vht_total', 'vht_local', 'vht_highway', 'vkmt_total', 'vkmt_local', 'vkmt_highway'])
-    #print(results_df.iloc[1])
-    results_df.to_csv('{}/summary/scen_c{}.csv'.format(outdir, case), index=False)
+    traf_results_list, emi_results_list = eco_incentivize(random_seed=random_seed, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, traffic_growth=traffic_growth, residual=residual, day=day, total_years=total_years, improv_pct=improv_pct)
+    traf_results_df = pd.DataFrame(traf_results_list, columns = ['random_seed', 'year', 'day', 'hour', 'quarter', 'quarter_demand', 'inclu_residual_demand', 'prod_residual_demand', 'quarter_avg_min', 'quarter_avg_km', 'avg_max10_vol'])
+    emi_results_df = pd.DataFrame(emi_results_list, columns=['random_seed', 'case', 'budget', 'iri_impact', 'eco_route_ratio', 'year', 'emi_total', 'emi_local', 'emi_highway', 'emi_localroads_base',  'pci_average', 'pci_local', 'pci_highway', 'vht_total', 'vht_local', 'vht_highway', 'vkmt_total', 'vkmt_local', 'vkmt_highway'])
+
+    traf_results_df.to_csv('{}/summary/traf_summary_c{}.csv'.format(outdir, case), index=False)
+    emi_results_df.to_csv('{}/summary/emi_summary_c{}.csv'.format(outdir, case), index=False)
 
 if __name__ == '__main__':
 
