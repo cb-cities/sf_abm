@@ -25,7 +25,7 @@
 #SBATCH --time=12:00:00
 #
 ## Environment variables
-#SBATCH --export=CASE='er'
+#SBATCH --export=CASE='ps'
 #
 ## Command(s) to run (example):
 . /etc/profile.d/modules.sh
