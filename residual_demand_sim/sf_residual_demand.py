@@ -232,7 +232,7 @@ def read_OD(year='', day='', hour='', eco_route_ratio='', case=''):
     if case != 'ps':
         intracity_OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/intraSF_growth/SF_OD_YR{}_DY{}_HR{}.csv'.format(folder, year, day, hour))
         intercity_OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/intercity_growth/intercity_YR{}_HR{}.csv'.format(folder, year, hour))
-    else
+    else:
         intracity_OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/peakspread/SF_OD_YR{}_DY{}_HR{}.csv'.format(folder, year, day, hour))
         intercity_OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/peakspread/intercity_YR{}_HR{}.csv'.format(folder, year, hour))
 
