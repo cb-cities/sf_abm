@@ -208,7 +208,7 @@ def eco_incentivize(random_seed='', budget='', eco_route_ratio='', iri_impact=''
             #extract_df[['edge_id_igraph', 'aad_emi_potential']].to_csv('repair_df/repair_df_y{}_c{}_b{}_e{}_i{}.csv'.format(year, case, budget, eco_route_ratio, iri_impact))
             return repair_list
 
-        if case in ['nr', 'er']: 
+        if case in ['nr', 'er', 'ps']: 
             repair_list = pci_improvement(aad_df, year, case, budget, eco_route_ratio, iri_impact)
             ### Repair
             edges_df['age_current'] = edges_df['age_current']+365
@@ -260,10 +260,11 @@ def scenarios():
     budget = 700#int(os.environ['BUDGET']) ### 200 or 700
     eco_route_ratio = 1.0#float(os.environ['ECO_ROUTE_RATIO']) ### 0.1, 0.5 or 1
     iri_impact = 0.03#float(os.environ['IRI_IMPACT']) ### 0.01 or 0.03
+
     case = os.environ['CASE'] ### 'nr' no eco-routing or eco-maintenance, 'em' for eco-maintenance, 'er' for 'routing_only', 'ee' for 'both'
-    if case in ['nr', 'em']:
+    if case in ['nr', 'em', 'ps']:
         eco_route_ratio = 0    
-    traffic_growth = 1 #int(os.environ['TRAFFIC_GROWTH']) ### 1 or 0
+    
     print('random_seed {}, budget {}, eco_route_ratio {}, iri_impact {}, case {}, traffic_growth {}'.format(random_seed, budget, eco_route_ratio, iri_impact, case, traffic_growth))
 
     ### ABM parameters
@@ -274,6 +275,7 @@ def scenarios():
 
     residual = 1
     improv_pct = 1
+    traffic_growth = 1
 
     traf_results_list, emi_results_list = eco_incentivize(random_seed=random_seed, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, traffic_growth=traffic_growth, residual=residual, day=day, total_years=total_years, improv_pct=improv_pct)
     traf_results_df = pd.DataFrame(traf_results_list, columns = ['random_seed', 'year', 'day', 'hour', 'quarter', 'quarter_demand', 'inclu_residual_demand', 'prod_residual_demand', 'quarter_avg_min', 'quarter_avg_km', 'avg_max10_vol'])

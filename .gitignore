@@ -18,6 +18,7 @@ figures/private/
 3_visualization/2017lines
 3_visualization/**/*.geojson
 3_visualization/**/*.csv
+**/*.out
 **/*.txt
 **/*.csv
 **/*.json
