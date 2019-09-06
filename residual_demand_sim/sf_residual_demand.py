@@ -222,15 +222,20 @@ def update_graph(edge_volume, edges_df, traffic_only='', day='', hour='', quarte
 
     return edges_df
 
-def read_OD(year='', day='', hour='', eco_route_ratio=''):
+def read_OD(year='', day='', hour='', eco_route_ratio='', case=''):
     ### Read the OD table of this time step
 
     logger = logging.getLogger('read_OD')
     t_OD_0 = time.time()
 
     ### Change OD list from using osmid to sequential id. It is easier to find the shortest path based on sequential index.
-    intracity_OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/intraSF_growth/SF_OD_YR{}_DY{}_HR{}.csv'.format(folder, year, day, hour))
-    intercity_OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/intercity_growth/intercity_YR{}_HR{}.csv'.format(folder, year, hour))
+    if case != 'ps':
+        intracity_OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/intraSF_growth/SF_OD_YR{}_DY{}_HR{}.csv'.format(folder, year, day, hour))
+        intercity_OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/intercity_growth/intercity_YR{}_HR{}.csv'.format(folder, year, hour))
+    else
+        intracity_OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/peakspread/SF_OD_YR{}_DY{}_HR{}.csv'.format(folder, year, day, hour))
+        intercity_OD = pd.read_csv(absolute_path+'/../1_OD/output/{}/peakspread/intercity_YR{}_HR{}.csv'.format(folder, year, hour))
+
     OD = pd.concat([intracity_OD, intercity_OD], ignore_index=True)
     nodes_df = pd.read_csv(absolute_path+'/../0_network/data/{}/nodes.csv'.format(folder))
 
@@ -299,7 +304,7 @@ def quasi_sta(edges_df0, traffic_only='', outdir='', year='', day='', quarter_co
             t_hour_0 = time.time()
 
             ### Read hourly OD
-            OD = read_OD(year=year, day=day, hour=hour, eco_route_ratio=eco_route_ratio)
+            OD = read_OD(year=year, day=day, hour=hour, eco_route_ratio=eco_route_ratio, case=case)
             ### Divide into quarters
             OD_quarter_msk = np.random.choice(quarter_ids, size=OD.shape[0], p=quarter_ps)
             OD['quarter'] = OD_quarter_msk
