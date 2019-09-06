@@ -140,7 +140,7 @@ def map_reduce_edge_flow(day='', hour='', quarter='', ss_id='', residual='', qua
     logger = logging.getLogger('map-reduce')
 
     ### Build a pool
-    process_count = 8
+    process_count = 24
     pool = Pool(processes=process_count)
 
     ### Find shortest pathes
@@ -293,7 +293,7 @@ def quasi_sta(edges_df0, traffic_only='', outdir='', year='', day='', quarter_co
         edges_df['tot_vol'] = 0
         cannot_arrive = 0
 
-        for hour in range(3, 4):
+        for hour in range(3, 27):
 
             #logger.info('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()
@@ -367,11 +367,12 @@ def quasi_sta(edges_df0, traffic_only='', outdir='', year='', day='', quarter_co
     
     t_main_1 = time.time()
     logger.info('total run time: {} sec \n\n\n\n\n'.format(t_main_1 - t_main_0))
+    print('total run time {} sec.'.format(t_main_1 - t_main_0))
     return stats, travel_time_list
 
 def main():
 
-    logging.basicConfig(filename=absolute_path+'/sf_residual_demand.log', level=logging.DEBUG)
+    logging.basicConfig(filename=absolute_path+'/sf_residual_demand.log', level=logging.INFO)
     logger = logging.getLogger('main')
     logger.info('{}'.format(datetime.datetime.now()))
 
@@ -389,7 +390,7 @@ def main():
     budget = 0
     eco_route_ratio=0
     iri_impact = 0
-    case = ''
+    case = 'nr'
     traffic_growth = 1
     closure_list = []
     closure_case = ''
