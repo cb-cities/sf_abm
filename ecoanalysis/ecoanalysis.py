@@ -28,7 +28,7 @@ outdir = absolute_path + '/output_LCA2020'
 
 highway_type = ['motorway', 'motorway_link', 'trunk', 'trunk_link']
 
-logging.basicConfig(filename=absolute_path+'/eco_analysis.log', level=logging.INFO)
+logging.basicConfig(filename=absolute_path+'/eco_analysis_c{}.log'.format(os.environ['CASE']), level=logging.INFO)
 logger = logging.getLogger('start')
 logger.info('{}'.format(datetime.datetime.now()))
 
@@ -177,7 +177,7 @@ def eco_incentivize(random_seed='', budget='', eco_route_ratio='', iri_impact=''
         traf_stats, y = sf_residual_demand.quasi_sta(abm_edges_df, traffic_only=False, outdir=outdir, year=year, day=day, quarter_counts=4, random_seed=random_seed, residual=residual, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, traffic_growth=traffic_growth, closure_list=closure_list, closure_case=closure_case)
         traf_results_list += traf_stats
 
-        for hour in range(3, 4):
+        for hour in range(3, 27):
             for quarter in range(4):
                 aad_df = aad_vol_vmt_baseemi(aad_df, year=year, day=day, hour=hour, quarter=quarter, residual=residual, case=case, random_seed=random_seed)
 
@@ -270,7 +270,7 @@ def scenarios():
     day = 2 ### Wednesday
 
     ### simulation period
-    total_years = 2
+    total_years = 1
 
     residual = 1
     improv_pct = 1
