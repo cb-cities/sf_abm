@@ -22,14 +22,14 @@
 #SBATCH --cpus-per-task=24
 #
 # Wall clock limit:
-#SBATCH --time=05:10:00
+#SBATCH --time=12:00:00
 #
 ## Environment variables
-#SBATCH --export=CASE='nr'
+#SBATCH --export=CASE='er'
 #
 ## Command(s) to run (example):
 . /etc/profile.d/modules.sh
 module purge
 module load gcc openmpi
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
-. /global/home/users/bz247/sf_abm/run_traffic.sh
+. /global/home/users/bz247/sf_abm/run_no_profile.sh
