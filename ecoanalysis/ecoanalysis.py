@@ -264,8 +264,6 @@ def scenarios():
     case = os.environ['CASE'] ### 'nr' no eco-routing or eco-maintenance, 'em' for eco-maintenance, 'er' for 'routing_only', 'ee' for 'both'
     if case in ['nr', 'em', 'ps']:
         eco_route_ratio = 0    
-    
-    print('random_seed {}, budget {}, eco_route_ratio {}, iri_impact {}, case {}, traffic_growth {}'.format(random_seed, budget, eco_route_ratio, iri_impact, case, traffic_growth))
 
     ### ABM parameters
     day = 2 ### Wednesday
@@ -276,6 +274,7 @@ def scenarios():
     residual = 1
     improv_pct = 1
     traffic_growth = 1
+    print('random_seed {}, budget {}, eco_route_ratio {}, iri_impact {}, case {}, traffic_growth {}'.format(random_seed, budget, eco_route_ratio, iri_impact, case, traffic_growth))
 
     traf_results_list, emi_results_list = eco_incentivize(random_seed=random_seed, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, traffic_growth=traffic_growth, residual=residual, day=day, total_years=total_years, improv_pct=improv_pct)
     traf_results_df = pd.DataFrame(traf_results_list, columns = ['random_seed', 'year', 'day', 'hour', 'quarter', 'quarter_demand', 'inclu_residual_demand', 'prod_residual_demand', 'quarter_avg_min', 'quarter_avg_km', 'avg_max10_vol'])
