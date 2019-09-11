@@ -43,7 +43,7 @@ def base_co2(mph_array):
 
 def aad_vol_vmt_baseemi(aad_df, year='', day='', hour='', quarter='', residual=True, case='', random_seed=''):
 
-    quarter_volume_df = pd.read_csv('{}/edges_df/edges_df_YR{}_DY{}_HR{}_qt{}_res{}_c{}_r{}.csv'.format(outdir, year, day, hour, quarter, residual, case, random_seed))
+    quarter_volume_df = pd.read_csv('{}/edges_df/edges_df_YR{}_DY{}_HR{}_qt{}_res{}_c{}_i{}_r{}.csv'.format(outdir, year, day, hour, quarter, residual, case, iri_impact, random_seed))
     aad_df = pd.merge(aad_df, quarter_volume_df, on='edge_id_igraph', how='left')
     # print(np.sum(aad_df['aad_vol']))
     aad_df['vht'] = aad_df['true_vol'] * aad_df['t_avg']/3600

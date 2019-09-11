@@ -81,6 +81,17 @@ def emi_plot():
     # plt.show()
     plt.savefig(absolute_path+'/output_LCA2020/summary_plot_ps.png')
 
+def iri_plot():
+
+    emi_df_list = []
+    for iri in ['0.0', '0.01', '0.03', '0.1', '0.15', '0.2', '0.25', '0.3', '0.5']:
+        iri_emi_df = pd.read_csv(absolute_path + '/output_LCA2020/summary/hpc/emi_summary_cer_i{}.csv'.format(iri))
+        emi_df_list.append(iri_emi_df)
+    emi_df = pd.concat(emi_df_list, sort=False)
+
+    plt.scatter(emi_df['iri_impact'], emi_df['vht_local'])
+    plt.show()
 
 if __name__ == '__main__':
-    emi_plot()
+    #emi_plot()
+    iri_plot()
