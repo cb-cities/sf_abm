@@ -17,7 +17,7 @@ def traf_plot():
 def emi_plot():
 
     emi_df_list = []
-    for case in ['nr', 'em', 'er']:
+    for case in ['nr', 'em', 'er', 'ps']:
         case_emi_df = pd.read_csv(absolute_path + '/output_LCA2020/summary/hpc/emi_summary_c{}.csv'.format(case))
         emi_df_list.append(case_emi_df)
     emi_df = pd.concat(emi_df_list, sort=False)
@@ -27,9 +27,9 @@ def emi_plot():
         emi_df['{}_pct'.format(metric)] = (emi_df[metric] - base)/base
 
     fig, ax = plt.subplots(3, 3, figsize=(20, 17))
-    color = iter(cm.rainbow(np.linspace(0.2, 1, 3)))
-    label_dict = {'nr': 'do nothing', 'em': 'eco-maintenance', 'er': 'eco-routing'}
-    marker_dict = {'nr': 's', 'em': '*', 'er': '^'}
+    color = iter(cm.rainbow(np.linspace(0.2, 1, 4)))
+    label_dict = {'nr': 'do nothing', 'em': 'eco-maintenance', 'er': 'eco-routing', 'ps': 'peak-spreading'}
+    marker_dict = {'nr': 's', 'em': '*', 'er': '^', 'ps': 'o'}
 
     for nm, grp in emi_df.groupby('case'):
 
@@ -75,11 +75,11 @@ def emi_plot():
     # ax[2, 2].set(title='pci_highway', xticks=np.arange(0, 11, 1))
 
     handles, labels = ax[0, 0].get_legend_handles_labels()
-    fig.legend([handles[2], handles[0], handles[1]], [labels[2], labels[0], labels[1]], loc=(0.37, 0.02), ncol=3)
+    fig.legend([handles[2], handles[0], handles[1], handles[3]], [labels[2], labels[0], labels[1], labels[3]], loc='lower center', ncol=4)
     fig.tight_layout(rect=(0, 0.05, 1, 1), h_pad=3)
 
     # plt.show()
-    plt.savefig(absolute_path+'/output_LCA2020/summary_plot.png')
+    plt.savefig(absolute_path+'/output_LCA2020/summary_plot_ps.png')
 
 
 if __name__ == '__main__':
