@@ -354,7 +354,7 @@ def quasi_sta(edges_df0, traffic_only='', outdir='', year='', day='', quarter_co
                     logger.debug('DY{}_HR{} SS {}: {} sec, {} OD pairs'.format(day, hour, ss_id, t_substep_1-t_substep_0, OD_ss.shape[0], ))
 
                 #output_edges_df(edges_df, day, hour, quarter, residual, random_seed)
-                edges_df[['edge_id_igraph', 'true_vol', 'tot_vol', 't_avg']].to_csv('{}/edges_df/edges_df_YR{}_DY{}_HR{}_qt{}_res{}_c{}_r{}.csv'.format(outdir, year, day, hour, quarter, residual, case, random_seed), index=False)
+                edges_df[['edge_id_igraph', 'true_vol', 'tot_vol', 't_avg']].to_csv('{}/edges_df/edges_df_YR{}_DY{}_HR{}_qt{}_res{}_c{}_i{}_r{}.csv'.format(outdir, year, day, hour, quarter, residual, case, iri_impact, random_seed), index=False)
 
                 ### Update carry over flow
                 stats.append([
