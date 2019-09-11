@@ -269,7 +269,7 @@ def scenarios():
     day = 2 ### Wednesday
 
     ### simulation period
-    total_years = 11
+    total_years = 1
 
     residual = 1
     improv_pct = 1
