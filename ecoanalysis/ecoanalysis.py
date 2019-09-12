@@ -41,7 +41,8 @@ def base_co2(mph_array):
     b4 = 0.000000217166574
     return np.exp(b0 + b1*mph_array + b2*mph_array**2 + b3*mph_array**3 + b4*mph_array**4)
 
-def aad_vol_vmt_baseemi(aad_df, year='', day='', hour='', quarter='', residual=True, case='', random_seed=''):
+def aad_vol_vmt_baseemi(aad_df, year='', day='', hour='', quarter='', residual=True, case='', random_seed='', 
+iri_impact=''):
 
     quarter_volume_df = pd.read_csv('{}/edges_df/edges_df_YR{}_DY{}_HR{}_qt{}_res{}_c{}_i{}_r{}.csv'.format(outdir, year, day, hour, quarter, residual, case, iri_impact, random_seed))
     aad_df = pd.merge(aad_df, quarter_volume_df, on='edge_id_igraph', how='left')
@@ -174,12 +175,13 @@ def eco_incentivize(random_seed='', budget='', eco_route_ratio='', iri_impact=''
         abm_edges_df = edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'slope_factor', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']].copy()
 
         ### Run ABM
-        traf_stats, y = sf_residual_demand.quasi_sta(abm_edges_df, traffic_only=False, outdir=outdir, year=year, day=day, quarter_counts=4, random_seed=random_seed, residual=residual, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, traffic_growth=traffic_growth, closure_list=closure_list, closure_case=closure_case)
-        traf_results_list += traf_stats
+        #traf_stats, y = sf_residual_demand.quasi_sta(abm_edges_df, traffic_only=False, outdir=outdir, year=year, day=day, quarter_counts=4, random_seed=random_seed, residual=residual, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, traffic_growth=traffic_growth, closure_list=closure_list, closure_case=closure_case)
+        #traf_results_list += traf_stats
 
         for hour in range(3, 27):
             for quarter in range(4):
-                aad_df = aad_vol_vmt_baseemi(aad_df, year=year, day=day, hour=hour, quarter=quarter, residual=residual, case=case, random_seed=random_seed)
+                aad_df = aad_vol_vmt_baseemi(aad_df, year=year, day=day, hour=hour, quarter=quarter, 
+residual=residual, case=case, random_seed=random_seed, iri_impact=iri_impact)
 
         # print(np.sum(aad_df['aad_vol']))
         # sys.exit(0)
