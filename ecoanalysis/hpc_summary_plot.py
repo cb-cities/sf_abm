@@ -89,7 +89,7 @@ def iri_plot():
         emi_df_list.append(iri_emi_df)
     emi_df = pd.concat(emi_df_list, sort=False)
 
-    plt.scatter(emi_df['iri_impact'], emi_df['vht_local'])
+    plt.scatter(emi_df['iri_impact'], emi_df['vht_highway'])
     plt.show()
 
 if __name__ == '__main__':
