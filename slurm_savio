@@ -22,10 +22,10 @@
 #SBATCH --cpus-per-task=24
 #
 # Wall clock limit:
-#SBATCH --time=12:00:00
+#SBATCH --time=01:00:00
 #
 ## Environment variables
-#SBATCH --export=CASE='ps'
+#SBATCH --export=CASE='er',IRI_IMPACT=0.5
 #
 ## Command(s) to run (example):
 . /etc/profile.d/modules.sh
