@@ -150,8 +150,12 @@ def map_reduce_edge_flow(day='', hour='', quarter='', ss_id='', residual='', qua
     if residual:
         if unique_origin == 0:
             return pd.DataFrame([], columns=['start_sp', 'end_sp', 'ss_vol']), [], [], 0
-        else:
+        elif hour <= 26:
             res = pool.imap_unordered(map_edge_flow_residual, [(i, quarter_counts) for i in range(unique_origin)])
+        elif hour == 27: ### the final remaining demand
+            res = pool.imap_unordered(map_edge_flow_no_residual, range(unique_origin))
+        else:
+            print('invalid hour')
     else:
         res = pool.imap_unordered(map_edge_flow_no_residual, range(unique_origin))
 
@@ -186,12 +190,11 @@ def update_graph(edge_volume, edges_df, traffic_only='', day='', hour='', quarte
     ### first update the cumulative link volume in the current time step
     edges_df = pd.merge(edges_df, edge_volume, how='left', on=['start_sp', 'end_sp'])
     edges_df = edges_df.fillna(value={'ss_vol': 0}) ### fill volume for unused edges as 0
-    edges_df['true_vol'] += edges_df['ss_vol'] ### update the total volume (newly assigned + carry over)
+    edges_df['quarter_vol'] += edges_df['ss_vol'] ### update the total volume (newly assigned + carry over)
     edges_df['tot_vol'] += edges_df['ss_vol'] ### tot_vol is not reset to 0 at each time step
 
     ### True flux
-    edges_df['true_flow'] = (edges_df['true_vol']*quarter_demand/assigned_demand)*quarter_counts ### divided by 0.25 h to get the hourly flow.
-    #edges_df['true_flow'] = (edges_df['true_vol'])/0.25 
+    edges_df['true_flow'] = (edges_df['quarter_vol']*quarter_demand/assigned_demand)*quarter_counts ### times quarter_counts to get the hourly flow. 
 
     edges_df['t_avg'] = edges_df['fft']*(1 + 0.6*(edges_df['true_flow']/edges_df['capacity'])**4)
     edges_df['v_avg_mph'] = edges_df['length']/edges_df['t_avg'] * 2.23694 ### time step link speed in mph
@@ -298,16 +301,23 @@ def quasi_sta(edges_df0, traffic_only='', outdir='', year='', day='', quarter_co
         edges_df['tot_vol'] = 0
         cannot_arrive = 0
 
-        for hour in range(3, 27):
+        for hour in range(3, 28):
 
             #logger.info('*************** DY{} HR{} ***************'.format(day, hour))
             t_hour_0 = time.time()
 
-            ### Read hourly OD
-            OD = read_OD(year=year, day=day, hour=hour, eco_route_ratio=eco_route_ratio, case=case)
-            ### Divide into quarters
-            OD_quarter_msk = np.random.choice(quarter_ids, size=OD.shape[0], p=quarter_ps)
-            OD['quarter'] = OD_quarter_msk
+            if hour <= 26:
+                ### Read hourly OD
+                OD = read_OD(year=year, day=day, hour=hour, eco_route_ratio=eco_route_ratio, case=case)
+                ### Divide into quarters
+                OD_quarter_msk = np.random.choice(quarter_ids, size=OD.shape[0], p=quarter_ps)
+                OD['quarter'] = OD_quarter_msk
+            elif hour==27: ### extra hour to handle remaining demand
+                quarter_counts == 1
+                OD = pd.DataFrame([], columns=['agent_id', 'origin_sp', 'end_sp', 'eco', 'quarter'])
+            else:
+                print('invalid hour')
+                sys.exit(0)
 
             for quarter in range(quarter_counts):
 
@@ -331,7 +341,7 @@ def quasi_sta(edges_df0, traffic_only='', outdir='', year='', day='', quarter_co
                 OD_quarter['ss_id'] = OD_substep_msk
 
                 ### Reset some variables at the beginning of each time step
-                edges_df['true_vol'] = 0
+                edges_df['quarter_vol'] = 0
 
                 for ss_id in substep_ids:
 
@@ -354,14 +364,14 @@ def quasi_sta(edges_df0, traffic_only='', outdir='', year='', day='', quarter_co
                     logger.debug('DY{}_HR{} SS {}: {} sec, {} OD pairs'.format(day, hour, ss_id, t_substep_1-t_substep_0, OD_ss.shape[0], ))
 
                 #output_edges_df(edges_df, day, hour, quarter, residual, random_seed)
-                edges_df[['edge_id_igraph', 'true_vol', 'tot_vol', 't_avg']].to_csv('{}/edges_df/edges_df_YR{}_DY{}_HR{}_qt{}_res{}_c{}_i{}_r{}.csv'.format(outdir, year, day, hour, quarter, residual, case, iri_impact, random_seed), index=False)
+                edges_df[['edge_id_igraph', 'quarter_vol', 't_avg']].to_csv('{}/edges_df/edges_df_YR{}_DY{}_HR{}_qt{}_res{}_c{}_i{}_r{}.csv'.format(outdir, year, day, hour, quarter, residual, case, iri_impact, random_seed), index=False)
 
                 ### Update carry over flow
                 stats.append([
                     random_seed, year, day, hour, quarter, quarter_demand, residual_demand, len(residual_OD_list),
-                    np.sum(edges_df['t_avg']*edges_df['true_vol']/(quarter_demand*60)),
-                    np.sum(edges_df['length']*edges_df['true_vol']/(quarter_demand*1000)),
-                    np.mean(edges_df.nlargest(10, 'true_vol')['true_vol'])
+                    np.sum(edges_df['t_avg']*edges_df['quarter_vol']/(quarter_demand*60)),
+                    np.sum(edges_df['length']*edges_df['quarter_vol']/(quarter_demand*1000)),
+                    np.mean(edges_df.nlargest(10, 'quarter_vol')['quarter_vol'])
                     ])
 
                 t_hour_1 = time.time()
@@ -369,6 +379,7 @@ def quasi_sta(edges_df0, traffic_only='', outdir='', year='', day='', quarter_co
                 logger.info('DY{}_HR{}_QT{}: {} sec, OD {}, {} residual, {} cannot arrive'.format(day, hour, quarter, round(t_hour_1-t_hour_0, 3), quarter_demand, len(residual_OD_list), cannot_arrive))
                 print('HR{} QT{}, {} sec, {} OD, producing {} residual, {} cannot arrive'.format(hour, quarter, round(t_hour_1 - t_hour_0, 1), quarter_demand, len(residual_OD_list), cannot_arrive))
                 gc.collect()
+
     
     t_main_1 = time.time()
     logger.info('total run time: {} sec \n\n\n\n\n'.format(t_main_1 - t_main_0))
@@ -390,7 +401,7 @@ def main():
     quarter_counts = 4
     random_seed = 0
     outdir = absolute_path+'/output'
-    year = 0
+    total_years = 1
     day = 2
     budget = 0
     eco_route_ratio=0
@@ -401,8 +412,8 @@ def main():
     closure_case = ''
     traffic_only = 1
 
-
-    x, y = quasi_sta(edges_df0, traffic_only=traffic_only, outdir=outdir, year=year, day=day, quarter_counts=quarter_counts, random_seed=random_seed, residual=residual, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, traffic_growth=traffic_growth, closure_list=closure_list, closure_case=closure_case)
+    for year in range(total_years):
+        x, y = quasi_sta(edges_df0, traffic_only=traffic_only, outdir=outdir, year=year, day=day, quarter_counts=quarter_counts, random_seed=random_seed, residual=residual, budget=budget, eco_route_ratio=eco_route_ratio, iri_impact=iri_impact, case=case, traffic_growth=traffic_growth, closure_list=closure_list, closure_case=closure_case)
 
 if __name__ == '__main__':
     main()

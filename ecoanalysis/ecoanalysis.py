@@ -123,9 +123,12 @@ def preprocessing(offset=True):
                 edges_df['pci_current']<0, 0, edges_df['pci_current']))
 
     print('total_blocks', len(np.unique(edges_df[edges_df['ispublicworks']==1]['cnn_expand'])))
-    print('initial condition: ', np.mean(edges_df[(~edges_df['type'].isin(highway_type))&(edges_df['ispublicworks']==1)]['pci_current']))
+    print('total_length', edges_df.groupby('juris').agg({'length': np.sum}))
+    print('initial condition (mean): ', np.mean(edges_df[(~edges_df['type'].isin(highway_type))&(edges_df['ispublicworks']==1)]['pci_current']))
+    print('initial condition (std): ', np.std(edges_df[(~edges_df['type'].isin(highway_type))&(edges_df['ispublicworks']==1)]['pci_current']))
     print('edges<63: ', sum(edges_df[(~edges_df['type'].isin(highway_type))&(edges_df['ispublicworks']==1)]['pci_current']<63))
-    
+    sys.exit(0)
+
     edges_df.to_csv('{}/preprocessing.csv'.format(outdir), index=False)
 
     return edges_df
@@ -180,8 +183,7 @@ def eco_incentivize(random_seed='', budget='', eco_route_ratio='', iri_impact=''
 
         for hour in range(3, 27):
             for quarter in range(4):
-                aad_df = aad_vol_vmt_baseemi(aad_df, year=year, day=day, hour=hour, quarter=quarter, 
-residual=residual, case=case, random_seed=random_seed, iri_impact=iri_impact)
+                aad_df = aad_vol_vmt_baseemi(aad_df, year=year, day=day, hour=hour, quarter=quarter, residual=residual, case=case, random_seed=random_seed, iri_impact=iri_impact)
 
         # print(np.sum(aad_df['aad_vol']))
         # sys.exit(0)
