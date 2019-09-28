@@ -201,7 +201,7 @@ def update_graph(edge_volume, edges_df, traffic_only='', day='', hour='', quarte
     if not traffic_only:
         edges_df['base_co2'] = base_co2(edges_df['v_avg_mph']) ### link-level co2 eimission in gram per mile per vehicle
         ### correction for slope
-        edges_df['pci_co2'] = edges_df['base_co2'] * edges_df['slope_factor'] * edges_df['length'] /1609.34 * (1+0.0714*iri_impact*(100-edges_df['pci_current'])) ### speed related CO2 x length x flow. Final results unit is gram.
+        edges_df['pci_co2'] = edges_df['base_co2'] * edges_df['slope_factor'] * edges_df['length'] /1609.34 * (1+iri_impact*(1+0.0714*(100-edges_df['pci_current']))) ### speed related CO2 x length x flow. Final results unit is gram.
 
     ### update time weights
     time_update_df = edges_df.loc[edges_df['t_avg'] != edges_df['previous_t']].copy().reset_index()
@@ -313,7 +313,7 @@ def quasi_sta(edges_df0, traffic_only='', outdir='', year='', day='', quarter_co
                 OD_quarter_msk = np.random.choice(quarter_ids, size=OD.shape[0], p=quarter_ps)
                 OD['quarter'] = OD_quarter_msk
             elif hour==27: ### extra hour to handle remaining demand
-                quarter_counts == 1
+                quarter_counts = 1
                 OD = pd.DataFrame([], columns=['agent_id', 'origin_sp', 'end_sp', 'eco', 'quarter'])
             else:
                 print('invalid hour')

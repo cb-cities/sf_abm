@@ -6,6 +6,7 @@ import sys
 import numpy as np
 import scipy.sparse 
 import scipy.io as sio 
+import scipy.stats as stats 
 import time 
 import os
 import logging
@@ -44,21 +45,22 @@ def base_co2(mph_array):
 def aad_vol_vmt_baseemi(aad_df, year='', day='', hour='', quarter='', residual=True, case='', random_seed='', 
 iri_impact=''):
 
-    quarter_volume_df = pd.read_csv('{}/edges_df/edges_df_YR{}_DY{}_HR{}_qt{}_res{}_c{}_i{}_r{}.csv'.format(outdir, year, day, hour, quarter, residual, case, iri_impact, random_seed))
+    quarter_volume_df = pd.read_csv('{}/edges_df/edges_df_hpc/edges_df_YR{}_DY{}_HR{}_qt{}_res{}_c{}_i0_r0.csv'.format(outdir, year, day, hour, quarter, residual, case))
     aad_df = pd.merge(aad_df, quarter_volume_df, on='edge_id_igraph', how='left')
     # print(np.sum(aad_df['aad_vol']))
-    aad_df['vht'] = aad_df['true_vol'] * aad_df['t_avg']/3600
     aad_df['v_avg_mph'] = aad_df['length']/aad_df['t_avg'] * 2.23694 ### time step link speed in mph
-    aad_df['base_co2'] = base_co2(aad_df['v_avg_mph']) ### link-level co2 eimission in gram per mile per vehicle
-    ### correction for slope
-    aad_df['base_co2'] = aad_df['base_co2'] * aad_df['slope_factor']
-    aad_df['base_emi'] = aad_df['base_co2'] * aad_df['length'] /1609.34 * aad_df['true_vol'] ### speed related CO2 x length x flow. Final results unit is gram.
+    aad_df['base_emi_mu'] = base_co2(aad_df['v_avg_mph']) ### link-level co2 eimission in gram per mile per vehicle
+    ### correction for slope and convert to length
+    aad_df['base_emi_mu'] = aad_df['base_emi_mu'] * aad_df['slope_factor'] * aad_df['length'] /1609.34 ### Final results unit is gram.
+    aad_df['base_emi_quarterly_annual'] = aad_df.apply(lambda x: np.sum(stats.truncnorm.rvs((0.01-1)/0.1, (1.99-1)/0.1, loc=x['base_emi_mu'], scale=0.1*x['base_emi_mu'], size=int(x['quarter_vol']*365)))/1e6, axis=1)
+    print('after sample of YR {}, DY {}, HR {}, QT {}'.format(year, day, hour, quarter))
+    print(aad_df['base_emi_quarterly_annual'].describe())
 
-    aad_df['aad_vol'] += aad_df['true_vol']
-    aad_df['aad_vht'] += aad_df['vht']
-    aad_df['aad_vmt'] += aad_df['true_vol']*aad_df['length']
-    aad_df['aad_base_emi'] += aad_df['base_emi']
-    aad_df = aad_df[['edge_id_igraph', 'length', 'type', 'slope_factor', 'aad_vol', 'aad_vht', 'aad_vmt', 'aad_base_emi']]
+    aad_df['aad_vol'] += aad_df['quarter_vol']
+    aad_df['aad_vht'] += aad_df['quarter_vol'] * aad_df['t_avg'] / 3600
+    aad_df['aad_vmt'] += aad_df['quarter_vol'] * aad_df['length']
+    aad_df['annual_base_emi'] += aad_df['base_emi_quarterly_annual']
+    aad_df = aad_df[['edge_id_igraph', 'length', 'type', 'slope_factor', 'aad_vol', 'aad_vht', 'aad_vmt', 'annual_base_emi']]
     return aad_df
 
 def preprocessing(offset=True):
@@ -127,7 +129,6 @@ def preprocessing(offset=True):
     print('initial condition (mean): ', np.mean(edges_df[(~edges_df['type'].isin(highway_type))&(edges_df['ispublicworks']==1)]['pci_current']))
     print('initial condition (std): ', np.std(edges_df[(~edges_df['type'].isin(highway_type))&(edges_df['ispublicworks']==1)]['pci_current']))
     print('edges<63: ', sum(edges_df[(~edges_df['type'].isin(highway_type))&(edges_df['ispublicworks']==1)]['pci_current']<63))
-    sys.exit(0)
 
     edges_df.to_csv('{}/preprocessing.csv'.format(outdir), index=False)
 
@@ -151,7 +152,7 @@ def eco_incentivize(random_seed='', budget='', eco_route_ratio='', iri_impact=''
         
         ### Initialize the annual average daily
         aad_df = edges_df[['edge_id_igraph', 'length', 'type', 'slope_factor']].copy()
-        aad_df = aad_df.assign(**{'aad_vol': 0, 'aad_vht': 0, 'aad_vmt': 0, 'aad_base_emi': 0})
+        aad_df = aad_df.assign(**{'aad_vol': 0, 'aad_vht': 0, 'aad_vmt': 0, 'annual_base_emi': 0})
         ### aad_vht: daily vehicle hours travelled
         ### aad_base_emi: emission not considering pavement degradations
 
@@ -161,7 +162,7 @@ def eco_incentivize(random_seed='', budget='', eco_route_ratio='', iri_impact=''
         edges_df['ffs_mph'] = edges_df['length']/edges_df['fft']*2.23964
         edges_df['base_co2_ffs'] = base_co2(edges_df['ffs_mph']) ### link-level co2 eimission in gram per mile per vehicle
         ### Adjust emission by considering the impact of pavement degradation
-        edges_df['pci_co2_ffs'] = edges_df['base_co2_ffs']*(1+0.0714*iri_impact*(100-edges_df['pci_current'])) ### emission in gram per mile per vehicle. 0.0714 is to convert PCI to IRI
+        edges_df['pci_co2_ffs'] = edges_df['base_co2_ffs']*(1+iri_impact*(1+0.0714*(100-edges_df['pci_current']))) ### emission in gram per mile per vehicle. 0.0714 is to convert PCI to IRI
         edges_df['eco_wgh'] = edges_df['pci_co2_ffs']/1609.34*edges_df['length']
 
         ### Output network graph for ABM simulation
@@ -172,7 +173,7 @@ def eco_incentivize(random_seed='', budget='', eco_route_ratio='', iri_impact=''
         row = edges_df['start_sp']-1
         col = edges_df['end_sp']-1
         g_eco = scipy.sparse.coo_matrix((wgh, (row, col)), shape=g_time_shape)
-        sio.mmwrite('{}/network/network_sparse_r{}_b{}_e{}_i{}_c{}_tg{}_y{}.mtx'.format(outdir, random_seed, budget, eco_route_ratio, iri_impact, case, traffic_growth, year), g_eco)
+        #sio.mmwrite('{}/network/network_sparse_r{}_b{}_e{}_i{}_c{}_tg{}_y{}.mtx'.format(outdir, random_seed, budget, eco_route_ratio, iri_impact, case, traffic_growth, year), g_eco)
 
         ### Output edge attributes for ABM simulation
         abm_edges_df = edges_df[['edge_id_igraph', 'start_sp', 'end_sp', 'slope_factor', 'length', 'capacity', 'fft', 'pci_current', 'eco_wgh']].copy()
@@ -184,6 +185,7 @@ def eco_incentivize(random_seed='', budget='', eco_route_ratio='', iri_impact=''
         for hour in range(3, 27):
             for quarter in range(4):
                 aad_df = aad_vol_vmt_baseemi(aad_df, year=year, day=day, hour=hour, quarter=quarter, residual=residual, case=case, random_seed=random_seed, iri_impact=iri_impact)
+        aad_df = aad_vol_vmt_baseemi(aad_df, year=year, day=day, hour=27, quarter=0, residual=residual, case=case, random_seed=random_seed, iri_impact=iri_impact)
 
         # print(np.sum(aad_df['aad_vol']))
         # sys.exit(0)
@@ -192,13 +194,15 @@ def eco_incentivize(random_seed='', budget='', eco_route_ratio='', iri_impact=''
         aad_df = pd.merge(aad_df, edges_df[['edge_id_igraph', 'cnn_expand', 'juris', 'pci_current', 'intercept', 'slope', 'age_current']], on='edge_id_igraph', how='left')
 
         ### Adjust emission by considering the impact of pavement degradation
-        aad_df['aad_pci_emi'] = aad_df['aad_base_emi']*(1+0.0714*iri_impact*(100-aad_df['pci_current'])) ### daily emission (aad) in gram
+        aad_df['annual_pci_emi'] = aad_df['annual_base_emi']*(1+iri_impact*(1+0.0714*(100-aad_df['pci_current']))) ### daily emission (aad) in gram
 
-        aad_df['aad_emi_potential'] = aad_df['aad_base_emi']*(0.0714*iri_impact*(improv_pct * (100 - aad_df['pci_current'])))
+        aad_df['annual_emi_potential'] = aad_df['annual_base_emi']*(0.0714*iri_impact*(improv_pct *(100-aad_df['pci_current'])))
 
         def pci_improvement(df, year, case, budget, eco_route_ratio, iri_impact): ### repair worst roads
             repair_df = df[df['juris']=='DPW'].copy()
-            repair_df = repair_df.groupby(['cnn_expand']).agg({'pci_current': np.mean}).reset_index().nsmallest(budget, 'pci_current')
+            repair_df = repair_df.groupby(['cnn_expand']).agg({'pci_current': np.mean}).reset_index()#.nsmallest(budget, 'pci_current')
+            quantile_25 = repair_df['pci_current'].quantile(0.25)
+            repair_df = repair_df.loc[repair_df['pci_current']<quantile_25].sample(n=budget, random_state=random_seed)
             repair_list = repair_df['cnn_expand'].tolist()
             # extract_df = df.loc[df['cnn_expand'].isin(repair_list)]
             # extract_df[['edge_id_igraph', 'intercept', 'pci_current']].to_csv(absolute_path+'/{}/repair_df/repair_df_y{}_c{}_b{}_e{}_i{}.csv'.format(outdir, year, case, budget, eco_route_ratio, iri_impact), index=False)
@@ -206,7 +210,9 @@ def eco_incentivize(random_seed='', budget='', eco_route_ratio='', iri_impact=''
 
         def eco_maintenance(df, year, case, budget, eco_route_ratio, iri_impact):
             repair_df = df[df['juris']=='DPW'].copy()
-            repair_df = repair_df.groupby(['cnn_expand']).agg({'aad_emi_potential': np.sum}).reset_index().nlargest(budget, 'aad_emi_potential')
+            repair_df = repair_df.groupby(['cnn_expand']).agg({'aad_emi_potential': np.sum}).reset_index()#.nlargest(budget, 'aad_emi_potential')
+            quantile_75 = repair_df['annual_emi_potential'].quantile(0.75)
+            repair_df = repair_df.loc[repair_df['annual_emi_potential']>quantile_75].sample(n=budget, random_state=random_seed)
             repair_list = repair_df['cnn_expand'].tolist()
             # extract_df = df.loc[df['cnn_expand'].isin(repair_list)]
             #extract_df[['edge_id_igraph', 'aad_emi_potential']].to_csv('repair_df/repair_df_y{}_c{}_b{}_e{}_i{}.csv'.format(year, case, budget, eco_route_ratio, iri_impact))
@@ -232,10 +238,10 @@ def eco_incentivize(random_seed='', budget='', eco_route_ratio='', iri_impact=''
 
         ### Results
         ### emi
-        emi_total = np.sum(aad_df['aad_pci_emi'])/1e6 ### co2 emission in t
-        emi_local = np.sum(aad_df[aad_df['juris']=='DPW']['aad_pci_emi'])/1e6
-        emi_highway = np.sum(aad_df[aad_df['juris']=='Caltrans']['aad_pci_emi'])/1e6
-        emi_localroads_base = np.sum(aad_df[aad_df['juris']=='DPW']['aad_base_emi'])/1e6
+        emi_total = np.sum(aad_df['annual_pci_emi']) ### co2 emission in t
+        emi_local = np.sum(aad_df[aad_df['juris']=='DPW']['annual_pci_emi'])
+        emi_highway = np.sum(aad_df[aad_df['juris']=='Caltrans']['annual_pci_emi'])
+        emi_localroads_base = np.sum(aad_df[aad_df['juris']=='DPW']['annual_base_emi'])
 
         ### vht
         vht_total = np.sum(aad_df['aad_vht']) ### vehicle hours travelled
